@@ -1,15 +1,30 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/forms";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: InterVariable, sans-serif;
+  --font-sans--font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
 
 :root {
   --radius: 0.8rem;
 }
 
-body {
-  font-family: "Space Grotesk", "Sora", "Manrope", sans-serif;
-  margin: 0;
-}
-
-input,
-button {
-  font: inherit;
+@layer base {
+  html {
+    @apply bg-white dark:bg-black text-black dark:text-white scheme-light dark:scheme-dark;
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    @apply cursor-pointer;
+  }
+  body {
+    margin: 0;
+  }
+  input,
+  button {
+    font: inherit;
+  }
 }

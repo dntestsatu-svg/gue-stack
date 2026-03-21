@@ -16,7 +16,7 @@
       </div>
     </div>
     <Card class-name="overflow-hidden">
-      <div class="bg-gradient-to-r from-cyan-100 via-amber-100 to-rose-100 p-6">
+      <div class="bg-linear-to-r from-cyan-100 via-amber-100 to-rose-100 p-6">
         <p class="text-sm font-medium text-slate-700">Architecture Flow</p>
         <pre class="mt-3 whitespace-pre-wrap rounded-lg bg-slate-900 p-4 font-mono text-xs text-cyan-200">client -> router -> middleware -> handler -> service -> repository -> cache -> database</pre>
       </div>
