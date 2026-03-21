@@ -1,0 +1,327 @@
+{
+  "info": {
+    "_postman_id": "e1c9f6d4-b7f0-4d39-a4d7-4f618a900001",
+    "name": "GUE Internal API",
+    "description": "Internal API collection for this project (Auth + Payment Gateway Integration).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{user_name}}\",\n  \"email\": \"{{user_email}}\",\n  \"password\": \"{{user_password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "register"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json?.data?.access_token) pm.environment.set('access_token', json.data.access_token);",
+                  "if (json?.data?.refresh_token) pm.environment.set('refresh_token', json.data.refresh_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{user_email}}\",\n  \"password\": \"{{user_password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json?.data?.access_token) pm.environment.set('access_token', json.data.access_token);",
+                  "if (json?.data?.refresh_token) pm.environment.set('refresh_token', json.data.refresh_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/refresh",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "refresh"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json?.data?.access_token) pm.environment.set('access_token', json.data.access_token);",
+                  "if (json?.data?.refresh_token) pm.environment.set('refresh_token', json.data.refresh_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/logout",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "logout"]
+            }
+          }
+        },
+        {
+          "name": "Get Me",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{access_token}}"}
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/user/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "user", "me"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payment Gateway (Internal)",
+      "item": [
+        {
+          "name": "Generate QRIS/VA",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{access_token}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"player-001\",\n  \"amount\": 10000,\n  \"uuid\": \"{{merchant_uuid}}\",\n  \"expire\": 1200,\n  \"custom_ref\": \"ORDER123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/payments/gateway/generate",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "payments", "gateway", "generate"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json?.data?.trx_id) pm.environment.set('trx_id', json.data.trx_id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Check Status V2",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{access_token}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"uuid\": \"{{merchant_uuid}}\",\n  \"client\": \"{{gateway_client}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/payments/gateway/check-status/{{trx_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "payments", "gateway", "check-status", "{{trx_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Inquiry Transfer Fund",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{access_token}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"client\": \"{{gateway_client}}\",\n  \"client_key\": \"{{gateway_client_key}}\",\n  \"uuid\": \"{{merchant_uuid}}\",\n  \"amount\": 25000,\n  \"bank_code\": \"014\",\n  \"account_number\": \"1234567890\",\n  \"type\": 2\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/payments/gateway/inquiry",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "payments", "gateway", "inquiry"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json?.data?.partner_ref_no) pm.environment.set('partner_ref_no', json.data.partner_ref_no);",
+                  "if (json?.data?.inquiry_id) pm.environment.set('inquiry_id', json.data.inquiry_id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Transfer Fund",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{access_token}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"client\": \"{{gateway_client}}\",\n  \"client_key\": \"{{gateway_client_key}}\",\n  \"uuid\": \"{{merchant_uuid}}\",\n  \"amount\": 25000,\n  \"bank_code\": \"014\",\n  \"account_number\": \"1234567890\",\n  \"type\": 2,\n  \"inquiry_id\": {{inquiry_id}}\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/payments/gateway/transfer",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "payments", "gateway", "transfer"]
+            }
+          }
+        },
+        {
+          "name": "Check Transfer Status",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{access_token}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"client\": \"{{gateway_client}}\",\n  \"uuid\": \"{{merchant_uuid}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/payments/gateway/transfer/check-status/{{partner_ref_no}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "payments", "gateway", "transfer", "check-status", "{{partner_ref_no}}"]
+            }
+          }
+        },
+        {
+          "name": "Get Gateway Balance",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{access_token}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"client\": \"{{gateway_client}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/payments/gateway/balance/{{merchant_uuid}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "payments", "gateway", "balance", "{{merchant_uuid}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gateway Callback Simulation",
+      "item": [
+        {
+          "name": "QRIS Callback",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "X-Callback-Secret", "value": "{{callback_secret}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 10000,\n  \"terminal_id\": \"player-001\",\n  \"merchant_id\": \"{{merchant_uuid}}\",\n  \"trx_id\": \"{{trx_id}}\",\n  \"rrn\": \"112233445566\",\n  \"custom_ref\": \"ORDER123\",\n  \"vendor\": \"NOBU\",\n  \"status\": \"success\",\n  \"created_at\": \"2026-03-21T10:00:00Z\",\n  \"finish_at\": \"2026-03-21T10:01:00Z\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/payments/gateway/callback/qris",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "payments", "gateway", "callback", "qris"]
+            }
+          }
+        },
+        {
+          "name": "Transfer Callback",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "X-Callback-Secret", "value": "{{callback_secret}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 25000,\n  \"partner_ref_no\": \"{{partner_ref_no}}\",\n  \"status\": \"success\",\n  \"transaction_date\": \"2026-03-21T10:05:00Z\",\n  \"merchant_id\": \"{{merchant_uuid}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/payments/gateway/callback/transfer",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "payments", "gateway", "callback", "transfer"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

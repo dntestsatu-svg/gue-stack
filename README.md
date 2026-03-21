@@ -133,6 +133,20 @@ migrate -path backend/migrations -database "mysql://root:secret@tcp(localhost:33
 - `POST /api/v1/payments/gateway/callback/qris` (public callback)
 - `POST /api/v1/payments/gateway/callback/transfer` (public callback)
 
+## Postman and HTTP Examples
+
+Internal API examples are available so the team can use project endpoints directly (not vendor endpoints):
+
+- Postman collection: `backend/docs/postman/GUE-Internal-API.postman_collection.json`
+- Postman environment: `backend/docs/postman/GUE-Local.postman_environment.json`
+- HTTP examples (VS Code REST Client): `backend/docs/postman/internal-api-examples.http`
+
+Recommended flow:
+
+1. Import collection + environment into Postman.
+2. Fill variables: `merchant_uuid`, `gateway_client`, `gateway_client_key`, `callback_secret`.
+3. Run in order: `Register` or `Login` -> token-dependent endpoints.
+
 ## Auth + Authorization Rules
 
 ### Guest users

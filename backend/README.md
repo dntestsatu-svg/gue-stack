@@ -69,3 +69,17 @@ PAYMENT_GATEWAY_CALLBACK_SECRET=
 
 If `PAYMENT_GATEWAY_CALLBACK_SECRET` is set, callbacks must send header:
 - `X-Callback-Secret: <secret>`
+
+## Internal API Examples (Postman/HTTP)
+
+Use these files to test only project internal endpoints:
+
+- Postman collection: `docs/postman/GUE-Internal-API.postman_collection.json`
+- Postman environment: `docs/postman/GUE-Local.postman_environment.json`
+- HTTP examples: `docs/postman/internal-api-examples.http`
+
+Setup:
+
+1. Import collection and environment into Postman.
+2. Fill env values: `merchant_uuid`, `gateway_client`, `gateway_client_key`, `callback_secret`.
+3. Execute `Register` or `Login` first to auto-store `access_token` and `refresh_token`.

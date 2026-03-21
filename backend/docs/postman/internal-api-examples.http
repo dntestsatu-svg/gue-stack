@@ -1,0 +1,154 @@
+### Variables (VS Code REST Client style)
+@baseUrl = http://localhost:8080
+@accessToken =
+@refreshToken =
+@merchantUUID = replace-with-your-toko-token
+@gatewayClient = replace-with-panel-name
+@gatewayClientKey = replace-with-client-key
+@trxId =
+@partnerRefNo =
+@inquiryId = 0
+@callbackSecret =
+
+### Register
+POST {{baseUrl}}/api/v1/auth/register
+Content-Type: application/json
+
+{
+  "name": "Dev User",
+  "email": "dev.user@example.com",
+  "password": "secret123"
+}
+
+### Login
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "dev.user@example.com",
+  "password": "secret123"
+}
+
+### Refresh
+POST {{baseUrl}}/api/v1/auth/refresh
+Content-Type: application/json
+
+{
+  "refresh_token": "{{refreshToken}}"
+}
+
+### Logout
+POST {{baseUrl}}/api/v1/auth/logout
+Content-Type: application/json
+
+{
+  "refresh_token": "{{refreshToken}}"
+}
+
+### Me
+GET {{baseUrl}}/api/v1/user/me
+Authorization: Bearer {{accessToken}}
+
+### Generate QRIS/VA
+POST {{baseUrl}}/api/v1/payments/gateway/generate
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "username": "player-001",
+  "amount": 10000,
+  "uuid": "{{merchantUUID}}",
+  "expire": 1200,
+  "custom_ref": "ORDER123"
+}
+
+### Check Payment Status V2
+POST {{baseUrl}}/api/v1/payments/gateway/check-status/{{trxId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "uuid": "{{merchantUUID}}",
+  "client": "{{gatewayClient}}"
+}
+
+### Inquiry Transfer
+POST {{baseUrl}}/api/v1/payments/gateway/inquiry
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "client": "{{gatewayClient}}",
+  "client_key": "{{gatewayClientKey}}",
+  "uuid": "{{merchantUUID}}",
+  "amount": 25000,
+  "bank_code": "014",
+  "account_number": "1234567890",
+  "type": 2
+}
+
+### Transfer Fund
+POST {{baseUrl}}/api/v1/payments/gateway/transfer
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "client": "{{gatewayClient}}",
+  "client_key": "{{gatewayClientKey}}",
+  "uuid": "{{merchantUUID}}",
+  "amount": 25000,
+  "bank_code": "014",
+  "account_number": "1234567890",
+  "type": 2,
+  "inquiry_id": {{inquiryId}}
+}
+
+### Check Transfer Status
+POST {{baseUrl}}/api/v1/payments/gateway/transfer/check-status/{{partnerRefNo}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "client": "{{gatewayClient}}",
+  "uuid": "{{merchantUUID}}"
+}
+
+### Get Gateway Balance
+POST {{baseUrl}}/api/v1/payments/gateway/balance/{{merchantUUID}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "client": "{{gatewayClient}}"
+}
+
+### Simulate QRIS Callback
+POST {{baseUrl}}/api/v1/payments/gateway/callback/qris
+Content-Type: application/json
+X-Callback-Secret: {{callbackSecret}}
+
+{
+  "amount": 10000,
+  "terminal_id": "player-001",
+  "merchant_id": "{{merchantUUID}}",
+  "trx_id": "{{trxId}}",
+  "rrn": "112233445566",
+  "custom_ref": "ORDER123",
+  "vendor": "NOBU",
+  "status": "success",
+  "created_at": "2026-03-21T10:00:00Z",
+  "finish_at": "2026-03-21T10:01:00Z"
+}
+
+### Simulate Transfer Callback
+POST {{baseUrl}}/api/v1/payments/gateway/callback/transfer
+Content-Type: application/json
+X-Callback-Secret: {{callbackSecret}}
+
+{
+  "amount": 25000,
+  "partner_ref_no": "{{partnerRefNo}}",
+  "status": "success",
+  "transaction_date": "2026-03-21T10:05:00Z",
+  "merchant_id": "{{merchantUUID}}"
+}
