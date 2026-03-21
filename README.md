@@ -124,6 +124,14 @@ migrate -path backend/migrations -database "mysql://root:secret@tcp(localhost:33
 - `POST /api/v1/auth/refresh`
 - `POST /api/v1/auth/logout`
 - `GET /api/v1/user/me`
+- `POST /api/v1/payments/gateway/generate` (auth)
+- `POST /api/v1/payments/gateway/check-status/:trx_id` (auth)
+- `POST /api/v1/payments/gateway/inquiry` (auth)
+- `POST /api/v1/payments/gateway/transfer` (auth)
+- `POST /api/v1/payments/gateway/transfer/check-status/:partner_ref_no` (auth)
+- `POST /api/v1/payments/gateway/balance/:merchant_uuid` (auth)
+- `POST /api/v1/payments/gateway/callback/qris` (public callback)
+- `POST /api/v1/payments/gateway/callback/transfer` (public callback)
 
 ## Auth + Authorization Rules
 

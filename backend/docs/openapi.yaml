@@ -76,6 +76,84 @@ paths:
       responses:
         '200':
           description: OK
+  /api/v1/payments/gateway/generate:
+    post:
+      summary: Generate QRIS/VA from payment gateway
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+  /api/v1/payments/gateway/check-status/{trx_id}:
+    post:
+      summary: Check payment transaction status
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: trx_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+  /api/v1/payments/gateway/inquiry:
+    post:
+      summary: Inquiry transfer fund to payment gateway
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+  /api/v1/payments/gateway/transfer:
+    post:
+      summary: Execute transfer fund in payment gateway
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+  /api/v1/payments/gateway/transfer/check-status/{partner_ref_no}:
+    post:
+      summary: Check transfer/disbursement status
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: partner_ref_no
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+  /api/v1/payments/gateway/balance/{merchant_uuid}:
+    post:
+      summary: Get gateway balance for merchant UUID
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: merchant_uuid
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+  /api/v1/payments/gateway/callback/qris:
+    post:
+      summary: QRIS callback endpoint from payment gateway
+      responses:
+        '200':
+          description: OK
+  /api/v1/payments/gateway/callback/transfer:
+    post:
+      summary: Transfer callback endpoint from payment gateway
+      responses:
+        '200':
+          description: OK
 components:
   securitySchemes:
     bearerAuth:

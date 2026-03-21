@@ -13,6 +13,7 @@ import (
 	httpHandler "github.com/example/gue/backend/handler/http"
 	"github.com/example/gue/backend/pkg/db"
 	jwtpkg "github.com/example/gue/backend/pkg/jwt"
+	"github.com/example/gue/backend/pkg/paymentgateway"
 	"github.com/example/gue/backend/queue"
 	"github.com/example/gue/backend/repository/mysql"
 	"github.com/example/gue/backend/repository/redisstore"
@@ -59,6 +60,8 @@ func NewHTTPApp(cfg config.Config, logger *slog.Logger) (*HTTPApp, error) {
 	}
 
 	userRepo := mysql.NewUserRepository(database)
+	tokoRepo := mysql.NewTokoRepository(database)
+	transactionRepo := mysql.NewTransactionRepository(database)
 	refreshStore := redisstore.NewRefreshTokenStore(redisClient)
 	tokenManager := jwtpkg.NewManager(
 		cfg.JWT.AccessSecret,
@@ -70,12 +73,23 @@ func NewHTTPApp(cfg config.Config, logger *slog.Logger) (*HTTPApp, error) {
 	)
 
 	producer := queue.NewAsynqProducer(cfg.Redis.Addr, cfg.Redis.Password, cfg.Redis.DB, logger)
+	gatewayClient := paymentgateway.NewClient(cfg.PaymentGateway.BaseURL, cfg.PaymentGateway.Timeout)
 	authSvc := service.NewAuthService(userRepo, refreshStore, tokenManager, producer, logger)
 	userSvc := service.NewUserService(userRepo, queryCache, cfg.Cache.QueryCacheOn, cfg.Cache.UserMeTTL, logger)
+	paymentGatewaySvc := service.NewPaymentGatewayService(
+		gatewayClient,
+		tokoRepo,
+		transactionRepo,
+		cfg.PaymentGateway.DefaultClient,
+		cfg.PaymentGateway.DefaultKey,
+		cfg.PaymentGateway.CallbackSecret,
+		logger,
+	)
 
 	authHandler := httpHandler.NewAuthHandler(authSvc)
 	userHandler := httpHandler.NewUserHandler(userSvc)
-	router := httpHandler.NewRouter(logger, tokenManager, authHandler, userHandler)
+	paymentGatewayHandler := httpHandler.NewPaymentGatewayHandler(paymentGatewaySvc)
+	router := httpHandler.NewRouter(logger, tokenManager, authHandler, userHandler, paymentGatewayHandler)
 
 	server := &http.Server{
 		Addr:         ":" + cfg.Server.Port,

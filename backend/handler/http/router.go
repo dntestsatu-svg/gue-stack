@@ -14,6 +14,7 @@ func NewRouter(
 	tokenManager *jwtpkg.Manager,
 	authHandler *AuthHandler,
 	userHandler *UserHandler,
+	paymentGatewayHandler *PaymentGatewayHandler,
 ) *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
@@ -37,6 +38,23 @@ func NewRouter(
 	user.Use(middleware.AuthRequired(tokenManager))
 	{
 		user.GET("/me", userHandler.Me)
+	}
+
+	paymentGateway := v1.Group("/payments/gateway")
+	paymentGateway.Use(middleware.AuthRequired(tokenManager))
+	{
+		paymentGateway.POST("/generate", paymentGatewayHandler.Generate)
+		paymentGateway.POST("/check-status/:trx_id", paymentGatewayHandler.CheckStatusV2)
+		paymentGateway.POST("/inquiry", paymentGatewayHandler.InquiryTransfer)
+		paymentGateway.POST("/transfer", paymentGatewayHandler.TransferFund)
+		paymentGateway.POST("/transfer/check-status/:partner_ref_no", paymentGatewayHandler.CheckTransferStatus)
+		paymentGateway.POST("/balance/:merchant_uuid", paymentGatewayHandler.GetBalance)
+	}
+
+	callbacks := v1.Group("/payments/gateway/callback")
+	{
+		callbacks.POST("/qris", paymentGatewayHandler.QrisCallback)
+		callbacks.POST("/transfer", paymentGatewayHandler.TransferCallback)
 	}
 
 	return r

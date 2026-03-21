@@ -1,6 +1,6 @@
 SHELL := /bin/sh
 
-.PHONY: run run-worker test lint migrate-up migrate-down
+.PHONY: run run-worker test lint migrate-up migrate-down seed
 
 run:
 	go run ./cmd/server
@@ -19,3 +19,6 @@ migrate-up:
 
 migrate-down:
 	migrate -path migrations -database "mysql://$(DB_USER):$(DB_PASSWORD)@tcp($(DB_HOST):$(DB_PORT))/$(DB_NAME)" down 1
+
+seed:
+	go run ./cmd/seed

@@ -10,14 +10,15 @@ import (
 )
 
 type Config struct {
-	AppEnv    string          `mapstructure:"app_env"`
-	Server    ServerConfig    `mapstructure:"server"`
-	Database  DatabaseConfig  `mapstructure:"db"`
-	Redis     RedisConfig     `mapstructure:"redis"`
-	Memcached MemcachedConfig `mapstructure:"memcached"`
-	JWT       JWTConfig       `mapstructure:"jwt"`
-	Cache     CacheConfig     `mapstructure:"cache"`
-	Asynq     AsynqConfig     `mapstructure:"asynq"`
+	AppEnv         string               `mapstructure:"app_env"`
+	Server         ServerConfig         `mapstructure:"server"`
+	Database       DatabaseConfig       `mapstructure:"db"`
+	Redis          RedisConfig          `mapstructure:"redis"`
+	Memcached      MemcachedConfig      `mapstructure:"memcached"`
+	JWT            JWTConfig            `mapstructure:"jwt"`
+	Cache          CacheConfig          `mapstructure:"cache"`
+	Asynq          AsynqConfig          `mapstructure:"asynq"`
+	PaymentGateway PaymentGatewayConfig `mapstructure:"payment_gateway"`
 }
 
 type ServerConfig struct {
@@ -67,6 +68,14 @@ type CacheConfig struct {
 
 type AsynqConfig struct {
 	Concurrency int `mapstructure:"concurrency"`
+}
+
+type PaymentGatewayConfig struct {
+	BaseURL        string        `mapstructure:"base_url"`
+	Timeout        time.Duration `mapstructure:"timeout"`
+	DefaultClient  string        `mapstructure:"default_client"`
+	DefaultKey     string        `mapstructure:"default_key"`
+	CallbackSecret string        `mapstructure:"callback_secret"`
 }
 
 func Load() (Config, error) {
@@ -145,4 +154,10 @@ func setDefaults(v *viper.Viper, env string) {
 	v.SetDefault("cache.query_cache_on", true)
 
 	v.SetDefault("asynq.concurrency", 10)
+
+	v.SetDefault("payment_gateway.base_url", "https://rest.otomatis.vip")
+	v.SetDefault("payment_gateway.timeout", "15s")
+	v.SetDefault("payment_gateway.default_client", "")
+	v.SetDefault("payment_gateway.default_key", "")
+	v.SetDefault("payment_gateway.callback_secret", "")
 }

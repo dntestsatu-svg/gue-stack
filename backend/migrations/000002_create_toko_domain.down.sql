@@ -1,0 +1,5 @@
+DROP TABLE IF EXISTS payments;
+DROP TABLE IF EXISTS toko_users;
+DROP TABLE IF EXISTS transactions;
+DROP TABLE IF EXISTS balances;
+DROP TABLE IF EXISTS tokos;
