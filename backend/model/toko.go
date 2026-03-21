@@ -6,7 +6,7 @@ type Toko struct {
 	ID          uint64  `json:"id" gorm:"column:id;primaryKey;autoIncrement;type:bigint unsigned"`
 	Name        string  `json:"name" gorm:"column:name;type:varchar(255);not null"`
 	Token       string  `json:"token" gorm:"column:token;type:varchar(255);not null;uniqueIndex:uniq_tokos_token"`
-	Charge      int     `json:"charge" gorm:"column:charge;type:int;not null;default:2"`
+	Charge      int     `json:"charge" gorm:"column:charge;type:int;not null;default:3"`
 	CallbackURL *string `json:"callback_url,omitempty" gorm:"column:callback_url;type:varchar(255)"`
 	CreatedAt   time.Time
 	UpdatedAt   time.Time

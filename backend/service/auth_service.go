@@ -52,9 +52,11 @@ type AuthResult struct {
 }
 
 type UserDTO struct {
-	ID    uint64 `json:"id"`
-	Name  string `json:"name"`
-	Email string `json:"email"`
+	ID       uint64         `json:"id"`
+	Name     string         `json:"name"`
+	Email    string         `json:"email"`
+	Role     model.UserRole `json:"role"`
+	IsActive bool           `json:"is_active"`
 }
 
 func NewAuthService(
@@ -98,6 +100,8 @@ func (s *AuthService) Register(ctx context.Context, input RegisterInput) (*AuthR
 		Name:         strings.TrimSpace(input.Name),
 		Email:        input.Email,
 		PasswordHash: hash,
+		Role:         model.UserRoleUser,
+		IsActive:     true,
 	}
 	if err := s.userRepo.Create(ctx, user); err != nil {
 		return nil, apperror.New(http.StatusInternalServerError, "failed to create user", err.Error())
@@ -119,7 +123,7 @@ func (s *AuthService) Register(ctx context.Context, input RegisterInput) (*AuthR
 	}
 
 	return &AuthResult{
-		User:         UserDTO{ID: user.ID, Name: user.Name, Email: user.Email},
+		User:         UserDTO{ID: user.ID, Name: user.Name, Email: user.Email, Role: user.Role, IsActive: user.IsActive},
 		AccessToken:  tokenPair.AccessToken,
 		RefreshToken: tokenPair.RefreshToken,
 		ExpiresIn:    tokenPair.ExpiresIn,
@@ -142,6 +146,9 @@ func (s *AuthService) Login(ctx context.Context, input LoginInput) (*AuthResult,
 	if err := password.Compare(user.PasswordHash, input.Password); err != nil {
 		return nil, apperror.New(http.StatusUnauthorized, "invalid credentials", nil)
 	}
+	if !user.IsActive {
+		return nil, apperror.New(http.StatusForbidden, "user account is inactive", nil)
+	}
 
 	tokenPair, err := s.tokenManager.GenerateTokenPair(user.ID, user.Email, time.Now().UTC())
 	if err != nil {
@@ -153,7 +160,7 @@ func (s *AuthService) Login(ctx context.Context, input LoginInput) (*AuthResult,
 	}
 
 	return &AuthResult{
-		User:         UserDTO{ID: user.ID, Name: user.Name, Email: user.Email},
+		User:         UserDTO{ID: user.ID, Name: user.Name, Email: user.Email, Role: user.Role, IsActive: user.IsActive},
 		AccessToken:  tokenPair.AccessToken,
 		RefreshToken: tokenPair.RefreshToken,
 		ExpiresIn:    tokenPair.ExpiresIn,
@@ -182,6 +189,9 @@ func (s *AuthService) Refresh(ctx context.Context, refreshToken string) (*AuthRe
 	if err != nil {
 		return nil, apperror.New(http.StatusUnauthorized, "user not found", nil)
 	}
+	if !user.IsActive {
+		return nil, apperror.New(http.StatusForbidden, "user account is inactive", nil)
+	}
 
 	newTokens, err := s.tokenManager.GenerateTokenPair(user.ID, user.Email, time.Now().UTC())
 	if err != nil {
@@ -193,7 +203,7 @@ func (s *AuthService) Refresh(ctx context.Context, refreshToken string) (*AuthRe
 	}
 
 	return &AuthResult{
-		User:         UserDTO{ID: user.ID, Name: user.Name, Email: user.Email},
+		User:         UserDTO{ID: user.ID, Name: user.Name, Email: user.Email, Role: user.Role, IsActive: user.IsActive},
 		AccessToken:  newTokens.AccessToken,
 		RefreshToken: newTokens.RefreshToken,
 		ExpiresIn:    newTokens.ExpiresIn,

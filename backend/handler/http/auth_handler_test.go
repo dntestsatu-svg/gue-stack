@@ -7,7 +7,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
+	"github.com/example/gue/backend/config"
+	"github.com/example/gue/backend/pkg/security"
 	"github.com/example/gue/backend/service"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -29,6 +32,23 @@ func (m *mockAuthService) Refresh(_ context.Context, _ string) (*service.AuthRes
 }
 func (m *mockAuthService) Logout(_ context.Context, _ string) error { return nil }
 
+func testCookieManager() *security.CookieManager {
+	return security.NewCookieManager(
+		config.CookieConfig{
+			AccessTokenName:  "access_token",
+			RefreshTokenName: "refresh_token",
+			CSRFCookieName:   "csrf_token",
+			Domain:           "",
+			Path:             "/",
+			Secure:           false,
+			HTTPOnly:         true,
+			SameSite:         "strict",
+		},
+		15*time.Minute,
+		7*24*time.Hour,
+	)
+}
+
 func TestAuthHandler_Register(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	mockSvc := &mockAuthService{
@@ -39,7 +59,7 @@ func TestAuthHandler_Register(t *testing.T) {
 			ExpiresIn:    900,
 		},
 	}
-	h := NewAuthHandler(mockSvc)
+	h := NewAuthHandler(mockSvc, testCookieManager())
 
 	r := gin.New()
 	r.POST("/register", h.Register)
@@ -59,5 +79,7 @@ func TestAuthHandler_Register(t *testing.T) {
 
 	require.Equal(t, http.StatusCreated, w.Code)
 	require.Contains(t, w.Body.String(), "success")
-	require.Contains(t, w.Body.String(), "access")
+	require.Contains(t, w.Body.String(), "csrf_token")
+	setCookies := w.Result().Cookies()
+	require.NotEmpty(t, setCookies)
 }

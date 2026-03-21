@@ -2,13 +2,19 @@
 @baseUrl = http://localhost:8080
 @accessToken =
 @refreshToken =
-@merchantUUID = replace-with-your-toko-token
+@tokoToken = replace-with-your-toko-token
+@merchantUUID = replace-with-payment-gateway-merchant-uuid
 @gatewayClient = replace-with-panel-name
-@gatewayClientKey = replace-with-client-key
 @trxId =
 @partnerRefNo =
 @inquiryId = 0
 @callbackSecret =
+@newUserName = Team Admin
+@newUserEmail = team.admin@example.com
+@newUserPassword = secret123
+@newUserRole = user
+@targetUserID =
+@targetRole = admin
 
 ### Register
 POST {{baseUrl}}/api/v1/auth/register
@@ -49,38 +55,78 @@ Content-Type: application/json
 GET {{baseUrl}}/api/v1/user/me
 Authorization: Bearer {{accessToken}}
 
-### Generate QRIS/VA
-POST {{baseUrl}}/api/v1/payments/gateway/generate
+### Dashboard Overview (Realtime Source)
+GET {{baseUrl}}/api/v1/dashboard/overview
 Authorization: Bearer {{accessToken}}
+
+### Transaction History
+GET {{baseUrl}}/api/v1/transactions/history?limit=50
+Authorization: Bearer {{accessToken}}
+
+### Create User (role actor must not be 'user')
+POST {{baseUrl}}/api/v1/users
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "{{newUserName}}",
+  "email": "{{newUserEmail}}",
+  "password": "{{newUserPassword}}",
+  "role": "{{newUserRole}}",
+  "is_active": true
+}
+
+### Update User Role (only dev/superadmin)
+PATCH {{baseUrl}}/api/v1/users/{{targetUserID}}/role
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "role": "{{targetRole}}"
+}
+
+### List Tokos (maks 3 toko / user)
+GET {{baseUrl}}/api/v1/tokos
+Authorization: Bearer {{accessToken}}
+
+### Create Toko
+POST {{baseUrl}}/api/v1/tokos
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "Toko Alpha",
+  "callback_url": "https://merchant.example.com/callback"
+}
+
+### Generate QRIS/VA (auth pakai bearer toko token)
+POST {{baseUrl}}/api/v1/payments/gateway/generate
+Authorization: Bearer {{tokoToken}}
 Content-Type: application/json
 
 {
   "username": "player-001",
   "amount": 10000,
-  "uuid": "{{merchantUUID}}",
   "expire": 1200,
   "custom_ref": "ORDER123"
 }
 
 ### Check Payment Status V2
 POST {{baseUrl}}/api/v1/payments/gateway/check-status/{{trxId}}
-Authorization: Bearer {{accessToken}}
+Authorization: Bearer {{tokoToken}}
 Content-Type: application/json
 
 {
-  "uuid": "{{merchantUUID}}",
   "client": "{{gatewayClient}}"
 }
 
 ### Inquiry Transfer
 POST {{baseUrl}}/api/v1/payments/gateway/inquiry
-Authorization: Bearer {{accessToken}}
+Authorization: Bearer {{tokoToken}}
 Content-Type: application/json
 
 {
   "client": "{{gatewayClient}}",
-  "client_key": "{{gatewayClientKey}}",
-  "uuid": "{{merchantUUID}}",
   "amount": 25000,
   "bank_code": "014",
   "account_number": "1234567890",
@@ -89,13 +135,11 @@ Content-Type: application/json
 
 ### Transfer Fund
 POST {{baseUrl}}/api/v1/payments/gateway/transfer
-Authorization: Bearer {{accessToken}}
+Authorization: Bearer {{tokoToken}}
 Content-Type: application/json
 
 {
   "client": "{{gatewayClient}}",
-  "client_key": "{{gatewayClientKey}}",
-  "uuid": "{{merchantUUID}}",
   "amount": 25000,
   "bank_code": "014",
   "account_number": "1234567890",
@@ -105,17 +149,16 @@ Content-Type: application/json
 
 ### Check Transfer Status
 POST {{baseUrl}}/api/v1/payments/gateway/transfer/check-status/{{partnerRefNo}}
-Authorization: Bearer {{accessToken}}
+Authorization: Bearer {{tokoToken}}
 Content-Type: application/json
 
 {
-  "client": "{{gatewayClient}}",
-  "uuid": "{{merchantUUID}}"
+  "client": "{{gatewayClient}}"
 }
 
 ### Get Gateway Balance
-POST {{baseUrl}}/api/v1/payments/gateway/balance/{{merchantUUID}}
-Authorization: Bearer {{accessToken}}
+POST {{baseUrl}}/api/v1/payments/gateway/balance
+Authorization: Bearer {{tokoToken}}
 Content-Type: application/json
 
 {

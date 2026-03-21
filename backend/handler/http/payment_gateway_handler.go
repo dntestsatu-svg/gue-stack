@@ -3,8 +3,10 @@ package http
 import (
 	"net/http"
 
+	"github.com/example/gue/backend/middleware"
 	"github.com/example/gue/backend/pkg/apperror"
 	"github.com/example/gue/backend/pkg/response"
+	"github.com/example/gue/backend/queue"
 	"github.com/example/gue/backend/service"
 	"github.com/gin-gonic/gin"
 )
@@ -18,13 +20,19 @@ func NewPaymentGatewayHandler(gateway service.PaymentGatewayUseCase) *PaymentGat
 }
 
 func (h *PaymentGatewayHandler) Generate(c *gin.Context) {
+	tokoID, err := readTokoIDFromContext(c)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+
 	var req service.GeneratePaymentInput
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, apperror.New(http.StatusBadRequest, "invalid request payload", err.Error()))
 		return
 	}
 
-	result, err := h.gateway.Generate(c.Request.Context(), req)
+	result, err := h.gateway.Generate(c.Request.Context(), tokoID, req)
 	if err != nil {
 		handleError(c, err)
 		return
@@ -34,6 +42,12 @@ func (h *PaymentGatewayHandler) Generate(c *gin.Context) {
 }
 
 func (h *PaymentGatewayHandler) CheckStatusV2(c *gin.Context) {
+	tokoID, err := readTokoIDFromContext(c)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+
 	var req service.CheckPaymentStatusInput
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, apperror.New(http.StatusBadRequest, "invalid request payload", err.Error()))
@@ -41,7 +55,7 @@ func (h *PaymentGatewayHandler) CheckStatusV2(c *gin.Context) {
 	}
 
 	trxID := c.Param("trx_id")
-	result, err := h.gateway.CheckStatusV2(c.Request.Context(), trxID, req)
+	result, err := h.gateway.CheckStatusV2(c.Request.Context(), tokoID, trxID, req)
 	if err != nil {
 		handleError(c, err)
 		return
@@ -51,13 +65,19 @@ func (h *PaymentGatewayHandler) CheckStatusV2(c *gin.Context) {
 }
 
 func (h *PaymentGatewayHandler) InquiryTransfer(c *gin.Context) {
+	tokoID, err := readTokoIDFromContext(c)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+
 	var req service.InquiryTransferInput
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, apperror.New(http.StatusBadRequest, "invalid request payload", err.Error()))
 		return
 	}
 
-	result, err := h.gateway.InquiryTransfer(c.Request.Context(), req)
+	result, err := h.gateway.InquiryTransfer(c.Request.Context(), tokoID, req)
 	if err != nil {
 		handleError(c, err)
 		return
@@ -67,13 +87,19 @@ func (h *PaymentGatewayHandler) InquiryTransfer(c *gin.Context) {
 }
 
 func (h *PaymentGatewayHandler) TransferFund(c *gin.Context) {
+	tokoID, err := readTokoIDFromContext(c)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+
 	var req service.TransferFundInput
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, apperror.New(http.StatusBadRequest, "invalid request payload", err.Error()))
 		return
 	}
 
-	result, err := h.gateway.TransferFund(c.Request.Context(), req)
+	result, err := h.gateway.TransferFund(c.Request.Context(), tokoID, req)
 	if err != nil {
 		handleError(c, err)
 		return
@@ -83,6 +109,12 @@ func (h *PaymentGatewayHandler) TransferFund(c *gin.Context) {
 }
 
 func (h *PaymentGatewayHandler) CheckTransferStatus(c *gin.Context) {
+	tokoID, err := readTokoIDFromContext(c)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+
 	var req service.CheckTransferStatusInput
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, apperror.New(http.StatusBadRequest, "invalid request payload", err.Error()))
@@ -90,7 +122,7 @@ func (h *PaymentGatewayHandler) CheckTransferStatus(c *gin.Context) {
 	}
 
 	partnerRefNo := c.Param("partner_ref_no")
-	result, err := h.gateway.CheckTransferStatus(c.Request.Context(), partnerRefNo, req)
+	result, err := h.gateway.CheckTransferStatus(c.Request.Context(), tokoID, partnerRefNo, req)
 	if err != nil {
 		handleError(c, err)
 		return
@@ -106,8 +138,7 @@ func (h *PaymentGatewayHandler) GetBalance(c *gin.Context) {
 		return
 	}
 
-	merchantUUID := c.Param("merchant_uuid")
-	result, err := h.gateway.GetBalance(c.Request.Context(), merchantUUID, req)
+	result, err := h.gateway.GetBalance(c.Request.Context(), req)
 	if err != nil {
 		handleError(c, err)
 		return
@@ -122,18 +153,18 @@ func (h *PaymentGatewayHandler) QrisCallback(c *gin.Context) {
 		return
 	}
 
-	var req service.QrisCallbackPayload
+	var req queue.QrisCallbackTaskPayload
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, apperror.New(http.StatusBadRequest, "invalid callback payload", err.Error()))
 		return
 	}
 
-	if err := h.gateway.HandleQrisCallback(c.Request.Context(), req); err != nil {
+	if err := h.gateway.EnqueueQrisCallback(c.Request.Context(), req); err != nil {
 		handleError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"status": "success", "message": "callback processed"})
+	c.JSON(http.StatusAccepted, gin.H{"status": "success", "message": "callback accepted"})
 }
 
 func (h *PaymentGatewayHandler) TransferCallback(c *gin.Context) {
@@ -142,16 +173,28 @@ func (h *PaymentGatewayHandler) TransferCallback(c *gin.Context) {
 		return
 	}
 
-	var req service.TransferCallbackPayload
+	var req queue.TransferCallbackTaskPayload
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, apperror.New(http.StatusBadRequest, "invalid callback payload", err.Error()))
 		return
 	}
 
-	if err := h.gateway.HandleTransferCallback(c.Request.Context(), req); err != nil {
+	if err := h.gateway.EnqueueTransferCallback(c.Request.Context(), req); err != nil {
 		handleError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"status": "success", "message": "callback processed"})
+	c.JSON(http.StatusAccepted, gin.H{"status": "success", "message": "callback accepted"})
+}
+
+func readTokoIDFromContext(c *gin.Context) (uint64, error) {
+	rawTokoID, ok := c.Get(middleware.ContextKeyTokoID)
+	if !ok {
+		return 0, apperror.New(http.StatusUnauthorized, "invalid toko token", nil)
+	}
+	tokoID, ok := rawTokoID.(uint64)
+	if !ok || tokoID == 0 {
+		return 0, apperror.New(http.StatusUnauthorized, "invalid toko token", nil)
+	}
+	return tokoID, nil
 }

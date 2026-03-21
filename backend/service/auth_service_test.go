@@ -7,6 +7,8 @@ import (
 
 	"github.com/example/gue/backend/model"
 	jwtpkg "github.com/example/gue/backend/pkg/jwt"
+	"github.com/example/gue/backend/pkg/password"
+	"github.com/example/gue/backend/queue"
 	"github.com/example/gue/backend/repository"
 	"github.com/stretchr/testify/require"
 	"log/slog"
@@ -46,6 +48,18 @@ func (r *fakeUserRepo) GetByID(_ context.Context, id uint64) (*model.User, error
 	return nil, repository.ErrNotFound
 }
 
+func (r *fakeUserRepo) UpdateRole(_ context.Context, id uint64, role model.UserRole) error {
+	user, ok := r.byID[id]
+	if !ok {
+		return repository.ErrNotFound
+	}
+	user.Role = role
+	if r.byEmail != nil {
+		r.byEmail[user.Email] = user
+	}
+	return nil
+}
+
 type fakeRefreshStore struct {
 	tokens map[string]uint64
 }
@@ -76,6 +90,14 @@ type fakeProducer struct {
 
 func (p *fakeProducer) EnqueueWelcomeEmail(_ context.Context, _, _ string) error {
 	p.count++
+	return nil
+}
+
+func (p *fakeProducer) EnqueueQrisCallback(_ context.Context, _ queue.QrisCallbackTaskPayload) error {
+	return nil
+}
+
+func (p *fakeProducer) EnqueueTransferCallback(_ context.Context, _ queue.TransferCallbackTaskPayload) error {
 	return nil
 }
 
@@ -120,4 +142,33 @@ func TestAuthService_LoginInvalidCredentials(t *testing.T) {
 	})
 
 	require.Error(t, err)
+}
+
+func TestAuthService_LoginInactiveUserForbidden(t *testing.T) {
+	hash, err := password.Hash("secret123")
+	require.NoError(t, err)
+
+	userRepo := &fakeUserRepo{byEmail: map[string]*model.User{}}
+	hashUser := &model.User{
+		ID:           7,
+		Name:         "Inactive Jane",
+		Email:        "inactive@example.com",
+		PasswordHash: hash,
+		Role:         model.UserRoleUser,
+		IsActive:     false,
+	}
+	userRepo.byEmail[hashUser.Email] = hashUser
+	userRepo.byID = map[uint64]*model.User{7: hashUser}
+
+	refreshStore := &fakeRefreshStore{}
+	tm := jwtpkg.NewManager("access-secret", "refresh-secret", 15*time.Minute, 24*time.Hour, "issuer", "aud")
+	svc := NewAuthService(userRepo, refreshStore, tm, nil, slog.Default())
+
+	_, err = svc.Login(context.Background(), LoginInput{
+		Email:    "inactive@example.com",
+		Password: "secret123",
+	})
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "inactive")
 }

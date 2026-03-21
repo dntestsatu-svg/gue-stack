@@ -26,6 +26,7 @@ type Transaction struct {
 	Reference     *string           `json:"reference,omitempty" gorm:"column:reference;type:varchar(255);index:idx_transactions_reference"`
 	Amount        uint64            `json:"amount" gorm:"column:amount;type:bigint unsigned;not null"`
 	FeeWithdrawal *uint64           `json:"fee_withdrawal,omitempty" gorm:"column:fee_withdrawal;type:bigint unsigned"`
+	PlatformFee   uint64            `json:"platform_fee" gorm:"column:platform_fee;type:bigint unsigned;not null;default:0"`
 	Netto         uint64            `json:"netto" gorm:"column:netto;type:bigint unsigned;not null"`
 	CreatedAt     time.Time
 	UpdatedAt     time.Time

@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: GUE Starter API
-  version: 1.0.0
+  version: 1.1.0
 servers:
   - url: http://localhost:8080
 paths:
@@ -16,11 +16,15 @@ paths:
               type: object
               required: [name, email, password]
               properties:
-                name: { type: string }
-                email: { type: string, format: email }
-                password: { type: string, minLength: 8 }
+                name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
       responses:
-        '201':
+        "201":
           description: Created
   /api/v1/auth/login:
     post:
@@ -33,10 +37,13 @@ paths:
               type: object
               required: [email, password]
               properties:
-                email: { type: string, format: email }
-                password: { type: string }
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
       responses:
-        '200':
+        "200":
           description: OK
   /api/v1/auth/refresh:
     post:
@@ -49,9 +56,10 @@ paths:
               type: object
               required: [refresh_token]
               properties:
-                refresh_token: { type: string }
+                refresh_token:
+                  type: string
       responses:
-        '200':
+        "200":
           description: OK
   /api/v1/auth/logout:
     post:
@@ -64,9 +72,10 @@ paths:
               type: object
               required: [refresh_token]
               properties:
-                refresh_token: { type: string }
+                refresh_token:
+                  type: string
       responses:
-        '200':
+        "200":
           description: OK
   /api/v1/user/me:
     get:
@@ -74,21 +83,163 @@ paths:
       security:
         - bearerAuth: []
       responses:
-        '200':
+        "200":
           description: OK
-  /api/v1/payments/gateway/generate:
-    post:
-      summary: Generate QRIS/VA from payment gateway
+  /api/v1/tokos:
+    get:
+      summary: List tokos owned by current user
       security:
         - bearerAuth: []
       responses:
-        '200':
+        "200":
+          description: OK
+    post:
+      summary: Create toko (max 3 tokos per user)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                callback_url:
+                  type: string
+                  nullable: true
+      responses:
+        "201":
+          description: Created
+  /api/v1/tokos/balances:
+    get:
+      summary: List toko balances (available + settlement) for current user
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+  /api/v1/tokos/{id}/settlement:
+    patch:
+      summary: Manual settlement update for toko balance (dev/superadmin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [settlement_balance, available_balance]
+              properties:
+                settlement_balance:
+                  type: number
+                available_balance:
+                  type: number
+      responses:
+        "200":
+          description: OK
+  /api/v1/dashboard/overview:
+    get:
+      summary: Dashboard overview metrics and chart series
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+  /api/v1/transactions/history:
+    get:
+      summary: Recent transaction history for authenticated user
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+      responses:
+        "200":
+          description: OK
+  /api/v1/users:
+    post:
+      summary: Create user (requires role dev/superadmin/admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 8
+                role:
+                  type: string
+                  enum: [dev, superadmin, admin, user]
+                is_active:
+                  type: boolean
+      responses:
+        "201":
+          description: Created
+  /api/v1/users/{id}/role:
+    patch:
+      summary: Update user role (requires role dev/superadmin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              properties:
+                role:
+                  type: string
+                  enum: [dev, superadmin, admin, user]
+      responses:
+        "200":
+          description: OK
+  /api/v1/payments/gateway/generate:
+    post:
+      summary: Generate QRIS/VA using project bridge
+      security:
+        - tokoTokenAuth: []
+      responses:
+        "200":
           description: OK
   /api/v1/payments/gateway/check-status/{trx_id}:
     post:
       summary: Check payment transaction status
       security:
-        - bearerAuth: []
+        - tokoTokenAuth: []
       parameters:
         - in: path
           name: trx_id
@@ -96,29 +247,29 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: OK
   /api/v1/payments/gateway/inquiry:
     post:
-      summary: Inquiry transfer fund to payment gateway
+      summary: Inquiry transfer fund
       security:
-        - bearerAuth: []
+        - tokoTokenAuth: []
       responses:
-        '200':
+        "200":
           description: OK
   /api/v1/payments/gateway/transfer:
     post:
-      summary: Execute transfer fund in payment gateway
+      summary: Execute transfer fund
       security:
-        - bearerAuth: []
+        - tokoTokenAuth: []
       responses:
-        '200':
+        "200":
           description: OK
   /api/v1/payments/gateway/transfer/check-status/{partner_ref_no}:
     post:
       summary: Check transfer/disbursement status
       security:
-        - bearerAuth: []
+        - tokoTokenAuth: []
       parameters:
         - in: path
           name: partner_ref_no
@@ -126,37 +277,35 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: OK
-  /api/v1/payments/gateway/balance/{merchant_uuid}:
+  /api/v1/payments/gateway/balance:
     post:
-      summary: Get gateway balance for merchant UUID
+      summary: Get gateway balance
       security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: merchant_uuid
-          required: true
-          schema:
-            type: string
+        - tokoTokenAuth: []
       responses:
-        '200':
+        "200":
           description: OK
   /api/v1/payments/gateway/callback/qris:
     post:
-      summary: QRIS callback endpoint from payment gateway
+      summary: QRIS callback endpoint from payment gateway (async queued)
       responses:
-        '200':
-          description: OK
+        "202":
+          description: Accepted
   /api/v1/payments/gateway/callback/transfer:
     post:
-      summary: Transfer callback endpoint from payment gateway
+      summary: Transfer callback endpoint from payment gateway (async queued)
       responses:
-        '200':
-          description: OK
+        "202":
+          description: Accepted
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+    tokoTokenAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: TOKO_TOKEN

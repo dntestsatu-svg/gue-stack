@@ -14,6 +14,7 @@ import (
 	"github.com/example/gue/backend/pkg/db"
 	jwtpkg "github.com/example/gue/backend/pkg/jwt"
 	"github.com/example/gue/backend/pkg/paymentgateway"
+	securitypkg "github.com/example/gue/backend/pkg/security"
 	"github.com/example/gue/backend/queue"
 	"github.com/example/gue/backend/repository/mysql"
 	"github.com/example/gue/backend/repository/redisstore"
@@ -47,20 +48,15 @@ func NewHTTPApp(cfg config.Config, logger *slog.Logger) (*HTTPApp, error) {
 
 	var queryCache cache.Cache
 	switch cfg.Cache.Driver {
-	case "memcached":
-		if cfg.Memcached.Enabled {
-			queryCache = cache.NewMemcachedCache(cfg.Memcached.Addr)
-		} else {
-			queryCache = cache.NewNoopCache()
-		}
 	case "none":
 		queryCache = cache.NewNoopCache()
 	default:
-		queryCache = cache.NewRedisCache(redisClient)
+		queryCache = cache.NewMemcachedCache(cfg.Memcached.Addr)
 	}
 
 	userRepo := mysql.NewUserRepository(database)
 	tokoRepo := mysql.NewTokoRepository(database)
+	balanceRepo := mysql.NewBalanceRepository(database)
 	transactionRepo := mysql.NewTransactionRepository(database)
 	refreshStore := redisstore.NewRefreshTokenStore(redisClient)
 	tokenManager := jwtpkg.NewManager(
@@ -74,22 +70,50 @@ func NewHTTPApp(cfg config.Config, logger *slog.Logger) (*HTTPApp, error) {
 
 	producer := queue.NewAsynqProducer(cfg.Redis.Addr, cfg.Redis.Password, cfg.Redis.DB, logger)
 	gatewayClient := paymentgateway.NewClient(cfg.PaymentGateway.BaseURL, cfg.PaymentGateway.Timeout)
+	cookieManager := securitypkg.NewCookieManager(cfg.Security.Cookie, cfg.JWT.AccessTokenTTL, cfg.JWT.RefreshTokenTTL)
 	authSvc := service.NewAuthService(userRepo, refreshStore, tokenManager, producer, logger)
-	userSvc := service.NewUserService(userRepo, queryCache, cfg.Cache.QueryCacheOn, cfg.Cache.UserMeTTL, logger)
+	userSvc := service.NewUserService(userRepo, queryCache, cfg.Cache.QueryCacheOn, cfg.Cache.UserMeTTL, producer, logger)
+	tokoSvc := service.NewTokoService(tokoRepo, balanceRepo, 3, 3)
+	dashboardSvc := service.NewDashboardService(
+		transactionRepo,
+		gatewayClient,
+		queryCache,
+		cfg.PaymentGateway.MerchantUUID,
+		cfg.PaymentGateway.DefaultClient,
+		5*time.Minute,
+	)
 	paymentGatewaySvc := service.NewPaymentGatewayService(
 		gatewayClient,
 		tokoRepo,
 		transactionRepo,
+		producer,
 		cfg.PaymentGateway.DefaultClient,
 		cfg.PaymentGateway.DefaultKey,
-		cfg.PaymentGateway.CallbackSecret,
+		cfg.PaymentGateway.MerchantUUID,
+		cfg.PaymentGateway.WebhookSecret,
+		cfg.PaymentGateway.PlatformFeePercent,
 		logger,
 	)
 
-	authHandler := httpHandler.NewAuthHandler(authSvc)
+	authHandler := httpHandler.NewAuthHandler(authSvc, cookieManager)
 	userHandler := httpHandler.NewUserHandler(userSvc)
+	tokoHandler := httpHandler.NewTokoHandler(tokoSvc)
+	dashboardHandler := httpHandler.NewDashboardHandler(dashboardSvc)
 	paymentGatewayHandler := httpHandler.NewPaymentGatewayHandler(paymentGatewaySvc)
-	router := httpHandler.NewRouter(logger, tokenManager, authHandler, userHandler, paymentGatewayHandler)
+	router := httpHandler.NewRouter(
+		logger,
+		tokenManager,
+		userRepo,
+		tokoRepo,
+		redisClient,
+		cfg.Security,
+		cookieManager,
+		authHandler,
+		userHandler,
+		tokoHandler,
+		dashboardHandler,
+		paymentGatewayHandler,
+	)
 
 	server := &http.Server{
 		Addr:         ":" + cfg.Server.Port,
@@ -130,6 +154,35 @@ func (a *HTTPApp) Close() error {
 	return nil
 }
 
-func NewWorker(cfg config.Config, logger *slog.Logger) *queue.Worker {
-	return queue.NewWorker(cfg.Redis.Addr, cfg.Redis.Password, cfg.Redis.DB, cfg.Asynq.Concurrency, logger)
+func NewWorker(cfg config.Config, logger *slog.Logger) (*queue.Worker, *sql.DB, error) {
+	database, err := db.NewMySQL(cfg.Database)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	tokoRepo := mysql.NewTokoRepository(database)
+	transactionRepo := mysql.NewTransactionRepository(database)
+	gatewayClient := paymentgateway.NewClient(cfg.PaymentGateway.BaseURL, cfg.PaymentGateway.Timeout)
+	callbackProcessor := service.NewPaymentGatewayService(
+		gatewayClient,
+		tokoRepo,
+		transactionRepo,
+		nil,
+		cfg.PaymentGateway.DefaultClient,
+		cfg.PaymentGateway.DefaultKey,
+		cfg.PaymentGateway.MerchantUUID,
+		cfg.PaymentGateway.WebhookSecret,
+		cfg.PaymentGateway.PlatformFeePercent,
+		logger,
+	)
+
+	worker := queue.NewWorker(
+		cfg.Redis.Addr,
+		cfg.Redis.Password,
+		cfg.Redis.DB,
+		cfg.Asynq.Concurrency,
+		callbackProcessor,
+		logger,
+	)
+	return worker, database, nil
 }

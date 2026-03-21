@@ -40,3 +40,29 @@ func (p *AsynqProducer) EnqueueWelcomeEmail(_ context.Context, email, name strin
 	p.logger.Info("enqueued welcome email", "email", email)
 	return nil
 }
+
+func (p *AsynqProducer) EnqueueQrisCallback(_ context.Context, payloadValue QrisCallbackTaskPayload) error {
+	payload, err := NewQrisCallbackTaskPayload(payloadValue)
+	if err != nil {
+		return fmt.Errorf("marshal qris callback payload: %w", err)
+	}
+	task := asynq.NewTask(TypeProcessQrisCallback, payload)
+	if _, err := p.client.Enqueue(task, asynq.MaxRetry(10), asynq.Queue("callbacks")); err != nil {
+		return fmt.Errorf("enqueue qris callback task: %w", err)
+	}
+	p.logger.Info("enqueued qris callback", "trx_id", payloadValue.TrxID)
+	return nil
+}
+
+func (p *AsynqProducer) EnqueueTransferCallback(_ context.Context, payloadValue TransferCallbackTaskPayload) error {
+	payload, err := NewTransferCallbackTaskPayload(payloadValue)
+	if err != nil {
+		return fmt.Errorf("marshal transfer callback payload: %w", err)
+	}
+	task := asynq.NewTask(TypeProcessTransferCallback, payload)
+	if _, err := p.client.Enqueue(task, asynq.MaxRetry(10), asynq.Queue("callbacks")); err != nil {
+		return fmt.Errorf("enqueue transfer callback task: %w", err)
+	}
+	p.logger.Info("enqueued transfer callback", "partner_ref_no", payloadValue.PartnerRefNo)
+	return nil
+}

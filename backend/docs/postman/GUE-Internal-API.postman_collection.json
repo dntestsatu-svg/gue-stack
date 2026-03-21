@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "e1c9f6d4-b7f0-4d39-a4d7-4f618a900001",
     "name": "GUE Internal API",
-    "description": "Internal API collection for this project (Auth + Payment Gateway Integration).",
+    "description": "Internal API collection for this project (Auth, Tokos, Dashboard, Payment Gateway Bridge).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -14,7 +14,10 @@
           "request": {
             "method": "POST",
             "header": [
-              {"key": "Content-Type", "value": "application/json"}
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -22,30 +25,27 @@
             },
             "url": {
               "raw": "{{base_url}}/api/v1/auth/register",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "auth", "register"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "register"
+              ]
             }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const json = pm.response.json();",
-                  "if (json?.data?.access_token) pm.environment.set('access_token', json.data.access_token);",
-                  "if (json?.data?.refresh_token) pm.environment.set('refresh_token', json.data.refresh_token);"
-                ]
-              }
-            }
-          ]
+          }
         },
         {
           "name": "Login",
           "request": {
             "method": "POST",
             "header": [
-              {"key": "Content-Type", "value": "application/json"}
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -53,8 +53,15 @@
             },
             "url": {
               "raw": "{{base_url}}/api/v1/auth/login",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "auth", "login"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "login"
+              ]
             }
           },
           "event": [
@@ -72,11 +79,14 @@
           ]
         },
         {
-          "name": "Refresh Token",
+          "name": "Refresh",
           "request": {
             "method": "POST",
             "header": [
-              {"key": "Content-Type", "value": "application/json"}
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -84,8 +94,74 @@
             },
             "url": {
               "raw": "{{base_url}}/api/v1/auth/refresh",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "auth", "refresh"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "refresh"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tokos",
+      "item": [
+        {
+          "name": "List Tokos",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/tokos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tokos"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Toko",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Toko Alpha\",\n  \"callback_url\": \"https://merchant.example.com/callback\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/tokos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tokos"
+              ]
             }
           },
           "event": [
@@ -95,66 +171,106 @@
                 "type": "text/javascript",
                 "exec": [
                   "const json = pm.response.json();",
-                  "if (json?.data?.access_token) pm.environment.set('access_token', json.data.access_token);",
-                  "if (json?.data?.refresh_token) pm.environment.set('refresh_token', json.data.refresh_token);"
+                  "if (json?.data?.token) pm.environment.set('toko_token', json.data.token);"
                 ]
               }
             }
           ]
-        },
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "item": [
         {
-          "name": "Logout",
+          "name": "Overview",
           "request": {
-            "method": "POST",
+            "method": "GET",
             "header": [
-              {"key": "Content-Type", "value": "application/json"}
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
             ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}"
-            },
             "url": {
-              "raw": "{{base_url}}/api/v1/auth/logout",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "auth", "logout"]
+              "raw": "{{base_url}}/api/v1/dashboard/overview",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dashboard",
+                "overview"
+              ]
             }
           }
         },
         {
-          "name": "Get Me",
+          "name": "History",
           "request": {
             "method": "GET",
             "header": [
-              {"key": "Authorization", "value": "Bearer {{access_token}}"}
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
             ],
             "url": {
-              "raw": "{{base_url}}/api/v1/user/me",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "user", "me"]
+              "raw": "{{base_url}}/api/v1/transactions/history?limit=50",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "transactions",
+                "history"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50"
+                }
+              ]
             }
           }
         }
       ]
     },
     {
-      "name": "Payment Gateway (Internal)",
+      "name": "Payment Gateway Bridge",
       "item": [
         {
-          "name": "Generate QRIS/VA",
+          "name": "Generate",
           "request": {
             "method": "POST",
             "header": [
-              {"key": "Content-Type", "value": "application/json"},
-              {"key": "Authorization", "value": "Bearer {{access_token}}"}
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{toko_token}}"
+              }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"username\": \"player-001\",\n  \"amount\": 10000,\n  \"uuid\": \"{{merchant_uuid}}\",\n  \"expire\": 1200,\n  \"custom_ref\": \"ORDER123\"\n}"
+              "raw": "{\n  \"username\": \"player-001\",\n  \"amount\": 10000,\n  \"expire\": 1200,\n  \"custom_ref\": \"ORDER123\"\n}"
             },
             "url": {
               "raw": "{{base_url}}/api/v1/payments/gateway/generate",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "payments", "gateway", "generate"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments",
+                "gateway",
+                "generate"
+              ]
             }
           },
           "event": [
@@ -171,40 +287,69 @@
           ]
         },
         {
-          "name": "Check Status V2",
+          "name": "Check Status",
           "request": {
             "method": "POST",
             "header": [
-              {"key": "Content-Type", "value": "application/json"},
-              {"key": "Authorization", "value": "Bearer {{access_token}}"}
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{toko_token}}"
+              }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"uuid\": \"{{merchant_uuid}}\",\n  \"client\": \"{{gateway_client}}\"\n}"
+              "raw": "{\n  \"client\": \"{{gateway_client}}\"\n}"
             },
             "url": {
               "raw": "{{base_url}}/api/v1/payments/gateway/check-status/{{trx_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "payments", "gateway", "check-status", "{{trx_id}}"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments",
+                "gateway",
+                "check-status",
+                "{{trx_id}}"
+              ]
             }
           }
         },
         {
-          "name": "Inquiry Transfer Fund",
+          "name": "Inquiry",
           "request": {
             "method": "POST",
             "header": [
-              {"key": "Content-Type", "value": "application/json"},
-              {"key": "Authorization", "value": "Bearer {{access_token}}"}
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{toko_token}}"
+              }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"client\": \"{{gateway_client}}\",\n  \"client_key\": \"{{gateway_client_key}}\",\n  \"uuid\": \"{{merchant_uuid}}\",\n  \"amount\": 25000,\n  \"bank_code\": \"014\",\n  \"account_number\": \"1234567890\",\n  \"type\": 2\n}"
+              "raw": "{\n  \"client\": \"{{gateway_client}}\",\n  \"amount\": 25000,\n  \"bank_code\": \"014\",\n  \"account_number\": \"1234567890\",\n  \"type\": 2\n}"
             },
             "url": {
               "raw": "{{base_url}}/api/v1/payments/gateway/inquiry",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "payments", "gateway", "inquiry"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments",
+                "gateway",
+                "inquiry"
+              ]
             }
           },
           "event": [
@@ -222,21 +367,35 @@
           ]
         },
         {
-          "name": "Transfer Fund",
+          "name": "Transfer",
           "request": {
             "method": "POST",
             "header": [
-              {"key": "Content-Type", "value": "application/json"},
-              {"key": "Authorization", "value": "Bearer {{access_token}}"}
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{toko_token}}"
+              }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"client\": \"{{gateway_client}}\",\n  \"client_key\": \"{{gateway_client_key}}\",\n  \"uuid\": \"{{merchant_uuid}}\",\n  \"amount\": 25000,\n  \"bank_code\": \"014\",\n  \"account_number\": \"1234567890\",\n  \"type\": 2,\n  \"inquiry_id\": {{inquiry_id}}\n}"
+              "raw": "{\n  \"client\": \"{{gateway_client}}\",\n  \"amount\": 25000,\n  \"bank_code\": \"014\",\n  \"account_number\": \"1234567890\",\n  \"type\": 2,\n  \"inquiry_id\": {{inquiry_id}}\n}"
             },
             "url": {
               "raw": "{{base_url}}/api/v1/payments/gateway/transfer",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "payments", "gateway", "transfer"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments",
+                "gateway",
+                "transfer"
+              ]
             }
           }
         },
@@ -245,51 +404,87 @@
           "request": {
             "method": "POST",
             "header": [
-              {"key": "Content-Type", "value": "application/json"},
-              {"key": "Authorization", "value": "Bearer {{access_token}}"}
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"client\": \"{{gateway_client}}\",\n  \"uuid\": \"{{merchant_uuid}}\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/api/v1/payments/gateway/transfer/check-status/{{partner_ref_no}}",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "payments", "gateway", "transfer", "check-status", "{{partner_ref_no}}"]
-            }
-          }
-        },
-        {
-          "name": "Get Gateway Balance",
-          "request": {
-            "method": "POST",
-            "header": [
-              {"key": "Content-Type", "value": "application/json"},
-              {"key": "Authorization", "value": "Bearer {{access_token}}"}
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{toko_token}}"
+              }
             ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"client\": \"{{gateway_client}}\"\n}"
             },
             "url": {
-              "raw": "{{base_url}}/api/v1/payments/gateway/balance/{{merchant_uuid}}",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "payments", "gateway", "balance", "{{merchant_uuid}}"]
+              "raw": "{{base_url}}/api/v1/payments/gateway/transfer/check-status/{{partner_ref_no}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments",
+                "gateway",
+                "transfer",
+                "check-status",
+                "{{partner_ref_no}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Balance",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{toko_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"client\": \"{{gateway_client}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/payments/gateway/balance",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments",
+                "gateway",
+                "balance"
+              ]
             }
           }
         }
       ]
     },
     {
-      "name": "Gateway Callback Simulation",
+      "name": "Callback Simulation",
       "item": [
         {
           "name": "QRIS Callback",
           "request": {
             "method": "POST",
             "header": [
-              {"key": "Content-Type", "value": "application/json"},
-              {"key": "X-Callback-Secret", "value": "{{callback_secret}}"}
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Callback-Secret",
+                "value": "{{callback_secret}}"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -297,8 +492,17 @@
             },
             "url": {
               "raw": "{{base_url}}/api/v1/payments/gateway/callback/qris",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "payments", "gateway", "callback", "qris"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments",
+                "gateway",
+                "callback",
+                "qris"
+              ]
             }
           }
         },
@@ -307,8 +511,14 @@
           "request": {
             "method": "POST",
             "header": [
-              {"key": "Content-Type", "value": "application/json"},
-              {"key": "X-Callback-Secret", "value": "{{callback_secret}}"}
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Callback-Secret",
+                "value": "{{callback_secret}}"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -316,8 +526,17 @@
             },
             "url": {
               "raw": "{{base_url}}/api/v1/payments/gateway/callback/transfer",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "payments", "gateway", "callback", "transfer"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments",
+                "gateway",
+                "callback",
+                "transfer"
+              ]
             }
           }
         }

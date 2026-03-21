@@ -21,7 +21,17 @@ func main() {
 	}
 
 	log := logger.New()
-	worker := app.NewWorker(cfg, log)
+	worker, workerDB, err := app.NewWorker(cfg, log)
+	if err != nil {
+		log.Error("failed to initialize worker app", "error", err.Error())
+		os.Exit(1)
+	}
+	defer func() {
+		if closeErr := workerDB.Close(); closeErr != nil {
+			log.Error("failed to close worker db", "error", closeErr.Error())
+		}
+	}()
+
 	if err := worker.Start(); err != nil {
 		log.Error("failed to start worker", "error", err.Error())
 		os.Exit(1)
