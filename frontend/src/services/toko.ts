@@ -1,5 +1,5 @@
 import api from './http'
-import type { ApiResponse, TokoBalanceItem, TokoItem } from './types'
+import type { ApiResponse, TokoBalanceItem, TokoItem, TokoWorkspacePage, TokoWorkspaceQuery } from './types'
 
 export interface CreateTokoPayload {
   name: string
@@ -8,6 +8,13 @@ export interface CreateTokoPayload {
 
 export interface ManualSettlementPayload {
   settlement_balance: number
+}
+
+export async function fetchWorkspace(query: TokoWorkspaceQuery = {}) {
+  const { data } = await api.get<ApiResponse<TokoWorkspacePage>>('/api/v1/tokos/workspace', {
+    params: query,
+  })
+  return data.data
 }
 
 export async function fetchBalances() {

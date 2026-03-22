@@ -1,200 +1,40 @@
-<template>
-  <section class="page-shell">
-    <PageHeader
-      eyebrow="Toko Workspace"
-      title="Manage Toko & Settlement"
-      description="Available balance & settlement balance dikelola dari settlement internal."
-      :updated-at="lastUpdated"
-    >
-      <template #actions>
-        <Button size="sm" variant="outline" @click="runNow">Refresh</Button>
-        <Button size="sm" variant="ghost" @click="scrollToManageSection">Manage Toko</Button>
-        <Button v-if="canCreateTokoRole" size="sm" @click="openCreateTokoModal">Create Toko</Button>
-      </template>
-    </PageHeader>
-
-    <p v-if="errorMessage" class="rounded-md border border-[var(--danger)]/25 bg-[var(--danger)]/8 px-3 py-2 text-sm text-[var(--danger)]">
-      {{ errorMessage }}
-    </p>
-    <p v-if="createErrorMessage" class="rounded-md border border-[var(--danger)]/25 bg-[var(--danger)]/8 px-3 py-2 text-sm text-[var(--danger)]">
-      {{ createErrorMessage }}
-    </p>
-
-    <div class="grid gap-4 md:grid-cols-3">
-      <Card class="dashboard-kpi-card">
-        <CardHeader class="pb-2">
-          <CardDescription>Total Settlement Balance</CardDescription>
-          <CardTitle class="text-2xl">{{ formatCurrencyWithDecimals(totalSettlementBalance) }}</CardTitle>
-        </CardHeader>
-      </Card>
-      <Card class="dashboard-kpi-card">
-        <CardHeader class="pb-2">
-          <CardDescription>Total Available Balance</CardDescription>
-          <CardTitle class="text-2xl">{{ formatCurrencyWithDecimals(totalAvailableBalance) }}</CardTitle>
-        </CardHeader>
-      </Card>
-      <Card class="dashboard-kpi-card">
-        <CardHeader class="pb-2">
-          <CardDescription>Visible Toko</CardDescription>
-          <CardTitle class="text-2xl">{{ tokos.length }}</CardTitle>
-        </CardHeader>
-      </Card>
-    </div>
-
-    <section ref="manageSectionRef">
-      <Card class="app-panel">
-        <CardHeader>
-          <CardTitle>Toko Management</CardTitle>
-          <CardDescription>
-            Token digunakan sebagai Bearer pada internal payment endpoint.
-          </CardDescription>
-        </CardHeader>
-        <CardContent class="app-table-shell">
-          <table class="app-data-table min-w-[920px] text-sm">
-            <thead>
-              <tr class="border-b border-[var(--border)] text-left text-[var(--muted-foreground)]">
-                <th class="px-3 py-3 font-medium">Toko</th>
-                <th class="px-3 py-3 font-medium">Charge</th>
-                <th class="px-3 py-3 font-medium">Callback URL</th>
-                <th class="px-3 py-3 font-medium">Token</th>
-                <th class="px-3 py-3 font-medium">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="item in tokos"
-                :key="item.id"
-                class="border-b border-[var(--border)]/70 transition hover:bg-[var(--background-muted)]/40"
-              >
-                <td class="px-3 py-3 font-medium">{{ item.name }}</td>
-                <td class="px-3 py-3">{{ item.charge }}%</td>
-                <td class="px-3 py-3">{{ item.callback_url || '-' }}</td>
-                <td class="px-3 py-3 font-mono text-xs">{{ item.token }}</td>
-                <td class="px-3 py-3">
-                  <Button size="sm" variant="outline" type="button" @click="copyToClipboard(item.token)">Copy Token</Button>
-                </td>
-              </tr>
-              <tr v-if="!loading && tokos.length === 0">
-                <td colspan="5" class="px-3 py-8 text-center text-[var(--muted-foreground)]">Belum ada toko.</td>
-              </tr>
-            </tbody>
-          </table>
-        </CardContent>
-      </Card>
-    </section>
-
-    <Card class="app-panel">
-      <CardHeader>
-        <CardTitle>Settlement Balances</CardTitle>
-        <CardDescription>Manual settlement hanya untuk role dev. Role lain tetap melihat data secara read-only.</CardDescription>
-      </CardHeader>
-      <CardContent class="app-table-shell">
-        <table class="app-data-table min-w-[980px] text-sm">
-          <thead>
-            <tr class="border-b border-[var(--border)] text-left text-[var(--muted-foreground)]">
-              <th class="px-3 py-3 font-medium">Toko</th>
-              <th class="px-3 py-3 font-medium text-right">Settlement Balance</th>
-              <th class="px-3 py-3 font-medium text-right">Available Balance</th>
-              <th class="px-3 py-3 font-medium">Updated</th>
-              <th class="px-3 py-3 font-medium">Settlement Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="item in balances"
-              :key="item.toko_id"
-              class="border-b border-[var(--border)]/60"
-            >
-              <td class="px-3 py-3 font-medium">{{ item.toko_name }}</td>
-              <td class="px-3 py-3 text-right">{{ formatCurrencyWithDecimals(item.settlement_balance) }}</td>
-              <td class="px-3 py-3 text-right">{{ formatCurrencyWithDecimals(item.available_balance) }}</td>
-              <td class="px-3 py-3">{{ formatDate(item.updated_at) }}</td>
-              <td class="px-3 py-3">
-                <form v-if="canManualSettlement" class="grid gap-2 md:grid-cols-[1fr_auto]" @submit.prevent="submitSettlement(item.toko_id)">
-                  <Input
-                    v-model="formByToko[item.toko_id].settlementBalance"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="Settlement amount"
-                  />
-                  <Button
-                    type="submit"
-                    size="sm"
-                    :disabled="formByToko[item.toko_id].loading"
-                  >
-                    {{ formByToko[item.toko_id].loading ? 'Saving...' : 'Apply' }}
-                  </Button>
-                </form>
-                <span v-else class="text-sm text-[var(--muted-foreground)]">Developer only</span>
-              </td>
-            </tr>
-            <tr v-if="!loading && balances.length === 0">
-              <td colspan="5" class="px-3 py-8 text-center text-[var(--muted-foreground)]">
-                Belum ada data balance toko.
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </CardContent>
-    </Card>
-  </section>
-
-  <Teleport to="body">
-    <div v-if="showCreateTokoModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <button class="absolute inset-0 bg-black/55" type="button" aria-label="Close modal" @click="closeCreateTokoModal" />
-      <Card class="relative z-10 w-full max-w-lg border border-[var(--border)] shadow-2xl">
-        <CardHeader>
-          <CardTitle>Create Toko</CardTitle>
-          <CardDescription>Maksimal 3 toko per creator divalidasi backend. Token dibuat otomatis oleh sistem.</CardDescription>
-        </CardHeader>
-        <CardContent class="space-y-4">
-          <form class="space-y-4" @submit.prevent="submitCreateToko">
-            <div class="space-y-2">
-              <Label for="toko-name">Nama Toko</Label>
-              <Input id="toko-name" v-model="createForm.name" placeholder="Contoh: Toko Alfa" />
-            </div>
-            <div class="space-y-2">
-              <Label for="callback-url">Callback URL (opsional)</Label>
-              <Input id="callback-url" v-model="createForm.callbackURL" placeholder="https://domain/callback" />
-            </div>
-            <p class="text-sm text-[var(--muted-foreground)]">
-              Available balance akan dihitung ulang otomatis ketika settlement dijalankan oleh developer.
-            </p>
-            <div class="flex items-center justify-end gap-2">
-              <Button type="button" variant="ghost" :disabled="createLoading" @click="closeCreateTokoModal">Cancel</Button>
-              <Button type="submit" :disabled="createLoading || !canCreateTokoRole">
-                {{ createLoading ? 'Creating...' : 'Create Toko' }}
-              </Button>
-            </div>
-          </form>
-
-          <div v-if="createdToko" class="rounded-lg border border-[var(--success)]/35 bg-[var(--success)]/10 p-3">
-            <p class="text-sm font-semibold text-[var(--success)]">Toko berhasil dibuat: {{ createdToko.name }}</p>
-            <p class="mt-1 text-xs text-[var(--muted-foreground)]">Simpan token ini untuk header Bearer.</p>
-            <div class="mt-2 flex items-center gap-2">
-              <code class="min-w-0 flex-1 truncate rounded bg-[var(--background-muted)] px-2 py-1 text-xs">{{ createdToko.token }}</code>
-              <Button size="sm" variant="outline" type="button" @click="copyToClipboard(createdToko.token)">Copy</Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  </Teleport>
-</template>
-
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
+import { Copy, Plus, Search, TriangleAlert } from 'lucide-vue-next'
+import { toast } from 'vue-sonner'
+import EmptyState from '@/components/EmptyState.vue'
 import PageHeader from '@/components/PageHeader.vue'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Spinner } from '@/components/ui/spinner'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableEmpty,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { useFormatters } from '@/composables/useFormatters'
 import { usePolling } from '@/composables/usePolling'
 import { getApiErrorMessage } from '@/services/http'
 import * as tokoApi from '@/services/toko'
-import type { TokoBalanceItem, TokoItem } from '@/services/types'
+import type { TokoItem, TokoWorkspaceItem, TokoWorkspacePage } from '@/services/types'
 import { useUserStore } from '@/stores/user'
 
 type SettlementFormState = {
@@ -202,68 +42,85 @@ type SettlementFormState = {
   loading: boolean
 }
 
-const loading = ref(false)
-const balances = ref<TokoBalanceItem[]>([])
-const tokos = ref<TokoItem[]>([])
-const errorMessage = ref('')
-const lastUpdated = ref('')
-const formByToko = reactive<Record<number, SettlementFormState>>({})
 const userStore = useUserStore()
 const { formatCurrency, formatDateMedium } = useFormatters()
-const manageSectionRef = ref<unknown>(null)
 
-const showCreateTokoModal = ref(false)
+const workspace = ref<TokoWorkspacePage | null>(null)
+const loading = ref(false)
+const errorMessage = ref('')
+const lastUpdated = ref('')
+const createDialogOpen = ref(false)
 const createLoading = ref(false)
 const createErrorMessage = ref('')
 const createdToko = ref<TokoItem | null>(null)
+
+const filters = reactive({
+  q: '',
+})
+
+const pagination = reactive({
+  limit: 10,
+  offset: 0,
+  total: 0,
+  hasMore: false,
+})
+
+const formByToko = reactive<Record<number, SettlementFormState>>({})
 const createForm = reactive({
   name: '',
   callbackURL: '',
 })
 
-const canManualSettlement = computed(() => {
-  const role = userStore.profile?.role
-  return role === 'dev'
-})
-
+const canManualSettlement = computed(() => userStore.profile?.role === 'dev')
 const canCreateTokoRole = computed(() => {
   const role = userStore.profile?.role
   return role === 'dev' || role === 'superadmin' || role === 'admin'
 })
 
-const totalSettlementBalance = computed(() =>
-  balances.value.reduce((acc, item) => acc + item.settlement_balance, 0),
-)
-const totalAvailableBalance = computed(() =>
-  balances.value.reduce((acc, item) => acc + item.available_balance, 0),
-)
+const items = computed(() => workspace.value?.items ?? [])
+const summary = computed(() => workspace.value?.summary ?? {
+  total_tokos: 0,
+  total_settlement_balance: 0,
+  total_available_balance: 0,
+})
 
-const ensureFormState = (item: TokoBalanceItem) => {
-  if (!formByToko[item.toko_id]) {
-    formByToko[item.toko_id] = {
+const ensureFormState = (item: TokoWorkspaceItem) => {
+  if (!formByToko[item.id]) {
+    formByToko[item.id] = {
       settlementBalance: '',
       loading: false,
     }
   }
 }
 
-const syncFormWithBalances = () => {
-  for (const item of balances.value) {
+const syncForms = () => {
+  for (const item of items.value) {
     ensureFormState(item)
   }
 }
 
-const loadTokoData = async () => {
+const workspaceQuery = () => {
+  const query: { q?: string; limit: number; offset: number } = {
+    limit: pagination.limit,
+    offset: pagination.offset,
+  }
+  if (filters.q.trim() !== '') {
+    query.q = filters.q.trim()
+  }
+  return query
+}
+
+const loadWorkspace = async () => {
   loading.value = true
   errorMessage.value = ''
   try {
-    const [balanceItems, tokoItems] = await Promise.all([
-      tokoApi.fetchBalances(),
-      tokoApi.fetchTokos(),
-    ])
-    balances.value = balanceItems
-    tokos.value = tokoItems
-    syncFormWithBalances()
+    const page = await tokoApi.fetchWorkspace(workspaceQuery())
+    workspace.value = page
+    pagination.total = page.total
+    pagination.limit = page.limit
+    pagination.offset = page.offset
+    pagination.hasMore = page.has_more
+    syncForms()
     lastUpdated.value = new Date().toISOString()
   } catch (error) {
     errorMessage.value = getApiErrorMessage(error)
@@ -272,11 +129,33 @@ const loadTokoData = async () => {
   }
 }
 
-const { runNow } = usePolling(loadTokoData, 10000)
+const { runNow } = usePolling(loadWorkspace, 12000)
 
-const scrollToManageSection = () => {
-  const element = manageSectionRef.value as { scrollIntoView?: (options?: unknown) => void } | null
-  element?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+const applyFilters = async () => {
+  pagination.offset = 0
+  await loadWorkspace()
+}
+
+const resetFilters = async () => {
+  filters.q = ''
+  pagination.offset = 0
+  await loadWorkspace()
+}
+
+const nextPage = async () => {
+  if (!pagination.hasMore) {
+    return
+  }
+  pagination.offset += pagination.limit
+  await loadWorkspace()
+}
+
+const prevPage = async () => {
+  if (pagination.offset <= 0) {
+    return
+  }
+  pagination.offset = Math.max(pagination.offset - pagination.limit, 0)
+  await loadWorkspace()
 }
 
 const submitSettlement = async (tokoID: number) => {
@@ -294,19 +173,24 @@ const submitSettlement = async (tokoID: number) => {
 
   form.loading = true
   try {
-    const updated = await tokoApi.applySettlement(tokoID, {
+    await tokoApi.applySettlement(tokoID, {
       settlement_balance: settlementBalance,
     })
-    balances.value = balances.value.map((item) =>
-      item.toko_id === tokoID ? updated : item,
-    )
     form.settlementBalance = ''
-    lastUpdated.value = new Date().toISOString()
+    toast.success('Settlement berhasil diperbarui')
+    await runNow()
   } catch (error) {
-    errorMessage.value = getApiErrorMessage(error)
+    const message = getApiErrorMessage(error)
+    errorMessage.value = message
+    toast.error(message)
   } finally {
     form.loading = false
   }
+}
+
+const resetCreateForm = () => {
+  createForm.name = ''
+  createForm.callbackURL = ''
 }
 
 const openCreateTokoModal = () => {
@@ -316,16 +200,8 @@ const openCreateTokoModal = () => {
   }
   createdToko.value = null
   createErrorMessage.value = ''
-  createForm.name = ''
-  createForm.callbackURL = ''
-  showCreateTokoModal.value = true
-}
-
-const closeCreateTokoModal = () => {
-  if (createLoading.value) {
-    return
-  }
-  showCreateTokoModal.value = false
+  resetCreateForm()
+  createDialogOpen.value = true
 }
 
 const submitCreateToko = async () => {
@@ -337,33 +213,315 @@ const submitCreateToko = async () => {
   createErrorMessage.value = ''
   createLoading.value = true
   try {
-    const payload = {
+    const created = await tokoApi.createToko({
       name: createForm.name.trim(),
       callback_url: createForm.callbackURL.trim() || undefined,
-    }
-    const created = await tokoApi.createToko(payload)
+    })
     createdToko.value = created
-    createForm.name = ''
-    createForm.callbackURL = ''
+    toast.success('Toko berhasil dibuat')
+    resetCreateForm()
     await runNow()
   } catch (error) {
-    createErrorMessage.value = getApiErrorMessage(error)
+    const message = getApiErrorMessage(error)
+    createErrorMessage.value = message
+    toast.error(message)
   } finally {
     createLoading.value = false
   }
 }
 
-const copyToClipboard = async (value: string) => {
+const copyToClipboard = async (value: string, label = 'Token toko') => {
   if (typeof window === 'undefined' || !window.navigator?.clipboard) {
+    toast.error('Clipboard tidak tersedia di browser ini')
     return
   }
+
   try {
     await window.navigator.clipboard.writeText(value)
+    toast.success(`${label} berhasil dicopy`)
   } catch {
-    // Ignore clipboard failures silently.
+    toast.error(`Gagal menyalin ${label.toLowerCase()}`)
   }
 }
 
+const rangeLabel = computed(() => {
+  if (pagination.total === 0 || items.value.length === 0) {
+    return 'No data'
+  }
+  const start = pagination.offset + 1
+  const end = Math.min(pagination.offset + items.value.length, pagination.total)
+  return `Showing ${start}-${end} of ${pagination.total}`
+})
+
+const currentPage = computed(() => Math.floor(pagination.offset / pagination.limit) + 1)
 const formatDate = (value: string) => formatDateMedium(value)
 const formatCurrencyWithDecimals = (value: number) => formatCurrency(value, 2)
+
+void loadWorkspace()
 </script>
+
+<template>
+  <section class="page-shell">
+    <PageHeader
+      eyebrow="Toko Workspace"
+      title="Manage Toko & Settlement"
+      description="Searchable, paginated toko workspace untuk token management dan settlement internal."
+      :updated-at="lastUpdated"
+    >
+      <template #actions>
+        <Button variant="outline" size="sm" :disabled="loading" @click="loadWorkspace">
+          <Spinner v-if="loading" class="mr-2" />
+          Refresh
+        </Button>
+
+        <Dialog v-if="canCreateTokoRole" v-model:open="createDialogOpen">
+          <DialogTrigger as-child>
+            <Button size="sm" @click="openCreateTokoModal">
+              <Plus class="mr-2 h-4 w-4" />
+              Create Toko
+            </Button>
+          </DialogTrigger>
+          <DialogContent class="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Create Toko</DialogTitle>
+              <DialogDescription>Maksimal 3 toko per creator divalidasi backend. Token dibuat otomatis oleh sistem.</DialogDescription>
+            </DialogHeader>
+
+            <div class="grid gap-4 py-2">
+              <div class="space-y-2">
+                <Label for="toko-name">Nama Toko</Label>
+                <Input id="toko-name" v-model="createForm.name" placeholder="Contoh: Toko Alfa" />
+              </div>
+              <div class="space-y-2">
+                <Label for="callback-url">Callback URL (opsional)</Label>
+                <Input id="callback-url" v-model="createForm.callbackURL" placeholder="https://domain/callback" />
+              </div>
+            </div>
+
+            <Alert v-if="createErrorMessage" variant="destructive">
+              <TriangleAlert class="h-4 w-4" />
+              <AlertTitle>Failed to Create Toko</AlertTitle>
+              <AlertDescription>{{ createErrorMessage }}</AlertDescription>
+            </Alert>
+
+            <div v-if="createdToko" class="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+              <p class="text-sm font-semibold text-emerald-300">Toko berhasil dibuat: {{ createdToko.name }}</p>
+              <p class="mt-1 text-xs text-muted-foreground">Gunakan token ini sebagai Bearer token untuk internal payment endpoint.</p>
+              <div class="mt-3 flex items-center gap-2 rounded-lg border bg-[var(--background-muted)] px-3 py-2">
+                <code class="min-w-0 flex-1 truncate text-xs">{{ createdToko.token }}</code>
+                <Button size="sm" variant="outline" type="button" @click="copyToClipboard(createdToko.token, 'Token toko baru')">
+                  <Copy class="mr-2 h-4 w-4" />
+                  Copy
+                </Button>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" :disabled="createLoading" @click="createDialogOpen = false">Close</Button>
+              <Button :disabled="createLoading || !canCreateTokoRole" @click="submitCreateToko">
+                <Spinner v-if="createLoading" class="mr-2" />
+                {{ createLoading ? 'Creating...' : 'Create Toko' }}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </template>
+    </PageHeader>
+
+    <Alert v-if="errorMessage" variant="destructive">
+      <TriangleAlert class="h-4 w-4" />
+      <AlertTitle>Failed to Load Toko Workspace</AlertTitle>
+      <AlertDescription>{{ errorMessage }}</AlertDescription>
+    </Alert>
+
+    <div class="grid gap-4 md:grid-cols-3">
+      <Card class="dashboard-kpi-card">
+        <CardHeader class="pb-2">
+          <CardDescription>Total Settlement Balance</CardDescription>
+          <CardTitle class="text-2xl">{{ formatCurrencyWithDecimals(summary.total_settlement_balance) }}</CardTitle>
+        </CardHeader>
+      </Card>
+      <Card class="dashboard-kpi-card">
+        <CardHeader class="pb-2">
+          <CardDescription>Total Available Balance</CardDescription>
+          <CardTitle class="text-2xl">{{ formatCurrencyWithDecimals(summary.total_available_balance) }}</CardTitle>
+        </CardHeader>
+      </Card>
+      <Card class="dashboard-kpi-card">
+        <CardHeader class="pb-2">
+          <CardDescription>Visible Toko</CardDescription>
+          <CardTitle class="text-2xl">{{ summary.total_tokos }}</CardTitle>
+        </CardHeader>
+      </Card>
+    </div>
+
+    <Card class="app-panel">
+      <CardHeader>
+        <CardTitle>Filters</CardTitle>
+        <CardDescription>Search berdasarkan nama toko, token, atau callback URL. Pagination diproses server-side.</CardDescription>
+      </CardHeader>
+      <CardContent class="space-y-3">
+        <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto]">
+          <div class="relative">
+            <Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              v-model="filters.q"
+              class="pl-9"
+              placeholder="Search toko name, token, atau callback URL"
+              @keydown.enter.prevent="applyFilters"
+            />
+          </div>
+          <Button variant="outline" :disabled="loading" @click="resetFilters">Reset</Button>
+          <Button :disabled="loading" @click="applyFilters">Apply Filters</Button>
+        </div>
+      </CardContent>
+    </Card>
+
+    <div v-if="loading && !workspace" class="space-y-4">
+      <Card class="app-panel">
+        <CardContent class="space-y-3 p-6">
+          <Skeleton class="h-8 w-48" />
+          <Skeleton class="h-12 w-full" />
+          <Skeleton class="h-12 w-full" />
+          <Skeleton class="h-12 w-full" />
+        </CardContent>
+      </Card>
+      <Card class="app-panel">
+        <CardContent class="space-y-3 p-6">
+          <Skeleton class="h-8 w-56" />
+          <Skeleton class="h-12 w-full" />
+          <Skeleton class="h-12 w-full" />
+          <Skeleton class="h-12 w-full" />
+        </CardContent>
+      </Card>
+    </div>
+
+    <template v-else>
+      <Card class="app-panel">
+        <CardHeader>
+          <CardTitle>Toko Management</CardTitle>
+          <CardDescription>Token digunakan sebagai Bearer pada internal payment endpoint.</CardDescription>
+        </CardHeader>
+        <CardContent class="app-table-shell">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Toko</TableHead>
+                <TableHead>Charge</TableHead>
+                <TableHead>Callback URL</TableHead>
+                <TableHead>Token</TableHead>
+                <TableHead class="text-right">Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <template v-if="items.length > 0">
+                <TableRow v-for="item in items" :key="item.id">
+                  <TableCell class="font-medium">{{ item.name }}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{{ item.charge }}%</Badge>
+                  </TableCell>
+                  <TableCell class="max-w-[280px] truncate text-muted-foreground">
+                    {{ item.callback_url || '-' }}
+                  </TableCell>
+                  <TableCell class="max-w-[240px]">
+                    <code class="block truncate rounded-md bg-[var(--background-muted)] px-2 py-1 text-xs">{{ item.token }}</code>
+                  </TableCell>
+                  <TableCell class="text-right">
+                    <Button size="sm" variant="outline" type="button" @click="copyToClipboard(item.token)">
+                      <Copy class="mr-2 h-4 w-4" />
+                      Copy Token
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              </template>
+              <TableEmpty v-else :colspan="5">
+                <EmptyState
+                  title="Belum Ada Toko"
+                  description="Tambahkan toko baru atau ubah filter untuk melihat data."
+                  :action-label="canCreateTokoRole ? 'Create Toko' : undefined"
+                  @action="openCreateTokoModal"
+                />
+              </TableEmpty>
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <Card class="app-panel">
+        <CardHeader>
+          <CardTitle>Settlement Balances</CardTitle>
+          <CardDescription>Manual settlement hanya untuk role dev. Role lain tetap melihat data secara read-only.</CardDescription>
+        </CardHeader>
+        <CardContent class="app-table-shell">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Toko</TableHead>
+                <TableHead class="text-right">Settlement Balance</TableHead>
+                <TableHead class="text-right">Available Balance</TableHead>
+                <TableHead>Updated</TableHead>
+                <TableHead class="text-right">Settlement Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <template v-if="items.length > 0">
+                <TableRow v-for="item in items" :key="`balance-${item.id}`">
+                  <TableCell class="font-medium">{{ item.name }}</TableCell>
+                  <TableCell class="text-right">{{ formatCurrencyWithDecimals(item.settlement_balance) }}</TableCell>
+                  <TableCell class="text-right">{{ formatCurrencyWithDecimals(item.available_balance) }}</TableCell>
+                  <TableCell>{{ formatDate(item.updated_at) }}</TableCell>
+                  <TableCell class="text-right">
+                    <form
+                      v-if="canManualSettlement"
+                      class="flex flex-col items-end gap-2 md:flex-row md:justify-end"
+                      @submit.prevent="submitSettlement(item.id)"
+                    >
+                      <Input
+                        v-model="formByToko[item.id].settlementBalance"
+                        class="w-full md:w-[190px]"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="Settlement amount"
+                      />
+                      <Button
+                        type="submit"
+                        size="sm"
+                        :disabled="formByToko[item.id].loading"
+                      >
+                        <Spinner v-if="formByToko[item.id].loading" class="mr-2" />
+                        {{ formByToko[item.id].loading ? 'Saving...' : 'Apply' }}
+                      </Button>
+                    </form>
+                    <span v-else class="text-sm text-muted-foreground">Developer only</span>
+                  </TableCell>
+                </TableRow>
+              </template>
+              <TableEmpty v-else :colspan="5">
+                <EmptyState
+                  title="Belum Ada Balance Toko"
+                  description="Balance settlement akan muncul otomatis setelah toko tersedia."
+                />
+              </TableEmpty>
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-(--background-elevated) px-4 py-3">
+        <div class="space-y-1">
+          <p class="text-sm font-medium text-foreground">{{ rangeLabel }}</p>
+          <p class="text-xs text-muted-foreground">Page {{ currentPage }} • Limit {{ pagination.limit }}</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <Button size="sm" variant="outline" :disabled="loading || pagination.offset <= 0" @click="prevPage">
+            Prev
+          </Button>
+          <Button size="sm" variant="outline" :disabled="loading || !pagination.hasMore" @click="nextPage">
+            Next
+          </Button>
+        </div>
+      </div>
+    </template>
+  </section>
+</template>

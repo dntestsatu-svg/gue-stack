@@ -37,6 +37,31 @@ func (h *TokoHandler) List(c *gin.Context) {
 	})
 }
 
+func (h *TokoHandler) Workspace(c *gin.Context) {
+	userID, actorRole, err := readUserContext(c)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+
+	query, err := parseTokoWorkspaceQuery(c)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+
+	page, err := h.toko.Workspace(c.Request.Context(), userID, actorRole, query)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"data":   page,
+	})
+}
+
 func (h *TokoHandler) Create(c *gin.Context) {
 	userID, actorRole, err := readUserContext(c)
 	if err != nil {

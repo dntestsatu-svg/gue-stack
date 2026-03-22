@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -18,6 +19,9 @@ type fakeUserRepo struct {
 	byEmail map[string]*model.User
 	byID    map[uint64]*model.User
 	nextID  uint64
+
+	listPageCalls int
+	countCalls    int
 }
 
 func (r *fakeUserRepo) Create(_ context.Context, user *model.User) error {
@@ -62,6 +66,55 @@ func (r *fakeUserRepo) ListByScope(_ context.Context, _ uint64, limit int) ([]mo
 	return items, nil
 }
 
+func (r *fakeUserRepo) ListPageByScope(_ context.Context, _ uint64, filter repository.UserListFilter) ([]model.User, error) {
+	r.listPageCalls++
+	if filter.Limit <= 0 {
+		filter.Limit = len(r.byID)
+	}
+
+	items := make([]model.User, 0, filter.Limit)
+	for _, user := range r.byID {
+		if filter.Role != "" && user.Role != filter.Role {
+			continue
+		}
+		if filter.SearchTerm != "" {
+			search := strings.ToLower(filter.SearchTerm)
+			if !strings.Contains(strings.ToLower(user.Name), search) && !strings.Contains(strings.ToLower(user.Email), search) {
+				continue
+			}
+		}
+		items = append(items, *user)
+	}
+
+	if filter.Offset >= len(items) {
+		return []model.User{}, nil
+	}
+
+	end := filter.Offset + filter.Limit
+	if end > len(items) {
+		end = len(items)
+	}
+	return items[filter.Offset:end], nil
+}
+
+func (r *fakeUserRepo) CountByScope(_ context.Context, _ uint64, filter repository.UserListFilter) (uint64, error) {
+	r.countCalls++
+	var count uint64
+	for _, user := range r.byID {
+		if filter.Role != "" && user.Role != filter.Role {
+			continue
+		}
+		if filter.SearchTerm != "" {
+			search := strings.ToLower(filter.SearchTerm)
+			if !strings.Contains(strings.ToLower(user.Name), search) && !strings.Contains(strings.ToLower(user.Email), search) {
+				continue
+			}
+		}
+		count++
+	}
+	return count, nil
+}
+
 func (r *fakeUserRepo) IsInScope(_ context.Context, actorUserID uint64, targetUserID uint64) (bool, error) {
 	if actorUserID == targetUserID {
 		return true, nil
@@ -81,6 +134,42 @@ func (r *fakeUserRepo) UpdateRole(_ context.Context, id uint64, role model.UserR
 	user.Role = role
 	if r.byEmail != nil {
 		r.byEmail[user.Email] = user
+	}
+	return nil
+}
+
+func (r *fakeUserRepo) UpdateActive(_ context.Context, id uint64, isActive bool) error {
+	user, ok := r.byID[id]
+	if !ok {
+		return repository.ErrNotFound
+	}
+	user.IsActive = isActive
+	if r.byEmail != nil {
+		r.byEmail[user.Email] = user
+	}
+	return nil
+}
+
+func (r *fakeUserRepo) UpdatePassword(_ context.Context, id uint64, passwordHash string) error {
+	user, ok := r.byID[id]
+	if !ok {
+		return repository.ErrNotFound
+	}
+	user.PasswordHash = passwordHash
+	if r.byEmail != nil {
+		r.byEmail[user.Email] = user
+	}
+	return nil
+}
+
+func (r *fakeUserRepo) Delete(_ context.Context, id uint64) error {
+	user, ok := r.byID[id]
+	if !ok {
+		return repository.ErrNotFound
+	}
+	delete(r.byID, id)
+	if r.byEmail != nil {
+		delete(r.byEmail, user.Email)
 	}
 	return nil
 }

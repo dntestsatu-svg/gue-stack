@@ -20,14 +20,14 @@ const {
   fetchOverviewMock,
   fetchHistoryMock,
   exportHistoryMock,
-  fetchBalancesMock,
-  fetchTokosMock,
+  fetchWorkspaceMock,
   applySettlementMock,
   createTokoMock,
   listUsersMock,
   meMock,
   createUserMock,
   updateRoleMock,
+  changePasswordMock,
 } = vi.hoisted(() => ({
   initCsrfMock: vi.fn(),
   loginMock: vi.fn(),
@@ -37,14 +37,14 @@ const {
   fetchOverviewMock: vi.fn(),
   fetchHistoryMock: vi.fn(),
   exportHistoryMock: vi.fn(),
-  fetchBalancesMock: vi.fn(),
-  fetchTokosMock: vi.fn(),
+  fetchWorkspaceMock: vi.fn(),
   applySettlementMock: vi.fn(),
   createTokoMock: vi.fn(),
   listUsersMock: vi.fn(),
   meMock: vi.fn(),
   createUserMock: vi.fn(),
   updateRoleMock: vi.fn(),
+  changePasswordMock: vi.fn(),
 }))
 
 vi.mock('@/services/auth', () => ({
@@ -62,8 +62,7 @@ vi.mock('@/services/dashboard', () => ({
 }))
 
 vi.mock('@/services/toko', () => ({
-  fetchBalances: fetchBalancesMock,
-  fetchTokos: fetchTokosMock,
+  fetchWorkspace: fetchWorkspaceMock,
   applySettlement: applySettlementMock,
   createToko: createTokoMock,
 }))
@@ -73,6 +72,7 @@ vi.mock('@/services/user', () => ({
   me: meMock,
   create: createUserMock,
   updateRole: updateRoleMock,
+  changePassword: changePasswordMock,
 }))
 
 vi.mock('@/composables/usePolling', () => ({
@@ -196,9 +196,25 @@ describe('App SPA routing', () => {
       offset: 0,
       has_more: false,
     })
-    fetchBalancesMock.mockResolvedValue([])
-    fetchTokosMock.mockResolvedValue([])
-    listUsersMock.mockResolvedValue([])
+    fetchWorkspaceMock.mockResolvedValue({
+      items: [],
+      summary: {
+        total_tokos: 0,
+        total_settlement_balance: 0,
+        total_available_balance: 0,
+      },
+      total: 0,
+      limit: 10,
+      offset: 0,
+      has_more: false,
+    })
+    listUsersMock.mockResolvedValue({
+      items: [],
+      total: 0,
+      limit: 10,
+      offset: 0,
+      has_more: false,
+    })
   })
 
   afterEach(() => {
@@ -230,6 +246,9 @@ describe('App SPA routing', () => {
       global: {
         plugins: [pinia, router],
         stubs: {
+          DashboardStatusAreaChart: {
+            template: '<div data-testid="dashboard-status-chart-stub">Status Chart</div>',
+          },
           DateRangePicker: {
             template: '<div data-testid="date-range-picker-stub" />',
           },
@@ -264,6 +283,9 @@ describe('App SPA routing', () => {
       global: {
         plugins: [pinia, router],
         stubs: {
+          DashboardStatusAreaChart: {
+            template: '<div data-testid="dashboard-status-chart-stub">Status Chart</div>',
+          },
           DateRangePicker: {
             template: '<div data-testid="date-range-picker-stub" />',
           },

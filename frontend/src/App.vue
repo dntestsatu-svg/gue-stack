@@ -1,5 +1,5 @@
 <template>
-  <div class="app-shell text-[var(--foreground)]">
+  <div class="app-shell text-foreground">
     <main v-if="isAuthLayout" class="app-auth-shell">
       <RouterView />
     </main>

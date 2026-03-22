@@ -55,6 +55,17 @@ Content-Type: application/json
 GET {{baseUrl}}/api/v1/user/me
 Authorization: Bearer {{accessToken}}
 
+### Change Current User Password
+PATCH {{baseUrl}}/api/v1/user/password
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "current_password": "secret123",
+  "new_password": "secret12345",
+  "confirm_password": "secret12345"
+}
+
 ### Dashboard Overview (Realtime Source)
 GET {{baseUrl}}/api/v1/dashboard/overview
 Authorization: Bearer {{accessToken}}
@@ -76,6 +87,10 @@ Content-Type: application/json
   "is_active": true
 }
 
+### List Users (search + role filter + pagination)
+GET {{baseUrl}}/api/v1/users?limit=10&offset=0&q=admin&role=admin
+Authorization: Bearer {{accessToken}}
+
 ### Update User Role (only dev/superadmin)
 PATCH {{baseUrl}}/api/v1/users/{{targetUserID}}/role
 Authorization: Bearer {{accessToken}}
@@ -85,8 +100,25 @@ Content-Type: application/json
   "role": "{{targetRole}}"
 }
 
+### Toggle User Active Status (admin+ within hierarchy)
+PATCH {{baseUrl}}/api/v1/users/{{targetUserID}}/active
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "is_active": false
+}
+
+### Delete User (admin+ within hierarchy)
+DELETE {{baseUrl}}/api/v1/users/{{targetUserID}}
+Authorization: Bearer {{accessToken}}
+
 ### List Tokos (maks 3 toko / user)
 GET {{baseUrl}}/api/v1/tokos
+Authorization: Bearer {{accessToken}}
+
+### Toko Workspace (search + pagination)
+GET {{baseUrl}}/api/v1/tokos/workspace?limit=10&offset=0&q=alpha
 Authorization: Bearer {{accessToken}}
 
 ### Create Toko

@@ -85,6 +85,85 @@ paths:
       responses:
         "200":
           description: OK
+  /api/v1/user/password:
+    patch:
+      summary: Change password for the currently authenticated user
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [current_password, new_password, confirm_password]
+              properties:
+                current_password:
+                  type: string
+                  minLength: 8
+                new_password:
+                  type: string
+                  minLength: 8
+                confirm_password:
+                  type: string
+                  minLength: 8
+      responses:
+        "200":
+          description: OK
+  /api/v1/users:
+    get:
+      summary: Paginated user list with search and role filter scoped to actor hierarchy
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: q
+          schema:
+            type: string
+        - in: query
+          name: role
+          schema:
+            type: string
+            enum: [dev, superadmin, admin, user]
+        - in: query
+          name: limit
+          schema:
+            type: integer
+        - in: query
+          name: offset
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+    post:
+      summary: Create user in actor hierarchy
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 8
+                role:
+                  type: string
+                  enum: [dev, superadmin, admin, user]
+                is_active:
+                  type: boolean
+      responses:
+        "201":
+          description: Created
   /api/v1/tokos:
     get:
       summary: List visible tokos based on actor scope (all for dev/superadmin, self plus creator for others)
@@ -113,6 +192,27 @@ paths:
       responses:
         "201":
           description: Created
+  /api/v1/tokos/workspace:
+    get:
+      summary: Paginated toko workspace with balances, search, and summary totals for dashboard toko page
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: q
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+        - in: query
+          name: offset
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
   /api/v1/tokos/balances:
     get:
       summary: List visible toko balances using the same toko visibility scope
@@ -224,42 +324,6 @@ paths:
       responses:
         "200":
           description: File download
-  /api/v1/users:
-    get:
-      summary: List users in actor hierarchy scope (requires role dev/superadmin/admin)
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: OK
-    post:
-      summary: Create user (requires role dev/superadmin/admin)
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [name, email, password]
-              properties:
-                name:
-                  type: string
-                email:
-                  type: string
-                  format: email
-                password:
-                  type: string
-                  minLength: 8
-                role:
-                  type: string
-                  enum: [dev, superadmin, admin, user]
-                is_active:
-                  type: boolean
-      responses:
-        "201":
-          description: Created
   /api/v1/users/{id}/role:
     patch:
       summary: Update user role (requires role dev/superadmin)
@@ -283,6 +347,46 @@ paths:
                 role:
                   type: string
                   enum: [dev, superadmin, admin, user]
+      responses:
+        "200":
+          description: OK
+  /api/v1/users/{id}/active:
+    patch:
+      summary: Toggle user active status (requires role dev/superadmin/admin within hierarchy scope)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [is_active]
+              properties:
+                is_active:
+                  type: boolean
+      responses:
+        "200":
+          description: OK
+  /api/v1/users/{id}:
+    delete:
+      summary: Delete user (requires role dev/superadmin/admin within hierarchy scope)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
       responses:
         "200":
           description: OK

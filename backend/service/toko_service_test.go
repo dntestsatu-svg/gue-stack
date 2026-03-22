@@ -2,9 +2,11 @@ package service
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 	"time"
 
+	"github.com/example/gue/backend/cache"
 	"github.com/example/gue/backend/model"
 	"github.com/example/gue/backend/repository"
 	"github.com/stretchr/testify/require"
@@ -19,6 +21,11 @@ type fakeTokoDomainRepo struct {
 		tokoID uint64
 	}
 	byID map[uint64]*model.Toko
+
+	workspaceItems        []repository.TokoWorkspaceRecord
+	workspaceSummary      repository.TokoWorkspaceSummary
+	workspaceListCalls    int
+	workspaceSummaryCalls int
 }
 
 func (f *fakeTokoDomainRepo) Create(_ context.Context, toko *model.Toko) error {
@@ -63,6 +70,25 @@ func (f *fakeTokoDomainRepo) CountByUser(_ context.Context, _ uint64) (int, erro
 
 func (f *fakeTokoDomainRepo) ListByUser(_ context.Context, _ uint64, _ model.UserRole) ([]model.Toko, error) {
 	return nil, nil
+}
+
+func (f *fakeTokoDomainRepo) ListWorkspaceByUser(_ context.Context, _ uint64, _ model.UserRole, filter repository.TokoWorkspaceFilter) ([]repository.TokoWorkspaceRecord, error) {
+	f.workspaceListCalls++
+	if filter.Offset >= len(f.workspaceItems) {
+		return []repository.TokoWorkspaceRecord{}, nil
+	}
+
+	end := filter.Offset + filter.Limit
+	if end > len(f.workspaceItems) {
+		end = len(f.workspaceItems)
+	}
+	return append([]repository.TokoWorkspaceRecord(nil), f.workspaceItems[filter.Offset:end]...), nil
+}
+
+func (f *fakeTokoDomainRepo) SummarizeWorkspaceByUser(_ context.Context, _ uint64, _ model.UserRole, _ repository.TokoWorkspaceFilter) (*repository.TokoWorkspaceSummary, error) {
+	f.workspaceSummaryCalls++
+	summary := f.workspaceSummary
+	return &summary, nil
 }
 
 func (f *fakeTokoDomainRepo) GetByID(_ context.Context, id uint64) (*model.Toko, error) {
@@ -116,7 +142,7 @@ func (f *fakeBalanceRepo) UpsertByTokoID(_ context.Context, tokoID uint64, settl
 
 func TestTokoServiceCreateForUserQuotaLimit(t *testing.T) {
 	repo := &fakeTokoDomainRepo{countByUser: 3}
-	svc := NewTokoService(repo, &fakeBalanceRepo{}, 3, 3)
+	svc := NewTokoService(repo, &fakeBalanceRepo{}, cache.NewNoopCache(), false, time.Minute, 3, 3, slog.Default())
 
 	_, err := svc.CreateForUser(context.Background(), 10, model.UserRoleAdmin, CreateTokoInput{
 		Name: "Toko A",
@@ -128,7 +154,7 @@ func TestTokoServiceCreateForUserQuotaLimit(t *testing.T) {
 
 func TestTokoServiceCreateForUserSuccess(t *testing.T) {
 	repo := &fakeTokoDomainRepo{countByUser: 1}
-	svc := NewTokoService(repo, &fakeBalanceRepo{}, 3, 3)
+	svc := NewTokoService(repo, &fakeBalanceRepo{}, cache.NewNoopCache(), false, time.Minute, 3, 3, slog.Default())
 
 	result, err := svc.CreateForUser(context.Background(), 10, model.UserRoleAdmin, CreateTokoInput{
 		Name: "Toko Alpha",
@@ -146,7 +172,7 @@ func TestTokoServiceCreateForUserSuccess(t *testing.T) {
 
 func TestTokoServiceCreateForUserForbiddenForUserRole(t *testing.T) {
 	repo := &fakeTokoDomainRepo{countByUser: 0}
-	svc := NewTokoService(repo, &fakeBalanceRepo{}, 3, 3)
+	svc := NewTokoService(repo, &fakeBalanceRepo{}, cache.NewNoopCache(), false, time.Minute, 3, 3, slog.Default())
 
 	_, err := svc.CreateForUser(context.Background(), 10, model.UserRoleUser, CreateTokoInput{
 		Name: "Toko Forbidden",
@@ -173,7 +199,7 @@ func TestTokoServiceManualSettlementSuccess(t *testing.T) {
 			},
 		},
 	}
-	svc := NewTokoService(tokoRepo, balanceRepo, 3, 3)
+	svc := NewTokoService(tokoRepo, balanceRepo, cache.NewNoopCache(), false, time.Minute, 3, 3, slog.Default())
 
 	result, err := svc.ManualSettlement(context.Background(), model.UserRoleDev, 12, ManualSettlementInput{
 		SettlementBalance: 250000,
@@ -202,7 +228,7 @@ func TestTokoServiceManualSettlementAccumulatesSettlementAndDeductsFee(t *testin
 			},
 		},
 	}
-	svc := NewTokoService(tokoRepo, balanceRepo, 3, 3)
+	svc := NewTokoService(tokoRepo, balanceRepo, cache.NewNoopCache(), false, time.Minute, 3, 3, slog.Default())
 
 	result, err := svc.ManualSettlement(context.Background(), model.UserRoleDev, 99, ManualSettlementInput{
 		SettlementBalance: 12000,
@@ -219,7 +245,7 @@ func TestTokoServiceManualSettlementForbiddenForSuperAdmin(t *testing.T) {
 			12: {ID: 12, Name: "Toko Delta"},
 		},
 	}
-	svc := NewTokoService(tokoRepo, &fakeBalanceRepo{}, 3, 3)
+	svc := NewTokoService(tokoRepo, &fakeBalanceRepo{}, cache.NewNoopCache(), false, time.Minute, 3, 3, slog.Default())
 
 	_, err := svc.ManualSettlement(context.Background(), model.UserRoleSuperAdmin, 12, ManualSettlementInput{
 		SettlementBalance: 1000,
@@ -246,7 +272,7 @@ func TestTokoServiceManualSettlementRejectsNegativeAvailable(t *testing.T) {
 			},
 		},
 	}
-	svc := NewTokoService(tokoRepo, balanceRepo, 3, 3)
+	svc := NewTokoService(tokoRepo, balanceRepo, cache.NewNoopCache(), false, time.Minute, 3, 3, slog.Default())
 
 	_, err := svc.ManualSettlement(context.Background(), model.UserRoleDev, 50, ManualSettlementInput{
 		SettlementBalance: 4000,
@@ -254,4 +280,138 @@ func TestTokoServiceManualSettlementRejectsNegativeAvailable(t *testing.T) {
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "insufficient available balance")
+}
+
+func TestTokoServiceWorkspaceReturnsPaginatedRows(t *testing.T) {
+	repo := &fakeTokoDomainRepo{
+		workspaceItems: []repository.TokoWorkspaceRecord{
+			{
+				ID:                 1,
+				Name:               "Toko Alpha",
+				Token:              "tok_alpha",
+				Charge:             3,
+				SettlementBalance:  120000,
+				AvailableBalance:   450000,
+				LastSettlementTime: time.Date(2026, 3, 21, 10, 0, 0, 0, time.UTC),
+			},
+			{
+				ID:                 2,
+				Name:               "Toko Beta",
+				Token:              "tok_beta",
+				Charge:             3,
+				SettlementBalance:  80000,
+				AvailableBalance:   250000,
+				LastSettlementTime: time.Date(2026, 3, 20, 9, 0, 0, 0, time.UTC),
+			},
+		},
+		workspaceSummary: repository.TokoWorkspaceSummary{
+			TotalTokos:            2,
+			TotalSettlementAmount: 200000,
+			TotalAvailableAmount:  700000,
+		},
+	}
+	svc := NewTokoService(repo, &fakeBalanceRepo{}, cache.NewNoopCache(), false, time.Minute, 3, 3, slog.Default())
+
+	page, err := svc.Workspace(context.Background(), 10, model.UserRoleAdmin, TokoWorkspaceQuery{
+		Limit:  1,
+		Offset: 0,
+	})
+
+	require.NoError(t, err)
+	require.Len(t, page.Items, 1)
+	require.Equal(t, uint64(2), page.Total)
+	require.Equal(t, uint64(2), page.Summary.TotalTokos)
+	require.Equal(t, 200000.0, page.Summary.TotalSettlementAmount)
+	require.Equal(t, 700000.0, page.Summary.TotalAvailableAmount)
+	require.True(t, page.HasMore)
+}
+
+func TestTokoServiceWorkspaceUsesCacheForPaginatedResult(t *testing.T) {
+	repo := &fakeTokoDomainRepo{
+		workspaceItems: []repository.TokoWorkspaceRecord{
+			{
+				ID:                 1,
+				Name:               "Toko Alpha",
+				Token:              "tok_alpha",
+				Charge:             3,
+				SettlementBalance:  120000,
+				AvailableBalance:   450000,
+				LastSettlementTime: time.Date(2026, 3, 21, 10, 0, 0, 0, time.UTC),
+			},
+		},
+		workspaceSummary: repository.TokoWorkspaceSummary{
+			TotalTokos:            1,
+			TotalSettlementAmount: 120000,
+			TotalAvailableAmount:  450000,
+		},
+	}
+	cacheStore := newFakeCacheStore()
+	svc := NewTokoService(repo, &fakeBalanceRepo{}, cacheStore, true, time.Minute, 3, 3, slog.Default())
+	query := TokoWorkspaceQuery{Limit: 10, Offset: 0}
+
+	firstPage, err := svc.Workspace(context.Background(), 10, model.UserRoleAdmin, query)
+	require.NoError(t, err)
+	require.Len(t, firstPage.Items, 1)
+	require.Equal(t, 1, repo.workspaceSummaryCalls)
+	require.Equal(t, 1, repo.workspaceListCalls)
+
+	secondPage, err := svc.Workspace(context.Background(), 10, model.UserRoleAdmin, query)
+	require.NoError(t, err)
+	require.Len(t, secondPage.Items, 1)
+	require.Equal(t, 1, repo.workspaceSummaryCalls)
+	require.Equal(t, 1, repo.workspaceListCalls)
+}
+
+func TestTokoServiceCreateInvalidatesWorkspaceNamespace(t *testing.T) {
+	repo := &fakeTokoDomainRepo{
+		countByUser: 0,
+		workspaceItems: []repository.TokoWorkspaceRecord{
+			{
+				ID:                 1,
+				Name:               "Toko Alpha",
+				Token:              "tok_alpha",
+				Charge:             3,
+				SettlementBalance:  120000,
+				AvailableBalance:   450000,
+				LastSettlementTime: time.Date(2026, 3, 21, 10, 0, 0, 0, time.UTC),
+			},
+		},
+		workspaceSummary: repository.TokoWorkspaceSummary{
+			TotalTokos:            1,
+			TotalSettlementAmount: 120000,
+			TotalAvailableAmount:  450000,
+		},
+	}
+	cacheStore := newFakeCacheStore()
+	svc := NewTokoService(repo, &fakeBalanceRepo{}, cacheStore, true, time.Minute, 3, 3, slog.Default())
+	query := TokoWorkspaceQuery{Limit: 10, Offset: 0}
+
+	_, err := svc.Workspace(context.Background(), 10, model.UserRoleAdmin, query)
+	require.NoError(t, err)
+	require.Equal(t, 1, repo.workspaceSummaryCalls)
+	require.Equal(t, 1, repo.workspaceListCalls)
+
+	_, err = svc.CreateForUser(context.Background(), 10, model.UserRoleAdmin, CreateTokoInput{Name: "Toko Baru"})
+	require.NoError(t, err)
+
+	repo.workspaceItems = append(repo.workspaceItems, repository.TokoWorkspaceRecord{
+		ID:                 2,
+		Name:               "Toko Baru",
+		Token:              "tok_baru",
+		Charge:             3,
+		SettlementBalance:  0,
+		AvailableBalance:   0,
+		LastSettlementTime: time.Date(2026, 3, 22, 10, 0, 0, 0, time.UTC),
+	})
+	repo.workspaceSummary = repository.TokoWorkspaceSummary{
+		TotalTokos:            2,
+		TotalSettlementAmount: 120000,
+		TotalAvailableAmount:  450000,
+	}
+
+	page, err := svc.Workspace(context.Background(), 10, model.UserRoleAdmin, query)
+	require.NoError(t, err)
+	require.Len(t, page.Items, 2)
+	require.Equal(t, 2, repo.workspaceSummaryCalls)
+	require.Equal(t, 2, repo.workspaceListCalls)
 }

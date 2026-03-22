@@ -12,8 +12,13 @@ type UserRepository interface {
 	GetByEmail(ctx context.Context, email string) (*model.User, error)
 	GetByID(ctx context.Context, id uint64) (*model.User, error)
 	ListByScope(ctx context.Context, actorUserID uint64, limit int) ([]model.User, error)
+	ListPageByScope(ctx context.Context, actorUserID uint64, filter UserListFilter) ([]model.User, error)
+	CountByScope(ctx context.Context, actorUserID uint64, filter UserListFilter) (uint64, error)
 	IsInScope(ctx context.Context, actorUserID uint64, targetUserID uint64) (bool, error)
 	UpdateRole(ctx context.Context, id uint64, role model.UserRole) error
+	UpdateActive(ctx context.Context, id uint64, isActive bool) error
+	UpdatePassword(ctx context.Context, id uint64, passwordHash string) error
+	Delete(ctx context.Context, id uint64) error
 }
 
 type TokoRepository interface {
@@ -22,6 +27,8 @@ type TokoRepository interface {
 	AttachUser(ctx context.Context, userID, tokoID uint64) error
 	CountByUser(ctx context.Context, userID uint64) (int, error)
 	ListByUser(ctx context.Context, userID uint64, actorRole model.UserRole) ([]model.Toko, error)
+	ListWorkspaceByUser(ctx context.Context, userID uint64, actorRole model.UserRole, filter TokoWorkspaceFilter) ([]TokoWorkspaceRecord, error)
+	SummarizeWorkspaceByUser(ctx context.Context, userID uint64, actorRole model.UserRole, filter TokoWorkspaceFilter) (*TokoWorkspaceSummary, error)
 	GetByID(ctx context.Context, id uint64) (*model.Toko, error)
 	GetByToken(ctx context.Context, token string) (*model.Toko, error)
 }
@@ -56,6 +63,13 @@ type DashboardMetrics struct {
 	TotalPlatformFee      uint64
 }
 
+type UserListFilter struct {
+	Limit      int
+	Offset     int
+	SearchTerm string
+	Role       model.UserRole
+}
+
 type DashboardStatusSeriesPoint struct {
 	Bucket       time.Time
 	SuccessCount uint64
@@ -68,6 +82,29 @@ type TokoBalanceRecord struct {
 	SettlementBalance  float64
 	AvailableBalance   float64
 	LastSettlementTime time.Time
+}
+
+type TokoWorkspaceFilter struct {
+	Limit      int
+	Offset     int
+	SearchTerm string
+}
+
+type TokoWorkspaceRecord struct {
+	ID                 uint64
+	Name               string
+	Token              string
+	Charge             int
+	CallbackURL        *string
+	SettlementBalance  float64
+	AvailableBalance   float64
+	LastSettlementTime time.Time
+}
+
+type TokoWorkspaceSummary struct {
+	TotalTokos            uint64
+	TotalSettlementAmount float64
+	TotalAvailableAmount  float64
 }
 
 type TransactionHistoryRecord struct {

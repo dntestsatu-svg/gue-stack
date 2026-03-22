@@ -71,6 +71,20 @@ docker compose up --build -d
 - seed payments
 - ensure exactly one `dev` user from `BOOTSTRAP_DEV_*` env
 
+Dummy dataset for local/demo:
+
+```bash
+cd backend
+go run ./cmd/initdb --seed
+```
+
+Fresh reset + dummy seed:
+
+```bash
+cd backend
+go run ./cmd/initdb --fresh --seed
+```
+
 Environment source of truth:
 - use only root `.env`
 - backend and frontend both load variables from root `.env`

@@ -103,7 +103,7 @@ const handleLogout = async () => {
 
     <SidebarFooter>
       <div class="space-y-3 p-2">
-        <div class="rounded-lg border border-[var(--border)] bg-[var(--background-muted)]/60 p-3">
+        <div class="rounded-lg border border-border bg-(--background-muted)/60 p-3">
           <div class="flex items-center justify-between gap-2">
             <p class="truncate text-sm font-semibold">{{ userStore.profile?.name || 'Unknown User' }}</p>
             <Badge variant="secondary" class="capitalize">{{ role }}</Badge>

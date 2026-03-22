@@ -17,10 +17,18 @@ import (
 )
 
 type mockTokoUseCase struct {
+	workspaceFn        func(ctx context.Context, userID uint64, actorRole model.UserRole, query service.TokoWorkspaceQuery) (*service.TokoWorkspacePage, error)
 	listFn             func(ctx context.Context, userID uint64, actorRole model.UserRole) ([]service.TokoDTO, error)
 	createFn           func(ctx context.Context, userID uint64, actorRole model.UserRole, input service.CreateTokoInput) (*service.TokoDTO, error)
 	listBalancesFn     func(ctx context.Context, userID uint64, actorRole model.UserRole) ([]service.TokoBalanceDTO, error)
 	manualSettlementFn func(ctx context.Context, actorRole model.UserRole, tokoID uint64, input service.ManualSettlementInput) (*service.TokoBalanceDTO, error)
+}
+
+func (m *mockTokoUseCase) Workspace(ctx context.Context, userID uint64, actorRole model.UserRole, query service.TokoWorkspaceQuery) (*service.TokoWorkspacePage, error) {
+	if m.workspaceFn == nil {
+		return nil, nil
+	}
+	return m.workspaceFn(ctx, userID, actorRole, query)
 }
 
 func (m *mockTokoUseCase) ListByUser(ctx context.Context, userID uint64, actorRole model.UserRole) ([]service.TokoDTO, error) {
@@ -63,6 +71,25 @@ func TestTokoHandlerEndpoints_TableDriven(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	mockUC := &mockTokoUseCase{
+		workspaceFn: func(_ context.Context, userID uint64, actorRole model.UserRole, query service.TokoWorkspaceQuery) (*service.TokoWorkspacePage, error) {
+			require.Equal(t, uint64(5), userID)
+			require.Equal(t, model.UserRoleAdmin, actorRole)
+			require.Equal(t, 10, query.Limit)
+			require.Equal(t, 20, query.Offset)
+			require.Equal(t, "alpha", query.SearchTerm)
+			return &service.TokoWorkspacePage{
+				Items: []service.TokoWorkspaceItemDTO{{ID: 1, Name: "Toko A", Token: "abc", Charge: 3, SettlementBalance: 1000, AvailableBalance: 2000}},
+				Summary: service.TokoWorkspaceSummaryDTO{
+					TotalTokos:            1,
+					TotalSettlementAmount: 1000,
+					TotalAvailableAmount:  2000,
+				},
+				Total:   1,
+				Limit:   10,
+				Offset:  20,
+				HasMore: false,
+			}, nil
+		},
 		listFn: func(_ context.Context, userID uint64, actorRole model.UserRole) ([]service.TokoDTO, error) {
 			require.Equal(t, uint64(5), userID)
 			require.Equal(t, model.UserRoleAdmin, actorRole)
@@ -94,6 +121,7 @@ func TestTokoHandlerEndpoints_TableDriven(t *testing.T) {
 	h := NewTokoHandler(mockUC)
 
 	r := gin.New()
+	r.GET("/tokos/workspace", withTokoAuthContext(5, model.UserRoleAdmin), h.Workspace)
 	r.GET("/tokos", withTokoAuthContext(5, model.UserRoleAdmin), h.List)
 	r.POST("/tokos", withTokoAuthContext(5, model.UserRoleAdmin), h.Create)
 	r.GET("/tokos/balances", withTokoAuthContext(5, model.UserRoleAdmin), h.ListBalances)
@@ -106,6 +134,7 @@ func TestTokoHandlerEndpoints_TableDriven(t *testing.T) {
 		body           map[string]any
 		expectedStatus int
 	}{
+		{name: "workspace", method: http.MethodGet, path: "/tokos/workspace?limit=10&offset=20&q=alpha", expectedStatus: http.StatusOK},
 		{name: "list", method: http.MethodGet, path: "/tokos", expectedStatus: http.StatusOK},
 		{name: "create", method: http.MethodPost, path: "/tokos", body: map[string]any{"name": "Toko Baru"}, expectedStatus: http.StatusCreated},
 		{name: "list balances", method: http.MethodGet, path: "/tokos/balances", expectedStatus: http.StatusOK},

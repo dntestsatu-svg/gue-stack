@@ -84,6 +84,7 @@ func NewRouter(
 	user.Use(middleware.AuthRequired(tokenManager, userRepo, cookieManager))
 	{
 		user.GET("/me", userHandler.Me)
+		user.PATCH("/password", csrfMiddleware, userHandler.ChangePassword)
 	}
 
 	dashboard := v1.Group("/dashboard")
@@ -105,11 +106,14 @@ func NewRouter(
 		users.GET("", middleware.RoleRequired(model.UserRoleDev, model.UserRoleSuperAdmin, model.UserRoleAdmin), userHandler.List)
 		users.POST("", csrfMiddleware, middleware.RoleRequired(model.UserRoleDev, model.UserRoleSuperAdmin, model.UserRoleAdmin), userHandler.Create)
 		users.PATCH("/:id/role", csrfMiddleware, middleware.RoleRequired(model.UserRoleDev, model.UserRoleSuperAdmin), userHandler.UpdateRole)
+		users.PATCH("/:id/active", csrfMiddleware, middleware.RoleRequired(model.UserRoleDev, model.UserRoleSuperAdmin, model.UserRoleAdmin), userHandler.UpdateActive)
+		users.DELETE("/:id", csrfMiddleware, middleware.RoleRequired(model.UserRoleDev, model.UserRoleSuperAdmin, model.UserRoleAdmin), userHandler.Delete)
 	}
 
 	tokos := v1.Group("/tokos")
 	tokos.Use(middleware.AuthRequired(tokenManager, userRepo, cookieManager))
 	{
+		tokos.GET("/workspace", tokoHandler.Workspace)
 		tokos.GET("", tokoHandler.List)
 		tokos.POST("", csrfMiddleware, middleware.RoleRequired(model.UserRoleDev, model.UserRoleSuperAdmin, model.UserRoleAdmin), tokoHandler.Create)
 		tokos.GET("/balances", tokoHandler.ListBalances)

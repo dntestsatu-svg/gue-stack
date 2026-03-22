@@ -44,13 +44,13 @@ func (h *UserHandler) List(c *gin.Context) {
 		return
 	}
 
-	limit, err := parseIntQuery(c, "limit", 50)
+	query, err := parseUserListQuery(c)
 	if err != nil {
 		handleError(c, err)
 		return
 	}
 
-	users, err := h.user.List(c.Request.Context(), actorUserID, actorRole, limit)
+	page, err := h.user.List(c.Request.Context(), actorUserID, actorRole, query)
 	if err != nil {
 		handleError(c, err)
 		return
@@ -58,7 +58,7 @@ func (h *UserHandler) List(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"status": "success",
-		"data":   users,
+		"data":   page,
 	})
 }
 
@@ -115,5 +115,84 @@ func (h *UserHandler) UpdateRole(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status": "success",
 		"data":   updated,
+	})
+}
+
+func (h *UserHandler) UpdateActive(c *gin.Context) {
+	actorUserID, actorRole, err := readUserContext(c)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+
+	targetID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil || targetID == 0 {
+		handleError(c, apperror.New(http.StatusBadRequest, "invalid user id", nil))
+		return
+	}
+
+	var req service.UpdateUserActiveInput
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, apperror.New(http.StatusBadRequest, "invalid request payload", err.Error()))
+		return
+	}
+
+	updated, err := h.user.UpdateActive(c.Request.Context(), actorUserID, actorRole, targetID, req)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"data":   updated,
+	})
+}
+
+func (h *UserHandler) Delete(c *gin.Context) {
+	actorUserID, actorRole, err := readUserContext(c)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+
+	targetID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil || targetID == 0 {
+		handleError(c, apperror.New(http.StatusBadRequest, "invalid user id", nil))
+		return
+	}
+
+	if err := h.user.Delete(c.Request.Context(), actorUserID, actorRole, targetID); err != nil {
+		handleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": "user deleted successfully",
+	})
+}
+
+func (h *UserHandler) ChangePassword(c *gin.Context) {
+	userID, _, err := readUserContext(c)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+
+	var req service.ChangePasswordInput
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, apperror.New(http.StatusBadRequest, "invalid request payload", err.Error()))
+		return
+	}
+
+	if err := h.user.ChangePassword(c.Request.Context(), userID, req); err != nil {
+		handleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": "password updated successfully",
 	})
 }

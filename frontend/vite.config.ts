@@ -61,5 +61,9 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './tests/setup.ts',
     include: ['tests/**/*.test.ts'],
+    pool: 'forks',
+    fileParallelism: false,
+    maxWorkers: 1,
+    execArgv: ['--max-old-space-size=4096'],
   },
 })

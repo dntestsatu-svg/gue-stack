@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/example/gue/backend/model"
 	"github.com/example/gue/backend/repository"
@@ -59,13 +60,55 @@ func (r *UserRepository) GetByID(ctx context.Context, id uint64) (*model.User, e
 }
 
 func (r *UserRepository) ListByScope(ctx context.Context, actorUserID uint64, limit int) ([]model.User, error) {
-	if limit <= 0 {
-		limit = 50
+	return r.ListPageByScope(ctx, actorUserID, repository.UserListFilter{
+		Limit:  limit,
+		Offset: 0,
+	})
+}
+
+func (r *UserRepository) ListPageByScope(ctx context.Context, actorUserID uint64, filter repository.UserListFilter) ([]model.User, error) {
+	if filter.Limit <= 0 {
+		filter.Limit = 50
 	}
-	if limit > 200 {
-		limit = 200
+	if filter.Limit > 200 {
+		filter.Limit = 200
+	}
+	if filter.Offset < 0 {
+		filter.Offset = 0
 	}
 
+	query, args := buildUserScopeListQuery(actorUserID, filter)
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("query list users: %w", err)
+	}
+	defer rows.Close()
+
+	users := make([]model.User, 0, filter.Limit)
+	for rows.Next() {
+		var user model.User
+		if err := scanUserRows(rows, &user); err != nil {
+			return nil, fmt.Errorf("scan user row: %w", err)
+		}
+		users = append(users, user)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate user rows: %w", err)
+	}
+	return users, nil
+}
+
+func (r *UserRepository) CountByScope(ctx context.Context, actorUserID uint64, filter repository.UserListFilter) (uint64, error) {
+	query, args := buildUserScopeCountQuery(actorUserID, filter)
+	var total uint64
+	if err := r.db.QueryRowContext(ctx, query, args...).Scan(&total); err != nil {
+		return 0, fmt.Errorf("count users by scope: %w", err)
+	}
+	return total, nil
+}
+
+func buildUserScopeListQuery(actorUserID uint64, filter repository.UserListFilter) (string, []any) {
 	query := `
 WITH RECURSIVE hierarchy AS (
   SELECT id
@@ -79,27 +122,54 @@ WITH RECURSIVE hierarchy AS (
 SELECT u.id, u.name, u.email, u.password_hash, u.role, u.is_active, u.created_by, u.created_at, u.updated_at
 FROM users u
 INNER JOIN hierarchy h ON h.id = u.id
-ORDER BY u.created_at DESC
-LIMIT ?`
-	rows, err := r.db.QueryContext(ctx, query, actorUserID, limit)
-	if err != nil {
-		return nil, fmt.Errorf("query list users: %w", err)
-	}
-	defer rows.Close()
+WHERE 1 = 1`
+	args := []any{actorUserID}
 
-	users := make([]model.User, 0, limit)
-	for rows.Next() {
-		var user model.User
-		if err := scanUserRows(rows, &user); err != nil {
-			return nil, fmt.Errorf("scan user row: %w", err)
-		}
-		users = append(users, user)
+	if filter.Role != "" {
+		query += "\nAND u.role = ?"
+		args = append(args, filter.Role)
 	}
 
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate user rows: %w", err)
+	if search := strings.ToLower(strings.TrimSpace(filter.SearchTerm)); search != "" {
+		pattern := "%" + search + "%"
+		query += "\nAND (LOWER(u.name) LIKE ? OR LOWER(u.email) LIKE ?)"
+		args = append(args, pattern, pattern)
 	}
-	return users, nil
+
+	query += "\nORDER BY u.created_at DESC, u.id DESC\nLIMIT ? OFFSET ?"
+	args = append(args, filter.Limit, filter.Offset)
+	return query, args
+}
+
+func buildUserScopeCountQuery(actorUserID uint64, filter repository.UserListFilter) (string, []any) {
+	query := `
+WITH RECURSIVE hierarchy AS (
+  SELECT id
+  FROM users
+  WHERE id = ?
+  UNION ALL
+  SELECT u.id
+  FROM users u
+  INNER JOIN hierarchy h ON u.created_by = h.id
+)
+SELECT COUNT(*)
+FROM users u
+INNER JOIN hierarchy h ON h.id = u.id
+WHERE 1 = 1`
+	args := []any{actorUserID}
+
+	if filter.Role != "" {
+		query += "\nAND u.role = ?"
+		args = append(args, filter.Role)
+	}
+
+	if search := strings.ToLower(strings.TrimSpace(filter.SearchTerm)); search != "" {
+		pattern := "%" + search + "%"
+		query += "\nAND (LOWER(u.name) LIKE ? OR LOWER(u.email) LIKE ?)"
+		args = append(args, pattern, pattern)
+	}
+
+	return query, args
 }
 
 func (r *UserRepository) IsInScope(ctx context.Context, actorUserID uint64, targetUserID uint64) (bool, error) {
@@ -133,6 +203,60 @@ func (r *UserRepository) UpdateRole(ctx context.Context, id uint64, role model.U
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		return fmt.Errorf("get rows affected for update user role: %w", err)
+	}
+	if rowsAffected == 0 {
+		return repository.ErrNotFound
+	}
+
+	return nil
+}
+
+func (r *UserRepository) UpdateActive(ctx context.Context, id uint64, isActive bool) error {
+	query := `UPDATE users SET is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+	result, err := r.db.ExecContext(ctx, query, isActive, id)
+	if err != nil {
+		return fmt.Errorf("update user active status: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("get rows affected for update user active status: %w", err)
+	}
+	if rowsAffected == 0 {
+		return repository.ErrNotFound
+	}
+
+	return nil
+}
+
+func (r *UserRepository) UpdatePassword(ctx context.Context, id uint64, passwordHash string) error {
+	query := `UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+	result, err := r.db.ExecContext(ctx, query, passwordHash, id)
+	if err != nil {
+		return fmt.Errorf("update user password: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("get rows affected for update user password: %w", err)
+	}
+	if rowsAffected == 0 {
+		return repository.ErrNotFound
+	}
+
+	return nil
+}
+
+func (r *UserRepository) Delete(ctx context.Context, id uint64) error {
+	query := `DELETE FROM users WHERE id = ?`
+	result, err := r.db.ExecContext(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("delete user: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("get rows affected for delete user: %w", err)
 	}
 	if rowsAffected == 0 {
 		return repository.ErrNotFound

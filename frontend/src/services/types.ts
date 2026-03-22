@@ -14,6 +14,21 @@ export interface User {
   is_active: boolean
 }
 
+export interface UserListPage {
+  items: User[]
+  total: number
+  limit: number
+  offset: number
+  has_more: boolean
+}
+
+export interface UserListQuery {
+  limit?: number
+  offset?: number
+  q?: string
+  role?: UserRole
+}
+
 export interface AuthResponseData {
   user: User
   expires_in: number
@@ -98,4 +113,36 @@ export interface TokoItem {
   token: string
   charge: number
   callback_url?: string
+}
+
+export interface TokoWorkspaceItem {
+  id: number
+  name: string
+  token: string
+  charge: number
+  callback_url?: string
+  settlement_balance: number
+  available_balance: number
+  updated_at: string
+}
+
+export interface TokoWorkspaceSummary {
+  total_tokos: number
+  total_settlement_balance: number
+  total_available_balance: number
+}
+
+export interface TokoWorkspacePage {
+  items: TokoWorkspaceItem[]
+  summary: TokoWorkspaceSummary
+  total: number
+  limit: number
+  offset: number
+  has_more: boolean
+}
+
+export interface TokoWorkspaceQuery {
+  limit?: number
+  offset?: number
+  q?: string
 }

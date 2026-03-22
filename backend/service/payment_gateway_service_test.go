@@ -74,6 +74,14 @@ func (f *fakeTokoRepo) ListByUser(_ context.Context, _ uint64, _ model.UserRole)
 	return nil, nil
 }
 
+func (f *fakeTokoRepo) ListWorkspaceByUser(_ context.Context, _ uint64, _ model.UserRole, _ repository.TokoWorkspaceFilter) ([]repository.TokoWorkspaceRecord, error) {
+	return nil, nil
+}
+
+func (f *fakeTokoRepo) SummarizeWorkspaceByUser(_ context.Context, _ uint64, _ model.UserRole, _ repository.TokoWorkspaceFilter) (*repository.TokoWorkspaceSummary, error) {
+	return &repository.TokoWorkspaceSummary{}, nil
+}
+
 func (f *fakeTokoRepo) GetByID(_ context.Context, id uint64) (*model.Toko, error) {
 	t, ok := f.byID[id]
 	if !ok {

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/url"
 	"os"
@@ -31,6 +32,7 @@ const (
 
 type initDBOptions struct {
 	fresh                bool
+	seed                 bool
 	allowProductionFresh bool
 }
 
@@ -105,15 +107,51 @@ func main() {
 		os.Exit(1)
 	}
 	log.Info("single dev user ensured", "email", devInput.Email)
+
+	if opts.seed {
+		seedOptions := seeder.DefaultDummySeedOptions()
+		seedOptions.Password = envOrDefault("DUMMY_SEED_PASSWORD", seedOptions.Password)
+		seedOptions.AdminCount = envIntOrDefault("DUMMY_SEED_ADMIN_COUNT", seedOptions.AdminCount)
+		seedOptions.MaxEmployeesPerAdmin = envIntOrDefault("DUMMY_SEED_MAX_EMPLOYEES_PER_ADMIN", seedOptions.MaxEmployeesPerAdmin)
+		seedOptions.MaxTokosPerAdmin = envIntOrDefault("DUMMY_SEED_MAX_TOKOS_PER_ADMIN", seedOptions.MaxTokosPerAdmin)
+		seedOptions.TransactionsPerTokoMin = envIntOrDefault("DUMMY_SEED_TRANSACTIONS_PER_TOKO_MIN", seedOptions.TransactionsPerTokoMin)
+		seedOptions.TransactionsPerTokoMax = envIntOrDefault("DUMMY_SEED_TRANSACTIONS_PER_TOKO_MAX", seedOptions.TransactionsPerTokoMax)
+		seedOptions.RandomSeed = envInt64OrDefault("DUMMY_SEED_RANDOM_SEED", seedOptions.RandomSeed)
+		seedOptions.Domain = envOrDefault("DUMMY_SEED_DOMAIN", seedOptions.Domain)
+
+		report, err := seeder.SeedDummyData(context.Background(), gormDB, seedOptions)
+		if err != nil {
+			log.Error("failed to seed dummy dataset", "error", err.Error())
+			os.Exit(1)
+		}
+
+		log.Info(
+			"dummy dataset seeded",
+			"superadmin_email", report.SuperAdminEmail,
+			"admins", report.AdminCount,
+			"employees", report.EmployeeCount,
+			"tokos", report.TokoCount,
+			"transactions", report.TransactionCount,
+		)
+	}
 }
 
 func parseInitDBOptions() initDBOptions {
-	freshFlag := flag.Bool("fresh", false, "drop and recreate database before applying migrations")
-	allowProductionFreshFlag := flag.Bool("allow-production-fresh", false, "allow --fresh when APP_ENV=production")
-	flag.Parse()
+	return parseInitDBOptionsFromArgs(os.Args[1:])
+}
+
+func parseInitDBOptionsFromArgs(args []string) initDBOptions {
+	flagSet := flag.NewFlagSet("initdb", flag.ContinueOnError)
+	flagSet.SetOutput(io.Discard)
+
+	freshFlag := flagSet.Bool("fresh", false, "drop and recreate database before applying migrations")
+	seedFlag := flagSet.Bool("seed", false, "seed dummy users, tokos, balances, and transactions after migrations")
+	allowProductionFreshFlag := flagSet.Bool("allow-production-fresh", false, "allow --fresh when APP_ENV=production")
+	_ = flagSet.Parse(args)
 
 	return initDBOptions{
 		fresh:                *freshFlag || envBool("INITDB_FRESH"),
+		seed:                 *seedFlag || envBool("INITDB_SEED"),
 		allowProductionFresh: *allowProductionFreshFlag || envBool("INITDB_ALLOW_PRODUCTION_FRESH"),
 	}
 }
@@ -467,4 +505,30 @@ func envOrDefault(key string, defaultValue string) string {
 		return defaultValue
 	}
 	return value
+}
+
+func envIntOrDefault(key string, defaultValue int) int {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return defaultValue
+	}
+
+	parsed, err := strconv.Atoi(value)
+	if err != nil {
+		return defaultValue
+	}
+	return parsed
+}
+
+func envInt64OrDefault(key string, defaultValue int64) int64 {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return defaultValue
+	}
+
+	parsed, err := strconv.ParseInt(value, 10, 64)
+	if err != nil {
+		return defaultValue
+	}
+	return parsed
 }

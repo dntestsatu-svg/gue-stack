@@ -38,7 +38,6 @@
             />
           </div>
           <div class="space-y-2">
-            <Label>From - To</Label>
             <DateRangePicker v-model="dateRange" :disabled="loading" />
           </div>
         </div>
@@ -55,14 +54,14 @@
         <CardDescription>{{ rangeLabel }}</CardDescription>
       </CardHeader>
       <CardContent>
-        <p v-if="errorMessage" class="mb-4 rounded-md border border-[var(--danger)]/25 bg-[var(--danger)]/8 px-3 py-2 text-sm text-[var(--danger)]">
+        <p v-if="errorMessage" class="mb-4 rounded-md border border-(--danger)/25 bg-(--danger)/8 px-3 py-2 text-sm text-(--danger)">
           {{ errorMessage }}
         </p>
 
         <div class="app-table-shell">
-          <table class="app-data-table min-w-[1080px] text-sm">
+          <table class="app-data-table min-w-270 text-sm">
             <thead>
-              <tr class="border-b border-[var(--border)] text-left text-[var(--muted-foreground)]">
+              <tr class="border-b border-border text-left text-muted-foreground">
                 <th class="px-3 py-3 font-medium">Waktu</th>
                 <th class="px-3 py-3 font-medium">Toko</th>
                 <th class="px-3 py-3 font-medium">Player</th>
@@ -78,7 +77,7 @@
               <tr
                 v-for="item in history"
                 :key="item.id"
-                class="border-b border-[var(--border)]/70 transition hover:bg-[var(--background-muted)]/40"
+                class="border-b border-border/70 transition hover:bg-(--background-muted)/40"
               >
                 <td class="px-3 py-3">{{ formatDate(item.created_at) }}</td>
                 <td class="px-3 py-3">{{ item.toko_name }}</td>
@@ -102,14 +101,14 @@
                 <td class="px-3 py-3 text-right">{{ formatCurrency(item.netto) }}</td>
               </tr>
               <tr v-if="!loading && history.length === 0">
-                <td colspan="9" class="px-3 py-8 text-center text-[var(--muted-foreground)]">Belum ada transaksi untuk filter ini.</td>
+                <td colspan="9" class="px-3 py-8 text-center text-muted-foreground">Belum ada transaksi untuk filter ini.</td>
               </tr>
             </tbody>
           </table>
         </div>
 
         <div class="mt-4 flex flex-wrap items-center justify-between gap-2">
-          <p class="text-sm text-[var(--muted-foreground)]">
+          <p class="text-sm text-muted-foreground">
             Page {{ currentPage }} • Limit {{ pagination.limit }}
           </p>
           <div class="flex items-center gap-2">

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/example/gue/backend/model"
 	"github.com/example/gue/backend/pkg/apperror"
 	"github.com/example/gue/backend/service"
 	"github.com/gin-gonic/gin"
@@ -59,6 +60,47 @@ func parseTransactionHistoryQuery(c *gin.Context) (service.TransactionHistoryQue
 	}
 
 	return query, nil
+}
+
+func parseTokoWorkspaceQuery(c *gin.Context) (service.TokoWorkspaceQuery, error) {
+	limit, err := parseIntQuery(c, "limit", 10)
+	if err != nil {
+		return service.TokoWorkspaceQuery{}, err
+	}
+
+	offset, err := parseIntQuery(c, "offset", 0)
+	if err != nil {
+		return service.TokoWorkspaceQuery{}, err
+	}
+
+	return service.TokoWorkspaceQuery{
+		Limit:      limit,
+		Offset:     offset,
+		SearchTerm: strings.TrimSpace(c.Query("q")),
+	}, nil
+}
+
+func parseUserListQuery(c *gin.Context) (service.UserListQuery, error) {
+	limit, err := parseIntQuery(c, "limit", 10)
+	if err != nil {
+		return service.UserListQuery{}, err
+	}
+
+	offset, err := parseIntQuery(c, "offset", 0)
+	if err != nil {
+		return service.UserListQuery{}, err
+	}
+
+	return service.UserListQuery{
+		Limit:      limit,
+		Offset:     offset,
+		SearchTerm: strings.TrimSpace(c.Query("q")),
+		Role:       serviceRoleQuery(c.Query("role")),
+	}, nil
+}
+
+func serviceRoleQuery(value string) model.UserRole {
+	return model.UserRole(strings.ToLower(strings.TrimSpace(value)))
 }
 
 func parseQueryDate(value string, endOfDay bool) (time.Time, error) {

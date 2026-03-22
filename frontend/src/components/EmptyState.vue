@@ -24,10 +24,10 @@ const resolvedIcon = computed<Component>(() => props.icon ?? Database)
 </script>
 
 <template>
-  <div class="flex flex-col items-center justify-center rounded-xl border border-dashed border-[var(--border)] bg-[var(--background-muted)]/40 px-6 py-12 text-center">
-    <AppIcon :icon="resolvedIcon" class="mb-4 h-10 w-10 text-[var(--muted-foreground)]" />
-    <h3 class="text-lg font-semibold text-[var(--foreground)]">{{ props.title }}</h3>
-    <p class="mt-2 max-w-md text-sm text-[var(--muted-foreground)]">{{ props.description }}</p>
+  <div class="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-[var(--background-muted)]/40 px-6 py-12 text-center">
+    <AppIcon :icon="resolvedIcon" class="mb-4 h-10 w-10 text-muted-foreground" />
+    <h3 class="text-lg font-semibold text-foreground">{{ props.title }}</h3>
+    <p class="mt-2 max-w-md text-sm text-muted-foreground">{{ props.description }}</p>
     <Button
       v-if="props.actionLabel"
       class="mt-5"

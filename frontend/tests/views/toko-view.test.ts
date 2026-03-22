@@ -4,18 +4,31 @@ import { createPinia, setActivePinia } from 'pinia'
 import TokoView from '@/views/TokoView.vue'
 import { useUserStore } from '@/stores/user'
 
-const { fetchBalancesMock, fetchTokosMock, applySettlementMock, createTokoMock } = vi.hoisted(() => ({
-  fetchBalancesMock: vi.fn(),
-  fetchTokosMock: vi.fn(),
+const {
+  fetchWorkspaceMock,
+  applySettlementMock,
+  createTokoMock,
+  toastSuccessMock,
+  toastErrorMock,
+} = vi.hoisted(() => ({
+  fetchWorkspaceMock: vi.fn(),
   applySettlementMock: vi.fn(),
   createTokoMock: vi.fn(),
+  toastSuccessMock: vi.fn(),
+  toastErrorMock: vi.fn(),
 }))
 
 vi.mock('@/services/toko', () => ({
-  fetchBalances: fetchBalancesMock,
-  fetchTokos: fetchTokosMock,
+  fetchWorkspace: fetchWorkspaceMock,
   applySettlement: applySettlementMock,
   createToko: createTokoMock,
+}))
+
+vi.mock('vue-sonner', () => ({
+  toast: {
+    success: toastSuccessMock,
+    error: toastErrorMock,
+  },
 }))
 
 vi.mock('@/composables/usePolling', () => ({
@@ -28,32 +41,44 @@ vi.mock('@/composables/usePolling', () => ({
 describe('TokoView', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
-    fetchBalancesMock.mockReset()
-    fetchTokosMock.mockReset()
+    fetchWorkspaceMock.mockReset()
     applySettlementMock.mockReset()
     createTokoMock.mockReset()
+    toastSuccessMock.mockReset()
+    toastErrorMock.mockReset()
+
+    fetchWorkspaceMock.mockResolvedValue({
+      items: [
+        {
+          id: 1,
+          name: 'Toko Alpha',
+          token: 'tok_alpha',
+          charge: 3,
+          callback_url: 'https://example.com/callback',
+          settlement_balance: 120000,
+          available_balance: 450000,
+          updated_at: '2026-03-21T10:00:00Z',
+        },
+      ],
+      summary: {
+        total_tokos: 1,
+        total_settlement_balance: 120000,
+        total_available_balance: 450000,
+      },
+      total: 1,
+      limit: 10,
+      offset: 0,
+      has_more: false,
+    })
+
+    Object.assign(globalThis.navigator, {
+      clipboard: {
+        writeText: vi.fn().mockResolvedValue(undefined),
+      },
+    })
   })
 
-  it('renders toko and settlement data for authorized role', async () => {
-    fetchBalancesMock.mockResolvedValue([
-      {
-        toko_id: 1,
-        toko_name: 'Toko Alpha',
-        settlement_balance: 120000,
-        available_balance: 450000,
-        updated_at: '2026-03-21T10:00:00Z',
-      },
-    ])
-    fetchTokosMock.mockResolvedValue([
-      {
-        id: 1,
-        name: 'Toko Alpha',
-        token: 'tok_abc',
-        charge: 3,
-        callback_url: 'https://example.com/callback',
-      },
-    ])
-
+  it('renders paginated toko workspace for authorized role', async () => {
     const userStore = useUserStore()
     userStore.setProfile({
       id: 11,
@@ -67,16 +92,15 @@ describe('TokoView', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('Manage Toko & Settlement')
-    expect(wrapper.text()).toContain('Toko Alpha')
+    expect(wrapper.text()).toContain('Toko Management')
     expect(wrapper.text()).toContain('Settlement Balances')
-    expect(fetchBalancesMock).toHaveBeenCalledTimes(1)
-    expect(fetchTokosMock).toHaveBeenCalledTimes(1)
+    expect(wrapper.text()).toContain('Toko Alpha')
+    expect(wrapper.text()).toContain('Showing 1-1 of 1')
+    expect(fetchWorkspaceMock).toHaveBeenCalled()
+    expect(fetchWorkspaceMock).toHaveBeenCalledWith({ limit: 10, offset: 0 })
   })
 
   it('does not render create toko action for user role', async () => {
-    fetchBalancesMock.mockResolvedValue([])
-    fetchTokosMock.mockResolvedValue([])
-
     const userStore = useUserStore()
     userStore.setProfile({
       id: 99,
@@ -90,5 +114,28 @@ describe('TokoView', () => {
     await flushPromises()
 
     expect(wrapper.text()).not.toContain('Create Toko')
+  })
+
+  it('shows toast feedback after token copy', async () => {
+    const userStore = useUserStore()
+    userStore.setProfile({
+      id: 11,
+      name: 'Admin',
+      email: 'admin@gue.local',
+      role: 'admin',
+      is_active: true,
+    })
+
+    const wrapper = mount(TokoView)
+    await flushPromises()
+
+    const copyButton = wrapper.findAll('button').find((button) => button.text().includes('Copy Token'))
+    expect(copyButton).toBeDefined()
+
+    await copyButton!.trigger('click')
+    await flushPromises()
+
+    expect(globalThis.navigator.clipboard.writeText).toHaveBeenCalled()
+    expect(toastSuccessMock).toHaveBeenCalled()
   })
 })

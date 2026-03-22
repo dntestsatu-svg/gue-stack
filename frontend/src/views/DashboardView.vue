@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowDownRight, ArrowUpRight, UserPlus, Users } from 'lucide-vue-next'
 import AppIcon from '@/components/AppIcon.vue'
+import DashboardStatusAreaChart from '@/components/dashboard/DashboardStatusAreaChart.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import { useFormatters } from '@/composables/useFormatters'
@@ -49,34 +50,6 @@ const loadDashboardData = async () => {
 }
 
 const { runNow } = usePolling(loadDashboardData, 10000)
-
-const maxSeriesValue = computed(() => {
-  const series = overview.value?.status_series ?? []
-  let maxValue = 0
-  for (const point of series) {
-    maxValue = Math.max(maxValue, point.success_count, point.failed_expired_count)
-  }
-  return maxValue > 0 ? maxValue : 1
-})
-
-const toPolyline = (selector: 'success_count' | 'failed_expired_count') => {
-  const series = overview.value?.status_series ?? []
-  if (series.length === 0) {
-    return ''
-  }
-
-  return series
-    .map((point, index) => {
-      const x = series.length === 1 ? 50 : (index / (series.length - 1)) * 100
-      const normalized = point[selector] / maxSeriesValue.value
-      const y = 36 - normalized * 30
-      return `${x},${y}`
-    })
-    .join(' ')
-}
-
-const successPolyline = computed(() => toPolyline('success_count'))
-const failedPolyline = computed(() => toPolyline('failed_expired_count'))
 
 const metricCards = computed(() => {
   const metrics = overview.value?.metrics
@@ -139,13 +112,13 @@ const metricCards = computed(() => {
 
     <p
       v-if="errorMessage"
-      class="rounded-md border border-[var(--danger)]/25 bg-[var(--danger)]/8 px-3 py-2 text-sm text-[var(--danger)]"
+      class="rounded-md border border-(--danger)/25 bg-(--danger)/8 px-3 py-2 text-sm text-(--danger)"
     >
       {{ errorMessage }}
     </p>
     <p
       v-if="overview?.external_balance_error"
-      class="rounded-md border border-[var(--warning)]/30 bg-[var(--warning)]/10 px-3 py-2 text-sm text-[var(--warning)]"
+      class="rounded-md border border-(--warning)/30 bg-(--warning)/10 px-3 py-2 text-sm text-(--warning)"
     >
       External balance warning: {{ overview.external_balance_error }}
     </p>
@@ -187,38 +160,16 @@ const metricCards = computed(() => {
           <div v-if="loading && !overview" class="space-y-2">
             <Skeleton class="h-64 w-full" />
           </div>
-          <div
+          <DashboardStatusAreaChart
             v-else-if="(overview?.status_series?.length ?? 0) > 0"
-            class="relative h-64 w-full rounded-lg border border-[var(--border)] bg-[var(--background-muted)]/35 p-3"
-          >
-            <svg viewBox="0 0 100 40" class="h-full w-full" preserveAspectRatio="none">
-              <g stroke="var(--chart-grid)" stroke-width="0.25">
-                <line v-for="line in 5" :key="line" x1="0" :y1="line * 8" x2="100" :y2="line * 8" />
-              </g>
-              <polyline
-                fill="none"
-                stroke="var(--chart-success)"
-                stroke-width="1.2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                :points="successPolyline"
-              />
-              <polyline
-                fill="none"
-                stroke="var(--chart-failed)"
-                stroke-width="1.2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                :points="failedPolyline"
-              />
-            </svg>
-          </div>
+            :series="overview?.status_series ?? []"
+          />
           <EmptyState
             v-else
             title="Belum Ada Data Chart"
             description="Data chart akan tampil setelah ada transaksi dalam jendela waktu aktif."
           />
-          <div class="mt-3 flex flex-wrap gap-3 text-sm text-[var(--muted-foreground)]">
+          <div class="mt-3 flex flex-wrap gap-3 text-sm text-muted-foreground">
             <span>Total: {{ overview?.metrics.total_transactions ?? 0 }}</span>
             <span>Success: {{ overview?.metrics.success_transactions ?? 0 }}</span>
             <span>Pending: {{ overview?.metrics.pending_transactions ?? 0 }}</span>
@@ -243,7 +194,7 @@ const metricCards = computed(() => {
           </div>
           <div class="dashboard-stat-row">
             <span>Net Flow</span>
-            <strong :class="(overview?.metrics.net_flow ?? 0) >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'">
+            <strong :class="(overview?.metrics.net_flow ?? 0) >= 0 ? 'text-(--success)' : 'text-(--danger)'">
               {{ formatCurrency(Math.abs(overview?.metrics.net_flow ?? 0)) }}
             </strong>
           </div>

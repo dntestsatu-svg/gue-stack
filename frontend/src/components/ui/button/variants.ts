@@ -6,8 +6,8 @@ export const buttonVariants = cva(
     variants: {
       variant: {
         default: 'bg-[var(--brand)] text-white hover:bg-[var(--brand-strong)]',
-        outline: 'border border-[var(--border)] bg-[var(--background-elevated)] text-[var(--foreground)] hover:bg-[var(--background-muted)]',
-        ghost: 'text-[var(--muted-foreground)] hover:bg-[var(--background-muted)] hover:text-[var(--foreground)]',
+        outline: 'border border-border bg-(--background-elevated) text-foreground hover:bg-(--background-muted)',
+        ghost: 'text-muted-foreground hover:bg-(--background-muted) hover:text-foreground',
       },
       size: {
         default: 'h-10 px-4 py-2',

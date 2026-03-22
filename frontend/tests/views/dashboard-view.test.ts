@@ -83,12 +83,21 @@ describe('DashboardView', () => {
       is_active: true,
     })
 
-    const wrapper = mount(DashboardView)
+    const wrapper = mount(DashboardView, {
+      global: {
+        stubs: {
+          DashboardStatusAreaChart: {
+            template: '<div data-testid="dashboard-status-chart-stub">Status Chart</div>',
+          },
+        },
+      },
+    })
     await Promise.resolve()
     await Promise.resolve()
 
     expect(wrapper.text()).toContain('Enterprise Operations Dashboard')
     expect(wrapper.text()).toContain('Success Rate')
+    expect(wrapper.text()).toContain('Status Chart')
     expect(wrapper.text()).toContain('Latest Order (Success)')
     expect(wrapper.text()).toContain('Toko Alpha')
   })

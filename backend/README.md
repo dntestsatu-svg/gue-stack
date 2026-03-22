@@ -55,6 +55,41 @@ make migrate-fresh
 make migrate-fresh-force
 ```
 
+## Seed Dummy Dataset
+
+Untuk kebutuhan local QA / demo data, `initdb` sekarang juga mendukung dummy seeding yang repeatable:
+
+```bash
+go run ./cmd/initdb --seed
+```
+
+Fitur ini akan:
+- memastikan ada 1 `superadmin` dummy
+- membuat `50` admin dummy
+- membuat jumlah `user/karyawan` acak di bawah setiap admin
+- membuat `1-3` toko per admin
+- selalu membuat `balance` untuk setiap toko
+- mengisi transaksi dummy agar dashboard dan histori transaksi langsung terisi
+
+Untuk reset total lalu seed ulang:
+
+```bash
+go run ./cmd/initdb --fresh --seed
+```
+
+Optional env override:
+
+```env
+DUMMY_SEED_PASSWORD=SeedPassword123!
+DUMMY_SEED_ADMIN_COUNT=50
+DUMMY_SEED_MAX_EMPLOYEES_PER_ADMIN=5
+DUMMY_SEED_MAX_TOKOS_PER_ADMIN=3
+DUMMY_SEED_TRANSACTIONS_PER_TOKO_MIN=12
+DUMMY_SEED_TRANSACTIONS_PER_TOKO_MAX=32
+DUMMY_SEED_RANDOM_SEED=20260321
+DUMMY_SEED_DOMAIN=seed.gue.local
+```
+
 ## Seed Payments
 
 ```bash

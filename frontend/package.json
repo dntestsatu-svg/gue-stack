@@ -13,6 +13,9 @@
   },
   "dependencies": {
     "@internationalized/date": "^3.12.0",
+    "@tanstack/vue-table": "^8.21.3",
+    "@unovis/ts": "^1.6.4",
+    "@unovis/vue": "^1.6.4",
     "@vueuse/core": "^14.2.1",
     "axios": "^1.13.2",
     "class-variance-authority": "^0.7.1",
@@ -23,7 +26,8 @@
     "shadcn-vue": "^2.4.0",
     "tailwind-merge": "^3.5.0",
     "vue": "^3.5.24",
-    "vue-router": "^4.6.3"
+    "vue-router": "^4.6.3",
+    "vue-sonner": "^2.0.9"
   },
   "devDependencies": {
     "@tailwindcss/forms": "^0.5.11",

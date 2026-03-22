@@ -25,7 +25,7 @@ const descriptionText = computed(() => {
     <div class="page-header-copy">
       <p class="dashboard-eyebrow">{{ eyebrow }}</p>
       <h1 class="text-2xl font-semibold tracking-tight md:text-3xl">{{ title }}</h1>
-      <p class="text-sm text-[var(--muted-foreground)]">
+      <p class="text-sm text-muted-foreground">
         {{ descriptionText }}
       </p>
     </div>

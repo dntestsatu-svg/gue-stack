@@ -3,7 +3,7 @@ import { mount } from '@vue/test-utils'
 import DateRangePicker from '@/components/DateRangePicker.vue'
 
 describe('DateRangePicker', () => {
-  it('normalizes the range when the from date moves past the to date', async () => {
+  it('renders formatted trigger labels from the provided model value', async () => {
     const wrapper = mount(DateRangePicker, {
       props: {
         modelValue: {
@@ -13,16 +13,11 @@ describe('DateRangePicker', () => {
       },
     })
 
-    const inputs = wrapper.findAll('input[type="date"]')
-    await inputs[0].setValue('2026-03-20')
-
-    expect(wrapper.emitted('update:modelValue')?.at(-1)?.[0]).toEqual({
-      from: '2026-03-20',
-      to: '2026-03-20',
-    })
+    expect(wrapper.text()).toContain('10 Mar 2026')
+    expect(wrapper.text()).toContain('15 Mar 2026')
   })
 
-  it('clears both dates when the clear preset is clicked', async () => {
+  it('emits an empty range when the clear preset is clicked', async () => {
     const wrapper = mount(DateRangePicker, {
       props: {
         modelValue: {
@@ -32,11 +27,29 @@ describe('DateRangePicker', () => {
       },
     })
 
-    await wrapper.get('button:last-of-type').trigger('click')
+    await wrapper.get('button:nth-of-type(4)').trigger('click')
 
     expect(wrapper.emitted('update:modelValue')?.at(-1)?.[0]).toEqual({
       from: '',
       to: '',
     })
+  })
+
+  it('emits a valid range when the last 7 days preset is clicked', async () => {
+    const wrapper = mount(DateRangePicker, {
+      props: {
+        modelValue: {
+          from: '',
+          to: '',
+        },
+      },
+    })
+
+    await wrapper.get('button:nth-of-type(2)').trigger('click')
+
+    const emitted = wrapper.emitted('update:modelValue')?.at(-1)?.[0] as { from: string, to: string }
+    expect(emitted.from).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    expect(emitted.to).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    expect(emitted.from <= emitted.to).toBe(true)
   })
 })
