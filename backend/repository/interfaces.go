@@ -30,7 +30,10 @@ type TokoRepository interface {
 	ListWorkspaceByUser(ctx context.Context, userID uint64, actorRole model.UserRole, filter TokoWorkspaceFilter) ([]TokoWorkspaceRecord, error)
 	SummarizeWorkspaceByUser(ctx context.Context, userID uint64, actorRole model.UserRole, filter TokoWorkspaceFilter) (*TokoWorkspaceSummary, error)
 	GetByID(ctx context.Context, id uint64) (*model.Toko, error)
+	GetAccessibleByID(ctx context.Context, userID uint64, actorRole model.UserRole, tokoID uint64) (*model.Toko, error)
 	GetByToken(ctx context.Context, token string) (*model.Toko, error)
+	UpdateProfile(ctx context.Context, tokoID uint64, name string, callbackURL *string) error
+	UpdateToken(ctx context.Context, tokoID uint64, token string) error
 }
 
 type BalanceRepository interface {

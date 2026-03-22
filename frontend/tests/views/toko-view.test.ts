@@ -8,12 +8,16 @@ const {
   fetchWorkspaceMock,
   applySettlementMock,
   createTokoMock,
+  updateTokoMock,
+  regenerateTokoTokenMock,
   toastSuccessMock,
   toastErrorMock,
 } = vi.hoisted(() => ({
   fetchWorkspaceMock: vi.fn(),
   applySettlementMock: vi.fn(),
   createTokoMock: vi.fn(),
+  updateTokoMock: vi.fn(),
+  regenerateTokoTokenMock: vi.fn(),
   toastSuccessMock: vi.fn(),
   toastErrorMock: vi.fn(),
 }))
@@ -22,6 +26,8 @@ vi.mock('@/services/toko', () => ({
   fetchWorkspace: fetchWorkspaceMock,
   applySettlement: applySettlementMock,
   createToko: createTokoMock,
+  updateToko: updateTokoMock,
+  regenerateTokoToken: regenerateTokoTokenMock,
 }))
 
 vi.mock('vue-sonner', () => ({
@@ -44,6 +50,8 @@ describe('TokoView', () => {
     fetchWorkspaceMock.mockReset()
     applySettlementMock.mockReset()
     createTokoMock.mockReset()
+    updateTokoMock.mockReset()
+    regenerateTokoTokenMock.mockReset()
     toastSuccessMock.mockReset()
     toastErrorMock.mockReset()
 
@@ -69,6 +77,20 @@ describe('TokoView', () => {
       limit: 10,
       offset: 0,
       has_more: false,
+    })
+    updateTokoMock.mockResolvedValue({
+      id: 1,
+      name: 'Toko Alpha Updated',
+      token: 'tok_alpha',
+      charge: 3,
+      callback_url: 'https://example.com/updated',
+    })
+    regenerateTokoTokenMock.mockResolvedValue({
+      id: 1,
+      name: 'Toko Alpha',
+      token: 'tok_rotated',
+      charge: 3,
+      callback_url: 'https://example.com/callback',
     })
 
     Object.assign(globalThis.navigator, {
@@ -136,6 +158,59 @@ describe('TokoView', () => {
     await flushPromises()
 
     expect(globalThis.navigator.clipboard.writeText).toHaveBeenCalled()
+    expect(toastSuccessMock).toHaveBeenCalled()
+  })
+
+  it('opens manage dialog, updates toko, and regenerates token for admin role', async () => {
+    const userStore = useUserStore()
+    userStore.setProfile({
+      id: 11,
+      name: 'Admin',
+      email: 'admin@gue.local',
+      role: 'admin',
+      is_active: true,
+    })
+
+    const wrapper = mount(TokoView)
+    await flushPromises()
+
+    const manageButton = wrapper.findAll('button').find((button) => button.text().includes('Manage'))
+    expect(manageButton).toBeDefined()
+
+    await manageButton!.trigger('click')
+    await flushPromises()
+
+    const nameInput = document.body.querySelector('#manage-toko-name') as { value: string; dispatchEvent: (event: unknown) => boolean } | null
+    expect(nameInput).toBeDefined()
+    nameInput!.value = 'Toko Alpha Updated'
+    nameInput!.dispatchEvent(new window.Event('input'))
+
+    const callbackInput = document.body.querySelector('#manage-callback-url') as { value: string; dispatchEvent: (event: unknown) => boolean } | null
+    expect(callbackInput).toBeDefined()
+    callbackInput!.value = 'https://example.com/updated'
+    callbackInput!.dispatchEvent(new window.Event('input'))
+    await flushPromises()
+
+    const saveButton = Array.from(document.body.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Save Changes'),
+    )
+    expect(saveButton).toBeDefined()
+    saveButton!.click()
+    await flushPromises()
+
+    expect(updateTokoMock).toHaveBeenCalledWith(1, {
+      name: 'Toko Alpha Updated',
+      callback_url: 'https://example.com/updated',
+    })
+
+    const regenerateButton = Array.from(document.body.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Generate New Token'),
+    )
+    expect(regenerateButton).toBeDefined()
+    regenerateButton!.click()
+    await flushPromises()
+
+    expect(regenerateTokoTokenMock).toHaveBeenCalledWith(1)
     expect(toastSuccessMock).toHaveBeenCalled()
   })
 })

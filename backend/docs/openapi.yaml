@@ -192,6 +192,49 @@ paths:
       responses:
         "201":
           description: Created
+  /api/v1/tokos/{id}:
+    patch:
+      summary: Update toko name and callback URL (dev/superadmin/admin only within visible scope)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                callback_url:
+                  type: string
+                  nullable: true
+      responses:
+        "200":
+          description: OK
+  /api/v1/tokos/{id}/regenerate-token:
+    post:
+      summary: Generate a new toko bearer token (dev/superadmin/admin only within visible scope)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: OK
   /api/v1/tokos/workspace:
     get:
       summary: Paginated toko workspace with balances, search, and summary totals for dashboard toko page

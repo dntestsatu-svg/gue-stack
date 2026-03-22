@@ -23,6 +23,8 @@ type TokoUseCase interface {
 	ListByUser(ctx context.Context, userID uint64, actorRole model.UserRole) ([]TokoDTO, error)
 	Workspace(ctx context.Context, userID uint64, actorRole model.UserRole, query TokoWorkspaceQuery) (*TokoWorkspacePage, error)
 	CreateForUser(ctx context.Context, userID uint64, actorRole model.UserRole, input CreateTokoInput) (*TokoDTO, error)
+	Update(ctx context.Context, userID uint64, actorRole model.UserRole, tokoID uint64, input UpdateTokoInput) (*TokoDTO, error)
+	RegenerateToken(ctx context.Context, userID uint64, actorRole model.UserRole, tokoID uint64) (*TokoDTO, error)
 	ListBalancesByUser(ctx context.Context, userID uint64, actorRole model.UserRole) ([]TokoBalanceDTO, error)
 	ManualSettlement(ctx context.Context, actorRole model.UserRole, tokoID uint64, input ManualSettlementInput) (*TokoBalanceDTO, error)
 }
@@ -41,6 +43,11 @@ type TokoService struct {
 }
 
 type CreateTokoInput struct {
+	Name        string  `json:"name" validate:"required,min=2,max=255"`
+	CallbackURL *string `json:"callback_url,omitempty" validate:"omitempty,url,max=255"`
+}
+
+type UpdateTokoInput struct {
 	Name        string  `json:"name" validate:"required,min=2,max=255"`
 	CallbackURL *string `json:"callback_url,omitempty" validate:"omitempty,url,max=255"`
 }
@@ -206,7 +213,7 @@ func (s *TokoService) Workspace(ctx context.Context, userID uint64, actorRole mo
 }
 
 func (s *TokoService) CreateForUser(ctx context.Context, userID uint64, actorRole model.UserRole, input CreateTokoInput) (*TokoDTO, error) {
-	if actorRole != model.UserRoleDev && actorRole != model.UserRoleSuperAdmin && actorRole != model.UserRoleAdmin {
+	if !canManageTokos(actorRole) {
 		return nil, apperror.New(http.StatusForbidden, "insufficient role permission", "only dev, superadmin, or admin can create toko")
 	}
 	if err := s.validate.Struct(input); err != nil {
@@ -257,6 +264,86 @@ func (s *TokoService) CreateForUser(ctx context.Context, userID uint64, actorRol
 		Charge:      toko.Charge,
 		CallbackURL: toko.CallbackURL,
 	}, nil
+}
+
+func (s *TokoService) Update(ctx context.Context, userID uint64, actorRole model.UserRole, tokoID uint64, input UpdateTokoInput) (*TokoDTO, error) {
+	if !canManageTokos(actorRole) {
+		return nil, apperror.New(http.StatusForbidden, "insufficient role permission", "only dev, superadmin, or admin can update toko")
+	}
+	if err := s.validate.Struct(input); err != nil {
+		return nil, apperror.New(http.StatusBadRequest, "invalid request payload", err.Error())
+	}
+
+	toko, err := s.tokoRepo.GetAccessibleByID(ctx, userID, actorRole, tokoID)
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return nil, apperror.New(http.StatusNotFound, "toko not found", nil)
+		}
+		return nil, apperror.New(http.StatusInternalServerError, "failed to fetch toko", err.Error())
+	}
+
+	name := strings.TrimSpace(input.Name)
+	callbackURL := trimOptionalString(input.CallbackURL)
+	if err := s.tokoRepo.UpdateProfile(ctx, tokoID, name, callbackURL); err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return nil, apperror.New(http.StatusNotFound, "toko not found", nil)
+		}
+		return nil, apperror.New(http.StatusInternalServerError, "failed to update toko", err.Error())
+	}
+	s.invalidateWorkspaceCache(ctx)
+
+	toko.Name = name
+	toko.CallbackURL = callbackURL
+	return &TokoDTO{
+		ID:          toko.ID,
+		Name:        toko.Name,
+		Token:       toko.Token,
+		Charge:      toko.Charge,
+		CallbackURL: toko.CallbackURL,
+	}, nil
+}
+
+func (s *TokoService) RegenerateToken(ctx context.Context, userID uint64, actorRole model.UserRole, tokoID uint64) (*TokoDTO, error) {
+	if !canManageTokos(actorRole) {
+		return nil, apperror.New(http.StatusForbidden, "insufficient role permission", "only dev, superadmin, or admin can regenerate toko token")
+	}
+
+	toko, err := s.tokoRepo.GetAccessibleByID(ctx, userID, actorRole, tokoID)
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return nil, apperror.New(http.StatusNotFound, "toko not found", nil)
+		}
+		return nil, apperror.New(http.StatusInternalServerError, "failed to fetch toko", err.Error())
+	}
+
+	var updateErr error
+	for attempt := 0; attempt < 5; attempt++ {
+		token, err := generateTokoToken()
+		if err != nil {
+			return nil, apperror.New(http.StatusInternalServerError, "failed to generate toko token", err.Error())
+		}
+
+		updateErr = s.tokoRepo.UpdateToken(ctx, tokoID, token)
+		if updateErr == nil {
+			toko.Token = token
+			s.invalidateWorkspaceCache(ctx)
+			return &TokoDTO{
+				ID:          toko.ID,
+				Name:        toko.Name,
+				Token:       toko.Token,
+				Charge:      toko.Charge,
+				CallbackURL: toko.CallbackURL,
+			}, nil
+		}
+		if errors.Is(updateErr, repository.ErrNotFound) {
+			return nil, apperror.New(http.StatusNotFound, "toko not found", nil)
+		}
+		if !isDuplicateKeyError(updateErr) {
+			return nil, apperror.New(http.StatusInternalServerError, "failed to regenerate toko token", updateErr.Error())
+		}
+	}
+
+	return nil, apperror.New(http.StatusInternalServerError, "failed to regenerate toko token", updateErr.Error())
 }
 
 func (s *TokoService) ListBalancesByUser(ctx context.Context, userID uint64, actorRole model.UserRole) ([]TokoBalanceDTO, error) {
@@ -370,6 +457,10 @@ func normalizeTokoWorkspaceQuery(query TokoWorkspaceQuery) TokoWorkspaceQuery {
 	}
 	query.SearchTerm = strings.TrimSpace(query.SearchTerm)
 	return query
+}
+
+func canManageTokos(role model.UserRole) bool {
+	return role == model.UserRoleDev || role == model.UserRoleSuperAdmin || role == model.UserRoleAdmin
 }
 
 func (s *TokoService) workspaceCacheKey(ctx context.Context, userID uint64, actorRole model.UserRole, query TokoWorkspaceQuery) string {

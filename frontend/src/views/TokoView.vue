@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
-import { Copy, Plus, Search, TriangleAlert } from 'lucide-vue-next'
+import { Copy, KeyRound, PencilLine, Plus, Search, TriangleAlert } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/EmptyState.vue'
 import PageHeader from '@/components/PageHeader.vue'
@@ -53,6 +53,12 @@ const createDialogOpen = ref(false)
 const createLoading = ref(false)
 const createErrorMessage = ref('')
 const createdToko = ref<TokoItem | null>(null)
+const manageDialogOpen = ref(false)
+const manageLoading = ref(false)
+const manageErrorMessage = ref('')
+const regenerateTokenLoading = ref(false)
+const managedToko = ref<TokoWorkspaceItem | null>(null)
+const managedToken = ref('')
 
 const filters = reactive({
   q: '',
@@ -67,6 +73,10 @@ const pagination = reactive({
 
 const formByToko = reactive<Record<number, SettlementFormState>>({})
 const createForm = reactive({
+  name: '',
+  callbackURL: '',
+})
+const manageForm = reactive({
   name: '',
   callbackURL: '',
 })
@@ -193,6 +203,13 @@ const resetCreateForm = () => {
   createForm.callbackURL = ''
 }
 
+const resetManageForm = () => {
+  manageForm.name = ''
+  manageForm.callbackURL = ''
+  manageErrorMessage.value = ''
+  managedToken.value = ''
+}
+
 const openCreateTokoModal = () => {
   if (!canCreateTokoRole.value) {
     createErrorMessage.value = 'Role user tidak memiliki izin membuat toko.'
@@ -202,6 +219,20 @@ const openCreateTokoModal = () => {
   createErrorMessage.value = ''
   resetCreateForm()
   createDialogOpen.value = true
+}
+
+const openManageTokoModal = (item: TokoWorkspaceItem) => {
+  if (!canCreateTokoRole.value) {
+    toast.error('Role user tidak memiliki izin mengelola toko.')
+    return
+  }
+
+  managedToko.value = item
+  manageForm.name = item.name
+  manageForm.callbackURL = item.callback_url ?? ''
+  managedToken.value = item.token
+  manageErrorMessage.value = ''
+  manageDialogOpen.value = true
 }
 
 const submitCreateToko = async () => {
@@ -227,6 +258,51 @@ const submitCreateToko = async () => {
     toast.error(message)
   } finally {
     createLoading.value = false
+  }
+}
+
+const submitManageToko = async () => {
+  if (!managedToko.value || !canCreateTokoRole.value) {
+    return
+  }
+
+  manageLoading.value = true
+  manageErrorMessage.value = ''
+  try {
+    const updated = await tokoApi.updateToko(managedToko.value.id, {
+      name: manageForm.name.trim(),
+      callback_url: manageForm.callbackURL.trim() || undefined,
+    })
+    managedToken.value = updated.token
+    toast.success('Toko berhasil diperbarui')
+    await runNow()
+  } catch (error) {
+    const message = getApiErrorMessage(error)
+    manageErrorMessage.value = message
+    toast.error(message)
+  } finally {
+    manageLoading.value = false
+  }
+}
+
+const submitRegenerateToken = async () => {
+  if (!managedToko.value || !canCreateTokoRole.value) {
+    return
+  }
+
+  regenerateTokenLoading.value = true
+  manageErrorMessage.value = ''
+  try {
+    const updated = await tokoApi.regenerateTokoToken(managedToko.value.id)
+    managedToken.value = updated.token
+    toast.success('Token toko berhasil diganti')
+    await runNow()
+  } catch (error) {
+    const message = getApiErrorMessage(error)
+    manageErrorMessage.value = message
+    toast.error(message)
+  } finally {
+    regenerateTokenLoading.value = false
   }
 }
 
@@ -321,6 +397,79 @@ void loadWorkspace()
               <Button :disabled="createLoading || !canCreateTokoRole" @click="submitCreateToko">
                 <Spinner v-if="createLoading" class="mr-2" />
                 {{ createLoading ? 'Creating...' : 'Create Toko' }}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog v-if="canCreateTokoRole" v-model:open="manageDialogOpen">
+          <DialogContent class="sm:max-w-xl">
+            <DialogHeader>
+              <DialogTitle>Manage Toko</DialogTitle>
+              <DialogDescription>Perbarui nama toko, callback URL, dan generate token Bearer baru untuk API project.</DialogDescription>
+            </DialogHeader>
+
+            <div class="grid gap-4 py-2">
+              <div class="space-y-2">
+                <Label for="manage-toko-name">Nama Toko</Label>
+                <Input id="manage-toko-name" v-model="manageForm.name" placeholder="Contoh: Toko Alfa" />
+              </div>
+              <div class="space-y-2">
+                <Label for="manage-callback-url">Callback URL</Label>
+                <Input id="manage-callback-url" v-model="manageForm.callbackURL" placeholder="https://domain/callback" />
+              </div>
+
+              <div class="rounded-xl border bg-(--background-muted) p-4">
+                <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                  <div class="space-y-1">
+                    <p class="text-sm font-medium text-foreground">API Token</p>
+                    <p class="text-xs text-muted-foreground">Gunakan token ini sebagai Bearer token untuk internal payment endpoint.</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    :disabled="regenerateTokenLoading"
+                    @click="submitRegenerateToken"
+                  >
+                    <Spinner v-if="regenerateTokenLoading" class="mr-2" />
+                    <KeyRound v-else class="mr-2 h-4 w-4" />
+                    {{ regenerateTokenLoading ? 'Generating...' : 'Generate New Token' }}
+                  </Button>
+                </div>
+
+                <div class="mt-3 flex items-center gap-2 rounded-lg border bg-(--background) px-3 py-2">
+                  <code class="min-w-0 flex-1 truncate text-xs">{{ managedToken || managedToko?.token || '-' }}</code>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    type="button"
+                    :disabled="!(managedToken || managedToko?.token)"
+                    @click="copyToClipboard(managedToken || managedToko?.token || '', 'Token toko')"
+                  >
+                    <Copy class="mr-2 h-4 w-4" />
+                    Copy
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            <Alert v-if="manageErrorMessage" variant="destructive">
+              <TriangleAlert class="h-4 w-4" />
+              <AlertTitle>Failed to Manage Toko</AlertTitle>
+              <AlertDescription>{{ manageErrorMessage }}</AlertDescription>
+            </Alert>
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                :disabled="manageLoading || regenerateTokenLoading"
+                @click="manageDialogOpen = false; managedToko = null; resetManageForm()"
+              >
+                Close
+              </Button>
+              <Button :disabled="manageLoading || regenerateTokenLoading" @click="submitManageToko">
+                <Spinner v-if="manageLoading" class="mr-2" />
+                {{ manageLoading ? 'Saving...' : 'Save Changes' }}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -427,10 +576,22 @@ void loadWorkspace()
                     <code class="block truncate rounded-md bg-[var(--background-muted)] px-2 py-1 text-xs">{{ item.token }}</code>
                   </TableCell>
                   <TableCell class="text-right">
-                    <Button size="sm" variant="outline" type="button" @click="copyToClipboard(item.token)">
-                      <Copy class="mr-2 h-4 w-4" />
-                      Copy Token
-                    </Button>
+                    <div class="flex justify-end gap-2">
+                      <Button size="sm" variant="outline" type="button" @click="copyToClipboard(item.token)">
+                        <Copy class="mr-2 h-4 w-4" />
+                        Copy Token
+                      </Button>
+                      <Button
+                        v-if="canCreateTokoRole"
+                        size="sm"
+                        variant="outline"
+                        type="button"
+                        @click="openManageTokoModal(item)"
+                      >
+                        <PencilLine class="mr-2 h-4 w-4" />
+                        Manage
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               </template>

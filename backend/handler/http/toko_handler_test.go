@@ -20,6 +20,8 @@ type mockTokoUseCase struct {
 	workspaceFn        func(ctx context.Context, userID uint64, actorRole model.UserRole, query service.TokoWorkspaceQuery) (*service.TokoWorkspacePage, error)
 	listFn             func(ctx context.Context, userID uint64, actorRole model.UserRole) ([]service.TokoDTO, error)
 	createFn           func(ctx context.Context, userID uint64, actorRole model.UserRole, input service.CreateTokoInput) (*service.TokoDTO, error)
+	updateFn           func(ctx context.Context, userID uint64, actorRole model.UserRole, tokoID uint64, input service.UpdateTokoInput) (*service.TokoDTO, error)
+	regenerateTokenFn  func(ctx context.Context, userID uint64, actorRole model.UserRole, tokoID uint64) (*service.TokoDTO, error)
 	listBalancesFn     func(ctx context.Context, userID uint64, actorRole model.UserRole) ([]service.TokoBalanceDTO, error)
 	manualSettlementFn func(ctx context.Context, actorRole model.UserRole, tokoID uint64, input service.ManualSettlementInput) (*service.TokoBalanceDTO, error)
 }
@@ -43,6 +45,20 @@ func (m *mockTokoUseCase) CreateForUser(ctx context.Context, userID uint64, acto
 		return nil, nil
 	}
 	return m.createFn(ctx, userID, actorRole, input)
+}
+
+func (m *mockTokoUseCase) Update(ctx context.Context, userID uint64, actorRole model.UserRole, tokoID uint64, input service.UpdateTokoInput) (*service.TokoDTO, error) {
+	if m.updateFn == nil {
+		return nil, nil
+	}
+	return m.updateFn(ctx, userID, actorRole, tokoID, input)
+}
+
+func (m *mockTokoUseCase) RegenerateToken(ctx context.Context, userID uint64, actorRole model.UserRole, tokoID uint64) (*service.TokoDTO, error) {
+	if m.regenerateTokenFn == nil {
+		return nil, nil
+	}
+	return m.regenerateTokenFn(ctx, userID, actorRole, tokoID)
 }
 
 func (m *mockTokoUseCase) ListBalancesByUser(ctx context.Context, userID uint64, actorRole model.UserRole) ([]service.TokoBalanceDTO, error) {
@@ -101,6 +117,19 @@ func TestTokoHandlerEndpoints_TableDriven(t *testing.T) {
 			require.Equal(t, "Toko Baru", input.Name)
 			return &service.TokoDTO{ID: 2, Name: "Toko Baru", Token: "new-token", Charge: 3}, nil
 		},
+		updateFn: func(_ context.Context, userID uint64, actorRole model.UserRole, tokoID uint64, input service.UpdateTokoInput) (*service.TokoDTO, error) {
+			require.Equal(t, uint64(5), userID)
+			require.Equal(t, model.UserRoleAdmin, actorRole)
+			require.Equal(t, uint64(2), tokoID)
+			require.Equal(t, "Toko Update", input.Name)
+			return &service.TokoDTO{ID: 2, Name: "Toko Update", Token: "new-token", Charge: 3, CallbackURL: input.CallbackURL}, nil
+		},
+		regenerateTokenFn: func(_ context.Context, userID uint64, actorRole model.UserRole, tokoID uint64) (*service.TokoDTO, error) {
+			require.Equal(t, uint64(5), userID)
+			require.Equal(t, model.UserRoleAdmin, actorRole)
+			require.Equal(t, uint64(2), tokoID)
+			return &service.TokoDTO{ID: 2, Name: "Toko Update", Token: "rotated-token", Charge: 3}, nil
+		},
 		listBalancesFn: func(_ context.Context, userID uint64, actorRole model.UserRole) ([]service.TokoBalanceDTO, error) {
 			require.Equal(t, uint64(5), userID)
 			require.Equal(t, model.UserRoleAdmin, actorRole)
@@ -124,6 +153,8 @@ func TestTokoHandlerEndpoints_TableDriven(t *testing.T) {
 	r.GET("/tokos/workspace", withTokoAuthContext(5, model.UserRoleAdmin), h.Workspace)
 	r.GET("/tokos", withTokoAuthContext(5, model.UserRoleAdmin), h.List)
 	r.POST("/tokos", withTokoAuthContext(5, model.UserRoleAdmin), h.Create)
+	r.PATCH("/tokos/:id", withTokoAuthContext(5, model.UserRoleAdmin), h.Update)
+	r.POST("/tokos/:id/regenerate-token", withTokoAuthContext(5, model.UserRoleAdmin), h.RegenerateToken)
 	r.GET("/tokos/balances", withTokoAuthContext(5, model.UserRoleAdmin), h.ListBalances)
 	r.PATCH("/tokos/:id/settlement", withTokoAuthContext(5, model.UserRoleDev), h.ManualSettlement)
 
@@ -137,6 +168,8 @@ func TestTokoHandlerEndpoints_TableDriven(t *testing.T) {
 		{name: "workspace", method: http.MethodGet, path: "/tokos/workspace?limit=10&offset=20&q=alpha", expectedStatus: http.StatusOK},
 		{name: "list", method: http.MethodGet, path: "/tokos", expectedStatus: http.StatusOK},
 		{name: "create", method: http.MethodPost, path: "/tokos", body: map[string]any{"name": "Toko Baru"}, expectedStatus: http.StatusCreated},
+		{name: "update", method: http.MethodPatch, path: "/tokos/2", body: map[string]any{"name": "Toko Update", "callback_url": "https://example.com/updated"}, expectedStatus: http.StatusOK},
+		{name: "regenerate token", method: http.MethodPost, path: "/tokos/2/regenerate-token", expectedStatus: http.StatusOK},
 		{name: "list balances", method: http.MethodGet, path: "/tokos/balances", expectedStatus: http.StatusOK},
 		{name: "manual settlement", method: http.MethodPatch, path: "/tokos/1/settlement", body: map[string]any{"settlement_balance": 100}, expectedStatus: http.StatusOK},
 	}

@@ -23,6 +23,8 @@ const {
   fetchWorkspaceMock,
   applySettlementMock,
   createTokoMock,
+  updateTokoMock,
+  regenerateTokoTokenMock,
   listUsersMock,
   meMock,
   createUserMock,
@@ -40,6 +42,8 @@ const {
   fetchWorkspaceMock: vi.fn(),
   applySettlementMock: vi.fn(),
   createTokoMock: vi.fn(),
+  updateTokoMock: vi.fn(),
+  regenerateTokoTokenMock: vi.fn(),
   listUsersMock: vi.fn(),
   meMock: vi.fn(),
   createUserMock: vi.fn(),
@@ -65,6 +69,8 @@ vi.mock('@/services/toko', () => ({
   fetchWorkspace: fetchWorkspaceMock,
   applySettlement: applySettlementMock,
   createToko: createTokoMock,
+  updateToko: updateTokoMock,
+  regenerateTokoToken: regenerateTokoTokenMock,
 }))
 
 vi.mock('@/services/user', () => ({

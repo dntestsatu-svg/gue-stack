@@ -102,8 +102,37 @@ func (f *fakeTokoDomainRepo) GetByID(_ context.Context, id uint64) (*model.Toko,
 	return item, nil
 }
 
+func (f *fakeTokoDomainRepo) GetAccessibleByID(ctx context.Context, _ uint64, _ model.UserRole, tokoID uint64) (*model.Toko, error) {
+	return f.GetByID(ctx, tokoID)
+}
+
 func (f *fakeTokoDomainRepo) GetByToken(_ context.Context, _ string) (*model.Toko, error) {
 	return nil, repository.ErrNotFound
+}
+
+func (f *fakeTokoDomainRepo) UpdateProfile(_ context.Context, tokoID uint64, name string, callbackURL *string) error {
+	if f.byID == nil {
+		return repository.ErrNotFound
+	}
+	item, ok := f.byID[tokoID]
+	if !ok {
+		return repository.ErrNotFound
+	}
+	item.Name = name
+	item.CallbackURL = callbackURL
+	return nil
+}
+
+func (f *fakeTokoDomainRepo) UpdateToken(_ context.Context, tokoID uint64, token string) error {
+	if f.byID == nil {
+		return repository.ErrNotFound
+	}
+	item, ok := f.byID[tokoID]
+	if !ok {
+		return repository.ErrNotFound
+	}
+	item.Token = token
+	return nil
 }
 
 type fakeBalanceRepo struct {
@@ -414,4 +443,57 @@ func TestTokoServiceCreateInvalidatesWorkspaceNamespace(t *testing.T) {
 	require.Len(t, page.Items, 2)
 	require.Equal(t, 2, repo.workspaceSummaryCalls)
 	require.Equal(t, 2, repo.workspaceListCalls)
+}
+
+func TestTokoServiceUpdateSuccess(t *testing.T) {
+	callback := "https://example.com/callback"
+	repo := &fakeTokoDomainRepo{
+		byID: map[uint64]*model.Toko{
+			7: {ID: 7, Name: "Toko Lama", Token: "token-lama", Charge: 3, CallbackURL: &callback},
+		},
+	}
+	svc := NewTokoService(repo, &fakeBalanceRepo{}, cache.NewNoopCache(), false, time.Minute, 3, 3, slog.Default())
+
+	newCallback := "https://example.com/baru"
+	updated, err := svc.Update(context.Background(), 10, model.UserRoleAdmin, 7, UpdateTokoInput{
+		Name:        "Toko Baru",
+		CallbackURL: &newCallback,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, "Toko Baru", updated.Name)
+	require.NotNil(t, updated.CallbackURL)
+	require.Equal(t, newCallback, *updated.CallbackURL)
+}
+
+func TestTokoServiceUpdateForbiddenForUserRole(t *testing.T) {
+	repo := &fakeTokoDomainRepo{
+		byID: map[uint64]*model.Toko{
+			7: {ID: 7, Name: "Toko Lama", Token: "token-lama", Charge: 3},
+		},
+	}
+	svc := NewTokoService(repo, &fakeBalanceRepo{}, cache.NewNoopCache(), false, time.Minute, 3, 3, slog.Default())
+
+	_, err := svc.Update(context.Background(), 10, model.UserRoleUser, 7, UpdateTokoInput{
+		Name: "Toko Baru",
+	})
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "insufficient role")
+}
+
+func TestTokoServiceRegenerateTokenSuccess(t *testing.T) {
+	repo := &fakeTokoDomainRepo{
+		byID: map[uint64]*model.Toko{
+			7: {ID: 7, Name: "Toko Alpha", Token: "token-lama", Charge: 3},
+		},
+	}
+	svc := NewTokoService(repo, &fakeBalanceRepo{}, cache.NewNoopCache(), false, time.Minute, 3, 3, slog.Default())
+
+	updated, err := svc.RegenerateToken(context.Background(), 10, model.UserRoleAdmin, 7)
+
+	require.NoError(t, err)
+	require.NotEmpty(t, updated.Token)
+	require.NotEqual(t, "token-lama", updated.Token)
+	require.Equal(t, updated.Token, repo.byID[7].Token)
 }

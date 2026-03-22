@@ -87,6 +87,62 @@ func (h *TokoHandler) Create(c *gin.Context) {
 	})
 }
 
+func (h *TokoHandler) Update(c *gin.Context) {
+	userID, actorRole, err := readUserContext(c)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+
+	tokoID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil || tokoID == 0 {
+		handleError(c, apperror.New(http.StatusBadRequest, "invalid toko id", nil))
+		return
+	}
+
+	var req service.UpdateTokoInput
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, apperror.New(http.StatusBadRequest, "invalid request payload", err.Error()))
+		return
+	}
+
+	item, err := h.toko.Update(c.Request.Context(), userID, actorRole, tokoID, req)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"data":   item,
+	})
+}
+
+func (h *TokoHandler) RegenerateToken(c *gin.Context) {
+	userID, actorRole, err := readUserContext(c)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+
+	tokoID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil || tokoID == 0 {
+		handleError(c, apperror.New(http.StatusBadRequest, "invalid toko id", nil))
+		return
+	}
+
+	item, err := h.toko.RegenerateToken(c.Request.Context(), userID, actorRole, tokoID)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"data":   item,
+	})
+}
+
 func (h *TokoHandler) ListBalances(c *gin.Context) {
 	userID, actorRole, err := readUserContext(c)
 	if err != nil {

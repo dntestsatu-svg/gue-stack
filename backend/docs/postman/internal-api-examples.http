@@ -131,6 +131,20 @@ Content-Type: application/json
   "callback_url": "https://merchant.example.com/callback"
 }
 
+### Update Toko Profile
+PATCH {{baseUrl}}/api/v1/tokos/1
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "Toko Alpha Updated",
+  "callback_url": "https://merchant.example.com/callback-updated"
+}
+
+### Regenerate Toko Token
+POST {{baseUrl}}/api/v1/tokos/1/regenerate-token
+Authorization: Bearer {{accessToken}}
+
 ### Generate QRIS/VA (auth pakai bearer toko token)
 POST {{baseUrl}}/api/v1/payments/gateway/generate
 Authorization: Bearer {{tokoToken}}

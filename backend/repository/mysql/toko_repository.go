@@ -270,15 +270,65 @@ func (r *TokoRepository) GetByID(ctx context.Context, id uint64) (*model.Toko, e
 	return r.getOne(ctx, query, id)
 }
 
+func (r *TokoRepository) GetAccessibleByID(ctx context.Context, userID uint64, actorRole model.UserRole, tokoID uint64) (*model.Toko, error) {
+	if canViewAllTokos(actorRole) {
+		return r.GetByID(ctx, tokoID)
+	}
+
+	query := tokoVisibilityCTE() + `
+SELECT t.id, t.name, t.token, t.charge, t.callback_url, t.created_at, t.updated_at
+FROM tokos t
+INNER JOIN accessible_tokos at ON at.toko_id = t.id
+WHERE t.id = ?
+LIMIT 1`
+	return r.getOne(ctx, query, userID, userID, tokoID)
+}
+
 func (r *TokoRepository) GetByToken(ctx context.Context, token string) (*model.Toko, error) {
 	query := `SELECT id, name, token, charge, callback_url, created_at, updated_at FROM tokos WHERE token = ? LIMIT 1`
 	return r.getOne(ctx, query, token)
 }
 
-func (r *TokoRepository) getOne(ctx context.Context, query string, arg any) (*model.Toko, error) {
+func (r *TokoRepository) UpdateProfile(ctx context.Context, tokoID uint64, name string, callbackURL *string) error {
+	query := `UPDATE tokos SET name = ?, callback_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+	result, err := r.db.ExecContext(ctx, query, name, nullableString(callbackURL), tokoID)
+	if err != nil {
+		return fmt.Errorf("update toko profile: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("get rows affected for update toko profile: %w", err)
+	}
+	if rowsAffected == 0 {
+		return repository.ErrNotFound
+	}
+
+	return nil
+}
+
+func (r *TokoRepository) UpdateToken(ctx context.Context, tokoID uint64, token string) error {
+	query := `UPDATE tokos SET token = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+	result, err := r.db.ExecContext(ctx, query, token, tokoID)
+	if err != nil {
+		return fmt.Errorf("update toko token: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("get rows affected for update toko token: %w", err)
+	}
+	if rowsAffected == 0 {
+		return repository.ErrNotFound
+	}
+
+	return nil
+}
+
+func (r *TokoRepository) getOne(ctx context.Context, query string, args ...any) (*model.Toko, error) {
 	toko := &model.Toko{}
 	var callbackURL sql.NullString
-	if err := r.db.QueryRowContext(ctx, query, arg).Scan(
+	if err := r.db.QueryRowContext(ctx, query, args...).Scan(
 		&toko.ID,
 		&toko.Name,
 		&toko.Token,

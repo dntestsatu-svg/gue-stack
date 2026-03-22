@@ -116,6 +116,8 @@ func NewRouter(
 		tokos.GET("/workspace", tokoHandler.Workspace)
 		tokos.GET("", tokoHandler.List)
 		tokos.POST("", csrfMiddleware, middleware.RoleRequired(model.UserRoleDev, model.UserRoleSuperAdmin, model.UserRoleAdmin), tokoHandler.Create)
+		tokos.PATCH("/:id", csrfMiddleware, middleware.RoleRequired(model.UserRoleDev, model.UserRoleSuperAdmin, model.UserRoleAdmin), tokoHandler.Update)
+		tokos.POST("/:id/regenerate-token", csrfMiddleware, middleware.RoleRequired(model.UserRoleDev, model.UserRoleSuperAdmin, model.UserRoleAdmin), tokoHandler.RegenerateToken)
 		tokos.GET("/balances", tokoHandler.ListBalances)
 		tokos.PATCH("/:id/settlement", csrfMiddleware, middleware.RoleRequired(model.UserRoleDev), tokoHandler.ManualSettlement)
 	}

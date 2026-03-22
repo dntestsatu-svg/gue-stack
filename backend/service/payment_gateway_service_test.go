@@ -90,12 +90,35 @@ func (f *fakeTokoRepo) GetByID(_ context.Context, id uint64) (*model.Toko, error
 	return t, nil
 }
 
+func (f *fakeTokoRepo) GetAccessibleByID(ctx context.Context, _ uint64, _ model.UserRole, tokoID uint64) (*model.Toko, error) {
+	return f.GetByID(ctx, tokoID)
+}
+
 func (f *fakeTokoRepo) GetByToken(_ context.Context, token string) (*model.Toko, error) {
 	t, ok := f.byToken[token]
 	if !ok {
 		return nil, repository.ErrNotFound
 	}
 	return t, nil
+}
+
+func (f *fakeTokoRepo) UpdateProfile(_ context.Context, tokoID uint64, name string, callbackURL *string) error {
+	t, ok := f.byID[tokoID]
+	if !ok {
+		return repository.ErrNotFound
+	}
+	t.Name = name
+	t.CallbackURL = callbackURL
+	return nil
+}
+
+func (f *fakeTokoRepo) UpdateToken(_ context.Context, tokoID uint64, token string) error {
+	t, ok := f.byID[tokoID]
+	if !ok {
+		return repository.ErrNotFound
+	}
+	t.Token = token
+	return nil
 }
 
 type settlementUpdate struct {
