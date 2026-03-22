@@ -48,6 +48,31 @@ func (r *fakeUserRepo) GetByID(_ context.Context, id uint64) (*model.User, error
 	return nil, repository.ErrNotFound
 }
 
+func (r *fakeUserRepo) ListByScope(_ context.Context, _ uint64, limit int) ([]model.User, error) {
+	if limit <= 0 {
+		limit = len(r.byID)
+	}
+	items := make([]model.User, 0, limit)
+	for _, user := range r.byID {
+		items = append(items, *user)
+		if len(items) >= limit {
+			break
+		}
+	}
+	return items, nil
+}
+
+func (r *fakeUserRepo) IsInScope(_ context.Context, actorUserID uint64, targetUserID uint64) (bool, error) {
+	if actorUserID == targetUserID {
+		return true, nil
+	}
+	target, ok := r.byID[targetUserID]
+	if !ok {
+		return false, nil
+	}
+	return target.CreatedBy != nil && *target.CreatedBy == actorUserID, nil
+}
+
 func (r *fakeUserRepo) UpdateRole(_ context.Context, id uint64, role model.UserRole) error {
 	user, ok := r.byID[id]
 	if !ok {

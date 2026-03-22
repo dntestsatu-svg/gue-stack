@@ -1,6 +1,7 @@
 package config
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -114,6 +115,12 @@ type PaymentGatewayConfig struct {
 }
 
 func Load() (Config, error) {
+	if envFilePath := findRootEnvFile(); envFilePath != "" {
+		if err := loadEnvFile(envFilePath); err != nil {
+			return Config{}, fmt.Errorf("load env file: %w", err)
+		}
+	}
+
 	env := os.Getenv("APP_ENV")
 	if env == "" {
 		env = "development"
@@ -122,23 +129,8 @@ func Load() (Config, error) {
 	v := viper.New()
 	setDefaults(v, env)
 
-	v.SetConfigType("env")
-	v.AutomaticEnv()
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-
-	if envFilePath := findRootEnvFile(); envFilePath != "" {
-		v.SetConfigFile(envFilePath)
-		if err := v.ReadInConfig(); err != nil {
-			_, isNotFound := err.(viper.ConfigFileNotFoundError)
-			if !isNotFound {
-				if strings.Contains(err.Error(), "no such file") || strings.Contains(err.Error(), "cannot find") {
-					// optional env file
-				} else {
-					return Config{}, fmt.Errorf("read config file: %w", err)
-				}
-			}
-		}
-	}
+	v.AutomaticEnv()
 
 	cfg := Config{}
 	if err := v.Unmarshal(&cfg); err != nil {
@@ -229,14 +221,19 @@ func setDefaults(v *viper.Viper, env string) {
 
 	v.SetDefault("asynq.concurrency", 10)
 
+	cookieSecureDefault := true
+	if strings.EqualFold(env, "development") || strings.EqualFold(env, "local") || strings.EqualFold(env, "test") {
+		cookieSecureDefault = false
+	}
+
 	v.SetDefault("security.cookie.access_token_name", "access_token")
 	v.SetDefault("security.cookie.refresh_token_name", "refresh_token")
 	v.SetDefault("security.cookie.csrf_cookie_name", "csrf_token")
 	v.SetDefault("security.cookie.domain", "")
 	v.SetDefault("security.cookie.path", "/")
-	v.SetDefault("security.cookie.secure", true)
+	v.SetDefault("security.cookie.secure", cookieSecureDefault)
 	v.SetDefault("security.cookie.http_only", true)
-	v.SetDefault("security.cookie.same_site", "strict")
+	v.SetDefault("security.cookie.same_site", "lax")
 
 	v.SetDefault("security.csrf.enabled", true)
 	v.SetDefault("security.csrf.header_name", "X-CSRF-Token")
@@ -279,4 +276,58 @@ func findRootEnvFile() string {
 	}
 
 	return ""
+}
+
+func loadEnvFile(path string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if strings.HasPrefix(line, "export ") {
+			line = strings.TrimSpace(strings.TrimPrefix(line, "export "))
+		}
+
+		key, value, found := strings.Cut(line, "=")
+		if !found {
+			continue
+		}
+
+		key = strings.TrimSpace(key)
+		if key == "" {
+			continue
+		}
+		value = trimEnvValue(strings.TrimSpace(value))
+
+		if _, exists := os.LookupEnv(key); exists {
+			continue
+		}
+		if err := os.Setenv(key, value); err != nil {
+			return fmt.Errorf("set env %s: %w", key, err)
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("scan env file: %w", err)
+	}
+	return nil
+}
+
+func trimEnvValue(value string) string {
+	if len(value) >= 2 {
+		if strings.HasPrefix(value, "\"") && strings.HasSuffix(value, "\"") {
+			return strings.Trim(value, "\"")
+		}
+		if strings.HasPrefix(value, "'") && strings.HasSuffix(value, "'") {
+			return strings.Trim(value, "'")
+		}
+	}
+	return value
 }

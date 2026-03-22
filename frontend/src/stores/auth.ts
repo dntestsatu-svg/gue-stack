@@ -1,74 +1,46 @@
 import { defineStore } from 'pinia'
 import * as authApi from '@/services/auth'
-import { getApiErrorMessage } from '@/services/http'
+import { clearCSRFToken, getApiErrorMessage } from '@/services/http'
 import type { AuthResponseData } from '@/services/types'
 import { useUserStore } from './user'
 
 interface AuthState {
-  accessToken: string | null
-  refreshToken: string | null
   expiresIn: number
   ready: boolean
   processing: boolean
+  authenticated: boolean
 }
-
-const ACCESS_KEY = 'access_token'
-const REFRESH_KEY = 'refresh_token'
 
 export const useAuthStore = defineStore('auth', {
   state: (): AuthState => ({
-    accessToken: null,
-    refreshToken: null,
     expiresIn: 0,
     ready: false,
     processing: false,
+    authenticated: false,
   }),
   getters: {
-    isAuthenticated: (state) => Boolean(state.accessToken),
+    isAuthenticated: (state) => state.authenticated,
   },
   actions: {
-    hydrate() {
-      if (this.ready) {
-        return
-      }
-      this.accessToken = localStorage.getItem(ACCESS_KEY)
-      this.refreshToken = localStorage.getItem(REFRESH_KEY)
-      this.ready = true
-    },
     applySession(payload: AuthResponseData) {
-      this.accessToken = payload.access_token
-      this.refreshToken = payload.refresh_token
       this.expiresIn = payload.expires_in
-      localStorage.setItem(ACCESS_KEY, payload.access_token)
-      localStorage.setItem(REFRESH_KEY, payload.refresh_token)
+      this.authenticated = true
       const userStore = useUserStore()
       userStore.setProfile(payload.user)
     },
     clearSession() {
-      this.accessToken = null
-      this.refreshToken = null
       this.expiresIn = 0
-      localStorage.removeItem(ACCESS_KEY)
-      localStorage.removeItem(REFRESH_KEY)
+      this.authenticated = false
+      clearCSRFToken()
       useUserStore().clear()
-    },
-    async register(payload: authApi.RegisterPayload) {
-      this.processing = true
-      try {
-        const data = await authApi.register(payload)
-        this.applySession(data)
-        return data
-      } catch (error) {
-        throw new Error(getApiErrorMessage(error))
-      } finally {
-        this.processing = false
-      }
     },
     async login(payload: authApi.LoginPayload) {
       this.processing = true
       try {
+        await authApi.initCsrf()
         const data = await authApi.login(payload)
         this.applySession(data)
+        this.ready = true
         return data
       } catch (error) {
         throw new Error(getApiErrorMessage(error))
@@ -77,11 +49,9 @@ export const useAuthStore = defineStore('auth', {
       }
     },
     async tryRefresh() {
-      if (!this.refreshToken) {
-        return false
-      }
       try {
-        const data = await authApi.refresh(this.refreshToken)
+        await authApi.initCsrf()
+        const data = await authApi.refresh()
         this.applySession(data)
         return true
       } catch {
@@ -90,19 +60,43 @@ export const useAuthStore = defineStore('auth', {
       }
     },
     async restoreSession() {
-      this.hydrate()
-      if (this.accessToken) {
-        return true
+      if (this.ready) {
+        return this.authenticated
       }
-      return this.tryRefresh()
+
+      const userStore = useUserStore()
+      try {
+        await userStore.fetchMe()
+        this.authenticated = true
+        this.ready = true
+        return true
+      } catch {
+        // try refresh fallback below
+      }
+
+      const refreshed = await this.tryRefresh()
+      if (!refreshed) {
+        this.ready = true
+        return false
+      }
+
+      try {
+        await userStore.fetchMe()
+        this.authenticated = true
+        this.ready = true
+        return true
+      } catch {
+        this.clearSession()
+        this.ready = true
+        return false
+      }
     },
     async logout() {
-      if (this.refreshToken) {
-        try {
-          await authApi.logout(this.refreshToken)
-        } catch {
-          // ignore remote logout failure; clear local session regardless
-        }
+      try {
+        await authApi.initCsrf()
+        await authApi.logout()
+      } catch {
+        // ignore remote logout failure; clear local session regardless
       }
       this.clearSession()
     },

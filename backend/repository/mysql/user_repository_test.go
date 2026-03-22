@@ -26,10 +26,10 @@ func TestUserRepository_GetByEmailFound(t *testing.T) {
 	repo := NewUserRepository(db)
 	now := time.Now()
 
-	rows := sqlmock.NewRows([]string{"id", "name", "email", "password_hash", "role", "is_active", "created_at", "updated_at"}).
-		AddRow(1, "Jane", "jane@example.com", "hash", model.UserRoleUser, true, now, now)
+	rows := sqlmock.NewRows([]string{"id", "name", "email", "password_hash", "role", "is_active", "created_by", "created_at", "updated_at"}).
+		AddRow(1, "Jane", "jane@example.com", "hash", model.UserRoleUser, true, nil, now, now)
 
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, name, email, password_hash, role, is_active, created_at, updated_at FROM users WHERE email = ? LIMIT 1")).
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, name, email, password_hash, role, is_active, created_by, created_at, updated_at FROM users WHERE email = ? LIMIT 1")).
 		WithArgs("jane@example.com").
 		WillReturnRows(rows)
 
@@ -45,7 +45,7 @@ func TestUserRepository_GetByEmailNotFound(t *testing.T) {
 
 	repo := NewUserRepository(db)
 
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, name, email, password_hash, role, is_active, created_at, updated_at FROM users WHERE email = ? LIMIT 1")).
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, name, email, password_hash, role, is_active, created_by, created_at, updated_at FROM users WHERE email = ? LIMIT 1")).
 		WithArgs("none@example.com").
 		WillReturnError(sql.ErrNoRows)
 
@@ -60,10 +60,11 @@ func TestUserRepository_Create(t *testing.T) {
 	defer db.Close()
 
 	repo := NewUserRepository(db)
-	user := &model.User{Name: "John", Email: "john@example.com", PasswordHash: "hash", Role: model.UserRoleAdmin, IsActive: true}
+	creatorID := uint64(99)
+	user := &model.User{Name: "John", Email: "john@example.com", PasswordHash: "hash", Role: model.UserRoleAdmin, IsActive: true, CreatedBy: &creatorID}
 
-	expect := mock.ExpectExec(regexp.QuoteMeta("INSERT INTO users (name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?)"))
-	expect.WithArgs("John", "john@example.com", "hash", model.UserRoleAdmin, true).WillReturnResult(sqlmock.NewResult(5, 1))
+	expect := mock.ExpectExec(regexp.QuoteMeta("INSERT INTO users (name, email, password_hash, role, is_active, created_by) VALUES (?, ?, ?, ?, ?, ?)"))
+	expect.WithArgs("John", "john@example.com", "hash", model.UserRoleAdmin, true, creatorID).WillReturnResult(sqlmock.NewResult(5, 1))
 
 	err := repo.Create(context.Background(), user)
 	require.NoError(t, err)
@@ -83,5 +84,71 @@ func TestUserRepository_UpdateRole(t *testing.T) {
 
 	err := repo.UpdateRole(context.Background(), 10, model.UserRoleSuperAdmin)
 	require.NoError(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestUserRepository_ListByScope(t *testing.T) {
+	db, mock := setupDB(t)
+	defer db.Close()
+
+	repo := NewUserRepository(db)
+	now := time.Now()
+
+	rows := sqlmock.NewRows([]string{"id", "name", "email", "password_hash", "role", "is_active", "created_by", "created_at", "updated_at"}).
+		AddRow(1, "Dev", "dev@example.com", "hash", model.UserRoleDev, true, nil, now, now).
+		AddRow(2, "Admin", "admin@example.com", "hash", model.UserRoleAdmin, true, 1, now, now)
+
+	mock.ExpectQuery(regexp.QuoteMeta(`
+WITH RECURSIVE hierarchy AS (
+  SELECT id
+  FROM users
+  WHERE id = ?
+  UNION ALL
+  SELECT u.id
+  FROM users u
+  INNER JOIN hierarchy h ON u.created_by = h.id
+)
+SELECT u.id, u.name, u.email, u.password_hash, u.role, u.is_active, u.created_by, u.created_at, u.updated_at
+FROM users u
+INNER JOIN hierarchy h ON h.id = u.id
+ORDER BY u.created_at DESC
+LIMIT ?`)).
+		WithArgs(uint64(1), 50).
+		WillReturnRows(rows)
+
+	items, err := repo.ListByScope(context.Background(), 1, 50)
+	require.NoError(t, err)
+	require.Len(t, items, 2)
+	require.Nil(t, items[0].CreatedBy)
+	require.NotNil(t, items[1].CreatedBy)
+	require.Equal(t, uint64(1), *items[1].CreatedBy)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestUserRepository_IsInScope(t *testing.T) {
+	db, mock := setupDB(t)
+	defer db.Close()
+
+	repo := NewUserRepository(db)
+
+	mock.ExpectQuery(regexp.QuoteMeta(`
+WITH RECURSIVE hierarchy AS (
+  SELECT id
+  FROM users
+  WHERE id = ?
+  UNION ALL
+  SELECT u.id
+  FROM users u
+  INNER JOIN hierarchy h ON u.created_by = h.id
+)
+SELECT COUNT(1)
+FROM hierarchy
+WHERE id = ?`)).
+		WithArgs(uint64(10), uint64(12)).
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
+
+	ok, err := repo.IsInScope(context.Background(), 10, 12)
+	require.NoError(t, err)
+	require.True(t, ok)
 	require.NoError(t, mock.ExpectationsWereMet())
 }

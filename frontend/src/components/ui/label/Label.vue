@@ -1,5 +1,5 @@
 <template>
-  <label class="text-sm font-medium text-slate-700">
+  <label class="text-sm font-medium text-[var(--muted-foreground)]">
     <slot />
   </label>
 </template>

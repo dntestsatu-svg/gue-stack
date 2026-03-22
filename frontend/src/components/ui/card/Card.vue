@@ -1,5 +1,5 @@
 <template>
-  <div :class="cn('rounded-xl border border-slate-200 bg-white shadow-sm', className)">
+  <div :class="cn('app-panel rounded-xl border', className)">
     <slot />
   </div>
 </template>

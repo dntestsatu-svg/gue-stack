@@ -15,7 +15,7 @@ services:
       REDIS_DB: 0
       MEMCACHED_ENABLED: "true"
       MEMCACHED_ADDR: memcached:11211
-      CACHE_DRIVER: ${CACHE_DRIVER:-redis}
+      CACHE_DRIVER: ${CACHE_DRIVER:-memcached}
       CACHE_QUERY_CACHE_ON: "true"
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-change-me-access-secret}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change-me-refresh-secret}
@@ -23,18 +23,42 @@ services:
       JWT_REFRESH_TOKEN_TTL: 168h
       JWT_ISSUER: gue-starter
       JWT_AUDIENCE: gue-clients
+      SECURITY_COOKIE_ACCESS_TOKEN_NAME: ${SECURITY_COOKIE_ACCESS_TOKEN_NAME:-access_token}
+      SECURITY_COOKIE_REFRESH_TOKEN_NAME: ${SECURITY_COOKIE_REFRESH_TOKEN_NAME:-refresh_token}
+      SECURITY_COOKIE_CSRF_COOKIE_NAME: ${SECURITY_COOKIE_CSRF_COOKIE_NAME:-csrf_token}
+      SECURITY_COOKIE_DOMAIN: ${SECURITY_COOKIE_DOMAIN:-}
+      SECURITY_COOKIE_PATH: ${SECURITY_COOKIE_PATH:-/}
+      SECURITY_COOKIE_SECURE: ${SECURITY_COOKIE_SECURE:-false}
+      SECURITY_COOKIE_HTTP_ONLY: ${SECURITY_COOKIE_HTTP_ONLY:-true}
+      SECURITY_COOKIE_SAME_SITE: ${SECURITY_COOKIE_SAME_SITE:-lax}
+      SECURITY_CSRF_ENABLED: ${SECURITY_CSRF_ENABLED:-true}
+      SECURITY_CSRF_HEADER_NAME: ${SECURITY_CSRF_HEADER_NAME:-X-CSRF-Token}
+      SECURITY_RATE_LIMIT_ENABLED: ${SECURITY_RATE_LIMIT_ENABLED:-true}
+      SECURITY_RATE_LIMIT_WINDOW: ${SECURITY_RATE_LIMIT_WINDOW:-1m}
+      SECURITY_RATE_LIMIT_AUTH_LOGIN: ${SECURITY_RATE_LIMIT_AUTH_LOGIN:-10}
+      SECURITY_RATE_LIMIT_AUTH_REGISTER: ${SECURITY_RATE_LIMIT_AUTH_REGISTER:-5}
+      SECURITY_RATE_LIMIT_PAYMENT_BRIDGE: ${SECURITY_RATE_LIMIT_PAYMENT_BRIDGE:-60}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
       ASYNQ_CONCURRENCY: 10
       PAYMENT_GATEWAY_BASE_URL: ${PAYMENT_GATEWAY_BASE_URL:-https://rest.otomatis.vip}
       PAYMENT_GATEWAY_TIMEOUT: ${PAYMENT_GATEWAY_TIMEOUT:-15s}
       PAYMENT_GATEWAY_DEFAULT_CLIENT: ${PAYMENT_GATEWAY_DEFAULT_CLIENT:-}
       PAYMENT_GATEWAY_DEFAULT_KEY: ${PAYMENT_GATEWAY_DEFAULT_KEY:-}
+      PAYMENT_GATEWAY_MERCHANT_UUID: ${PAYMENT_GATEWAY_MERCHANT_UUID:-}
       PAYMENT_GATEWAY_CALLBACK_SECRET: ${PAYMENT_GATEWAY_CALLBACK_SECRET:-}
+      PAYMENT_GATEWAY_WEBHOOK_SECRET: ${PAYMENT_GATEWAY_WEBHOOK_SECRET:-}
+      PAYMENT_GATEWAY_PLATFORM_FEE_PERCENT: ${PAYMENT_GATEWAY_PLATFORM_FEE_PERCENT:-3}
     ports:
       - "8080:8080"
     depends_on:
-      - mysql
-      - redis
-      - memcached
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      memcached:
+        condition: service_started
+      initdb:
+        condition: service_completed_successfully
 
   worker:
     build:
@@ -52,7 +76,7 @@ services:
       REDIS_DB: 0
       MEMCACHED_ENABLED: "true"
       MEMCACHED_ADDR: memcached:11211
-      CACHE_DRIVER: ${CACHE_DRIVER:-redis}
+      CACHE_DRIVER: ${CACHE_DRIVER:-memcached}
       CACHE_QUERY_CACHE_ON: "true"
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-change-me-access-secret}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change-me-refresh-secret}
@@ -60,16 +84,66 @@ services:
       JWT_REFRESH_TOKEN_TTL: 168h
       JWT_ISSUER: gue-starter
       JWT_AUDIENCE: gue-clients
+      SECURITY_COOKIE_ACCESS_TOKEN_NAME: ${SECURITY_COOKIE_ACCESS_TOKEN_NAME:-access_token}
+      SECURITY_COOKIE_REFRESH_TOKEN_NAME: ${SECURITY_COOKIE_REFRESH_TOKEN_NAME:-refresh_token}
+      SECURITY_COOKIE_CSRF_COOKIE_NAME: ${SECURITY_COOKIE_CSRF_COOKIE_NAME:-csrf_token}
+      SECURITY_COOKIE_DOMAIN: ${SECURITY_COOKIE_DOMAIN:-}
+      SECURITY_COOKIE_PATH: ${SECURITY_COOKIE_PATH:-/}
+      SECURITY_COOKIE_SECURE: ${SECURITY_COOKIE_SECURE:-false}
+      SECURITY_COOKIE_HTTP_ONLY: ${SECURITY_COOKIE_HTTP_ONLY:-true}
+      SECURITY_COOKIE_SAME_SITE: ${SECURITY_COOKIE_SAME_SITE:-lax}
+      SECURITY_CSRF_ENABLED: ${SECURITY_CSRF_ENABLED:-true}
+      SECURITY_CSRF_HEADER_NAME: ${SECURITY_CSRF_HEADER_NAME:-X-CSRF-Token}
+      SECURITY_RATE_LIMIT_ENABLED: ${SECURITY_RATE_LIMIT_ENABLED:-true}
+      SECURITY_RATE_LIMIT_WINDOW: ${SECURITY_RATE_LIMIT_WINDOW:-1m}
+      SECURITY_RATE_LIMIT_AUTH_LOGIN: ${SECURITY_RATE_LIMIT_AUTH_LOGIN:-10}
+      SECURITY_RATE_LIMIT_AUTH_REGISTER: ${SECURITY_RATE_LIMIT_AUTH_REGISTER:-5}
+      SECURITY_RATE_LIMIT_PAYMENT_BRIDGE: ${SECURITY_RATE_LIMIT_PAYMENT_BRIDGE:-60}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
       ASYNQ_CONCURRENCY: 10
       PAYMENT_GATEWAY_BASE_URL: ${PAYMENT_GATEWAY_BASE_URL:-https://rest.otomatis.vip}
       PAYMENT_GATEWAY_TIMEOUT: ${PAYMENT_GATEWAY_TIMEOUT:-15s}
       PAYMENT_GATEWAY_DEFAULT_CLIENT: ${PAYMENT_GATEWAY_DEFAULT_CLIENT:-}
       PAYMENT_GATEWAY_DEFAULT_KEY: ${PAYMENT_GATEWAY_DEFAULT_KEY:-}
+      PAYMENT_GATEWAY_MERCHANT_UUID: ${PAYMENT_GATEWAY_MERCHANT_UUID:-}
       PAYMENT_GATEWAY_CALLBACK_SECRET: ${PAYMENT_GATEWAY_CALLBACK_SECRET:-}
+      PAYMENT_GATEWAY_WEBHOOK_SECRET: ${PAYMENT_GATEWAY_WEBHOOK_SECRET:-}
+      PAYMENT_GATEWAY_PLATFORM_FEE_PERCENT: ${PAYMENT_GATEWAY_PLATFORM_FEE_PERCENT:-3}
     depends_on:
-      - mysql
-      - redis
-      - memcached
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      memcached:
+        condition: service_started
+      initdb:
+        condition: service_completed_successfully
+
+  initdb:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    entrypoint: ["/usr/local/bin/initdb"]
+    environment:
+      APP_ENV: production
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: ${DB_PASSWORD:-secret}
+      DB_NAME: gue
+      CACHE_DRIVER: none
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-change-me-access-secret}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change-me-refresh-secret}
+      PAYMENT_GATEWAY_MERCHANT_UUID: ${PAYMENT_GATEWAY_MERCHANT_UUID:-}
+      BOOTSTRAP_DEV_NAME: ${BOOTSTRAP_DEV_NAME:-Developer}
+      BOOTSTRAP_DEV_EMAIL: ${BOOTSTRAP_DEV_EMAIL:-dev@gue.local}
+      BOOTSTRAP_DEV_PASSWORD: ${BOOTSTRAP_DEV_PASSWORD:-change-this-password}
+      INITDB_FRESH: ${INITDB_FRESH:-false}
+      INITDB_ALLOW_PRODUCTION_FRESH: ${INITDB_ALLOW_PRODUCTION_FRESH:-false}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: "no"
 
   frontend:
     build:
@@ -89,6 +163,12 @@ services:
       - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p${DB_PASSWORD:-secret} --silent"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
 
   redis:
     image: redis:7.4-alpine

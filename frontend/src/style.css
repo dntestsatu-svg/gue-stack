@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 @plugin "@tailwindcss/forms";
 
 @custom-variant dark (&:where(.dark, .dark *));
@@ -9,22 +10,240 @@
 }
 
 :root {
-  --radius: 0.8rem;
+  --radius: 0.625rem;
+  --background: oklch(1 0 0);
+  --background-elevated: #ffffff;
+  --background-muted: #eef3f9;
+  --foreground: oklch(0.145 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --border: oklch(0.922 0 0);
+  --brand: #0f62fe;
+  --brand-strong: #0a4fd1;
+  --success: #16a34a;
+  --warning: #d97706;
+  --danger: #dc2626;
+  --panel-overlay: color-mix(in oklab, white 72%, transparent);
+  --chart-grid: #dce6f4;
+  --chart-deposit: #0f62fe;
+  --chart-withdraw: #f97316;
+  --chart-success: #16a34a;
+  --chart-failed: #dc2626;
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --background-elevated: #0f1729;
+  --background-muted: #151f36;
+  --foreground: oklch(0.985 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --border: oklch(1 0 0 / 10%);
+  --brand: #6ea8ff;
+  --brand-strong: #4f8eff;
+  --success: #4ade80;
+  --warning: #f59e0b;
+  --danger: #f87171;
+  --panel-overlay: color-mix(in oklab, #0f1729 76%, transparent);
+  --chart-grid: #273451;
+  --chart-deposit: #6ea8ff;
+  --chart-withdraw: #fb923c;
+  --chart-success: #4ade80;
+  --chart-failed: #f87171;
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
 }
 
 @layer base {
   html {
-    @apply bg-white dark:bg-black text-black dark:text-white scheme-light dark:scheme-dark;
+    @apply text-[var(--foreground)] scheme-light dark:scheme-dark;
+    background-color: var(--background);
   }
   button:not(:disabled),
   [role="button"]:not(:disabled) {
     @apply cursor-pointer;
   }
   body {
-    margin: 0;
+    @apply m-0 min-h-screen antialiased;
+    background:
+      radial-gradient(circle at 15% 10%, color-mix(in oklab, var(--brand) 14%, transparent), transparent 36%),
+      radial-gradient(circle at 85% 0%, color-mix(in oklab, var(--chart-withdraw) 10%, transparent), transparent 32%),
+      linear-gradient(180deg, var(--background), color-mix(in oklab, var(--background) 92%, black));
+    color: var(--foreground);
   }
   input,
   button {
     font: inherit;
+  }
+  * {
+    border-color: var(--border);
+  }
+}
+
+@layer components {
+  .app-shell {
+    background: transparent;
+  }
+
+  .app-panel {
+    @apply rounded-2xl border shadow-sm;
+    border-color: var(--border);
+    background: color-mix(in oklab, var(--background-elevated) 90%, transparent);
+    box-shadow: 0 18px 44px -28px color-mix(in oklab, #000 24%, transparent);
+  }
+
+  .dashboard-hero {
+    @apply flex flex-col gap-4 rounded-2xl border px-5 py-5 md:flex-row md:items-center md:justify-between;
+    border-color: color-mix(in oklab, var(--border) 80%, transparent);
+    background:
+      radial-gradient(circle at 85% 10%, color-mix(in oklab, var(--brand) 20%, transparent), transparent 45%),
+      linear-gradient(140deg, color-mix(in oklab, var(--background-elevated) 94%, transparent), color-mix(in oklab, var(--background-muted) 66%, transparent));
+    box-shadow: 0 30px 80px -46px color-mix(in oklab, var(--brand) 48%, transparent);
+  }
+
+  .dashboard-eyebrow {
+    @apply text-xs font-semibold uppercase tracking-[0.18em];
+    color: color-mix(in oklab, var(--brand-strong) 78%, var(--foreground));
+  }
+
+  .dashboard-kpi-card {
+    @apply border-none;
+    background:
+      linear-gradient(165deg, color-mix(in oklab, var(--background-elevated) 96%, transparent), color-mix(in oklab, var(--background-muted) 72%, transparent));
+    box-shadow:
+      inset 0 1px 0 color-mix(in oklab, white 25%, transparent),
+      0 20px 45px -35px color-mix(in oklab, #000 40%, transparent);
+  }
+
+  .dashboard-kpi-card-profit {
+    background:
+      radial-gradient(circle at 90% 10%, color-mix(in oklab, var(--success) 24%, transparent), transparent 45%),
+      linear-gradient(165deg, color-mix(in oklab, var(--background-elevated) 94%, transparent), color-mix(in oklab, var(--background-muted) 62%, transparent));
+  }
+
+  .dashboard-stat-row {
+    @apply flex items-center justify-between rounded-lg border px-3 py-2;
+    border-color: var(--border);
+    background: color-mix(in oklab, var(--background-muted) 64%, transparent);
+  }
+
+  .app-nav-link {
+    @apply inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium transition;
+    color: var(--muted-foreground);
+  }
+
+  .app-nav-link:hover {
+    background: color-mix(in oklab, var(--background-muted) 88%, transparent);
+    color: var(--foreground);
+  }
+
+  .app-nav-link-active {
+    background: color-mix(in oklab, var(--brand) 18%, transparent);
+    color: var(--brand-strong);
+  }
+
+  .metric-value {
+    @apply text-3xl font-semibold tracking-tight;
+  }
+
+  .status-pill {
+    @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold;
+  }
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
   }
 }

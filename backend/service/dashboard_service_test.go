@@ -14,9 +14,10 @@ import (
 )
 
 type fakeDashboardTransactionRepo struct {
-	metrics repository.DashboardMetrics
-	series  []repository.DashboardStatusSeriesPoint
-	history []repository.TransactionHistoryRecord
+	metrics    repository.DashboardMetrics
+	series     []repository.DashboardStatusSeriesPoint
+	history    []repository.TransactionHistoryRecord
+	lastFilter repository.TransactionHistoryFilter
 }
 
 func (f *fakeDashboardTransactionRepo) Create(_ context.Context, _ *model.Transaction) error {
@@ -52,8 +53,22 @@ func (f *fakeDashboardTransactionRepo) GetHourlyStatusCountsByUser(_ context.Con
 	return f.series, nil
 }
 
-func (f *fakeDashboardTransactionRepo) ListRecentByUser(_ context.Context, _ uint64, _ int) ([]repository.TransactionHistoryRecord, error) {
-	return f.history, nil
+func (f *fakeDashboardTransactionRepo) ListRecentByUser(_ context.Context, _ uint64, filter repository.TransactionHistoryFilter) ([]repository.TransactionHistoryRecord, error) {
+	f.lastFilter = filter
+	if filter.Limit <= 0 {
+		filter.Limit = 20
+	}
+	if filter.Offset < 0 {
+		filter.Offset = 0
+	}
+	if filter.Offset >= len(f.history) {
+		return []repository.TransactionHistoryRecord{}, nil
+	}
+	end := filter.Offset + filter.Limit
+	if end > len(f.history) {
+		end = len(f.history)
+	}
+	return f.history[filter.Offset:end], nil
 }
 
 func (f *fakeDashboardTransactionRepo) ListRecentSuccessByUser(_ context.Context, _ uint64, limit int) ([]repository.TransactionHistoryRecord, error) {
@@ -68,6 +83,10 @@ func (f *fakeDashboardTransactionRepo) ListRecentSuccessByUser(_ context.Context
 		}
 	}
 	return result, nil
+}
+
+func (f *fakeDashboardTransactionRepo) CountHistoryByUser(_ context.Context, _ uint64, _ repository.TransactionHistoryFilter) (uint64, error) {
+	return uint64(len(f.history)), nil
 }
 
 type fakeDashboardGatewayClient struct {
@@ -210,11 +229,84 @@ func TestDashboardServiceTransactionHistoryMapsRecords(t *testing.T) {
 	}
 	svc := NewDashboardService(repo, nil, cache.NewNoopCache(), "", "", 5*time.Minute)
 
-	result, err := svc.TransactionHistory(context.Background(), 1, 10)
+	result, err := svc.TransactionHistory(context.Background(), 1, TransactionHistoryQuery{Limit: 10})
 	require.NoError(t, err)
-	require.Len(t, result, 1)
-	require.Equal(t, "Toko A", result[0].TokoName)
-	require.Equal(t, "deposit", result[0].Type)
+	require.Len(t, result.Items, 1)
+	require.Equal(t, uint64(1), result.Total)
+	require.Equal(t, "Toko A", result.Items[0].TokoName)
+	require.Equal(t, "deposit", result.Items[0].Type)
+}
+
+func TestDashboardServiceExportTransactionHistoryCSV(t *testing.T) {
+	player := "player-a"
+	reference := "trx-ref-1"
+	repo := &fakeDashboardTransactionRepo{
+		history: []repository.TransactionHistoryRecord{
+			{
+				ID:        1,
+				TokoID:    10,
+				TokoName:  "Toko A",
+				Player:    &player,
+				Type:      model.TransactionTypeDeposit,
+				Status:    model.TransactionStatusSuccess,
+				Reference: &reference,
+				Amount:    100000,
+				Netto:     97000,
+				CreatedAt: time.Now().UTC(),
+			},
+		},
+	}
+	svc := NewDashboardService(repo, nil, cache.NewNoopCache(), "", "", 5*time.Minute)
+
+	exported, err := svc.ExportTransactionHistory(context.Background(), 1, TransactionHistoryQuery{Limit: 100}, "csv")
+	require.NoError(t, err)
+	require.Equal(t, "text/csv; charset=utf-8", exported.ContentType)
+	require.Equal(t, "transaction-history.csv", exported.FileName)
+	require.Contains(t, string(exported.Content), "toko_name")
+	require.Contains(t, string(exported.Content), "Toko A")
+	require.Equal(t, 100, repo.lastFilter.Limit)
+	require.Equal(t, 0, repo.lastFilter.Offset)
+}
+
+func TestDashboardServiceExportTransactionHistoryDefaultsToTenThousand(t *testing.T) {
+	repo := &fakeDashboardTransactionRepo{
+		history: []repository.TransactionHistoryRecord{},
+	}
+	svc := NewDashboardService(repo, nil, cache.NewNoopCache(), "", "", 5*time.Minute)
+
+	_, err := svc.ExportTransactionHistory(context.Background(), 1, TransactionHistoryQuery{}, "csv")
+	require.NoError(t, err)
+	require.Equal(t, 10000, repo.lastFilter.Limit)
+	require.Equal(t, 0, repo.lastFilter.Offset)
+}
+
+func TestDashboardServiceExportTransactionHistoryDOCX(t *testing.T) {
+	player := "player-a"
+	reference := "trx-ref-1"
+	repo := &fakeDashboardTransactionRepo{
+		history: []repository.TransactionHistoryRecord{
+			{
+				ID:        1,
+				TokoID:    10,
+				TokoName:  "Toko A",
+				Player:    &player,
+				Type:      model.TransactionTypeDeposit,
+				Status:    model.TransactionStatusSuccess,
+				Reference: &reference,
+				Amount:    100000,
+				Netto:     97000,
+				CreatedAt: time.Now().UTC(),
+			},
+		},
+	}
+	svc := NewDashboardService(repo, nil, cache.NewNoopCache(), "", "", 5*time.Minute)
+
+	exported, err := svc.ExportTransactionHistory(context.Background(), 1, TransactionHistoryQuery{Limit: 100}, "docx")
+	require.NoError(t, err)
+	require.Equal(t, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", exported.ContentType)
+	require.Equal(t, "transaction-history.docx", exported.FileName)
+	require.Greater(t, len(exported.Content), 2)
+	require.Equal(t, []byte("PK"), exported.Content[:2])
 }
 
 func TestDashboardServiceOverviewCachesExternalBalanceForFiveMinutes(t *testing.T) {

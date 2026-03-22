@@ -13,12 +13,13 @@ import (
 	"github.com/example/gue/backend/pkg/apperror"
 	"github.com/example/gue/backend/repository"
 	"github.com/go-playground/validator/v10"
+	"github.com/shopspring/decimal"
 )
 
 type TokoUseCase interface {
-	ListByUser(ctx context.Context, userID uint64) ([]TokoDTO, error)
-	CreateForUser(ctx context.Context, userID uint64, input CreateTokoInput) (*TokoDTO, error)
-	ListBalancesByUser(ctx context.Context, userID uint64) ([]TokoBalanceDTO, error)
+	ListByUser(ctx context.Context, userID uint64, actorRole model.UserRole) ([]TokoDTO, error)
+	CreateForUser(ctx context.Context, userID uint64, actorRole model.UserRole, input CreateTokoInput) (*TokoDTO, error)
+	ListBalancesByUser(ctx context.Context, userID uint64, actorRole model.UserRole) ([]TokoBalanceDTO, error)
 	ManualSettlement(ctx context.Context, actorRole model.UserRole, tokoID uint64, input ManualSettlementInput) (*TokoBalanceDTO, error)
 }
 
@@ -28,6 +29,7 @@ type TokoService struct {
 	validate      *validator.Validate
 	maxTokos      int
 	defaultCharge int
+	settlementFee decimal.Decimal
 }
 
 type CreateTokoInput struct {
@@ -36,8 +38,7 @@ type CreateTokoInput struct {
 }
 
 type ManualSettlementInput struct {
-	SettlementBalance float64 `json:"settlement_balance" validate:"required,gte=0,lte=999999999999.99"`
-	AvailableBalance  float64 `json:"available_balance" validate:"required,gte=0,lte=999999999999.99"`
+	SettlementBalance float64 `json:"settlement_balance" validate:"required,gt=0,lte=999999999999.99"`
 }
 
 type TokoDTO struct {
@@ -74,11 +75,12 @@ func NewTokoService(
 		validate:      validator.New(validator.WithRequiredStructEnabled()),
 		maxTokos:      maxTokos,
 		defaultCharge: defaultCharge,
+		settlementFee: decimal.NewFromInt(3000),
 	}
 }
 
-func (s *TokoService) ListByUser(ctx context.Context, userID uint64) ([]TokoDTO, error) {
-	items, err := s.tokoRepo.ListByUser(ctx, userID)
+func (s *TokoService) ListByUser(ctx context.Context, userID uint64, actorRole model.UserRole) ([]TokoDTO, error) {
+	items, err := s.tokoRepo.ListByUser(ctx, userID, actorRole)
 	if err != nil {
 		return nil, apperror.New(http.StatusInternalServerError, "failed to list tokos", err.Error())
 	}
@@ -96,7 +98,10 @@ func (s *TokoService) ListByUser(ctx context.Context, userID uint64) ([]TokoDTO,
 	return result, nil
 }
 
-func (s *TokoService) CreateForUser(ctx context.Context, userID uint64, input CreateTokoInput) (*TokoDTO, error) {
+func (s *TokoService) CreateForUser(ctx context.Context, userID uint64, actorRole model.UserRole, input CreateTokoInput) (*TokoDTO, error) {
+	if actorRole != model.UserRoleDev && actorRole != model.UserRoleSuperAdmin && actorRole != model.UserRoleAdmin {
+		return nil, apperror.New(http.StatusForbidden, "insufficient role permission", "only dev, superadmin, or admin can create toko")
+	}
 	if err := s.validate.Struct(input); err != nil {
 		return nil, apperror.New(http.StatusBadRequest, "invalid request payload", err.Error())
 	}
@@ -146,8 +151,8 @@ func (s *TokoService) CreateForUser(ctx context.Context, userID uint64, input Cr
 	}, nil
 }
 
-func (s *TokoService) ListBalancesByUser(ctx context.Context, userID uint64) ([]TokoBalanceDTO, error) {
-	items, err := s.balanceRepo.ListByUser(ctx, userID)
+func (s *TokoService) ListBalancesByUser(ctx context.Context, userID uint64, actorRole model.UserRole) ([]TokoBalanceDTO, error) {
+	items, err := s.balanceRepo.ListByUser(ctx, userID, actorRole)
 	if err != nil {
 		return nil, apperror.New(http.StatusInternalServerError, "failed to list toko balances", err.Error())
 	}
@@ -166,8 +171,8 @@ func (s *TokoService) ListBalancesByUser(ctx context.Context, userID uint64) ([]
 }
 
 func (s *TokoService) ManualSettlement(ctx context.Context, actorRole model.UserRole, tokoID uint64, input ManualSettlementInput) (*TokoBalanceDTO, error) {
-	if actorRole != model.UserRoleDev && actorRole != model.UserRoleSuperAdmin {
-		return nil, apperror.New(http.StatusForbidden, "insufficient role permission", "manual settlement only allowed for dev or superadmin")
+	if actorRole != model.UserRoleDev {
+		return nil, apperror.New(http.StatusForbidden, "insufficient role permission", "manual settlement only allowed for dev")
 	}
 	if err := s.validate.Struct(input); err != nil {
 		return nil, apperror.New(http.StatusBadRequest, "invalid request payload", err.Error())
@@ -180,7 +185,24 @@ func (s *TokoService) ManualSettlement(ctx context.Context, actorRole model.User
 		return nil, apperror.New(http.StatusInternalServerError, "failed to validate toko", err.Error())
 	}
 
-	if err := s.balanceRepo.UpsertByTokoID(ctx, tokoID, input.SettlementBalance, input.AvailableBalance); err != nil {
+	currentBalance, err := s.balanceRepo.GetByTokoID(ctx, tokoID)
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return nil, apperror.New(http.StatusNotFound, "toko balance not found", nil)
+		}
+		return nil, apperror.New(http.StatusInternalServerError, "failed to fetch current toko balance", err.Error())
+	}
+
+	settlementAmount := decimal.NewFromFloat(input.SettlementBalance)
+	currentSettlement := decimal.NewFromFloat(currentBalance.SettlementBalance)
+	currentAvailable := decimal.NewFromFloat(currentBalance.AvailableBalance)
+	nextAvailable := currentAvailable.Sub(settlementAmount).Sub(s.settlementFee)
+	if nextAvailable.IsNegative() {
+		return nil, apperror.New(http.StatusBadRequest, "insufficient available balance", "available balance cannot be negative after settlement and admin fee")
+	}
+	nextSettlement := currentSettlement.Add(settlementAmount)
+
+	if err := s.balanceRepo.UpsertByTokoID(ctx, tokoID, nextSettlement.InexactFloat64(), nextAvailable.InexactFloat64()); err != nil {
 		return nil, apperror.New(http.StatusInternalServerError, "failed to apply settlement", err.Error())
 	}
 

@@ -19,13 +19,13 @@ func NewTokoHandler(toko service.TokoUseCase) *TokoHandler {
 }
 
 func (h *TokoHandler) List(c *gin.Context) {
-	userID, _, err := readAuthContext(c)
+	userID, actorRole, err := readAuthContext(c)
 	if err != nil {
 		handleError(c, err)
 		return
 	}
 
-	items, err := h.toko.ListByUser(c.Request.Context(), userID)
+	items, err := h.toko.ListByUser(c.Request.Context(), userID, actorRole)
 	if err != nil {
 		handleError(c, err)
 		return
@@ -38,7 +38,7 @@ func (h *TokoHandler) List(c *gin.Context) {
 }
 
 func (h *TokoHandler) Create(c *gin.Context) {
-	userID, _, err := readAuthContext(c)
+	userID, actorRole, err := readAuthContext(c)
 	if err != nil {
 		handleError(c, err)
 		return
@@ -50,7 +50,7 @@ func (h *TokoHandler) Create(c *gin.Context) {
 		return
 	}
 
-	item, err := h.toko.CreateForUser(c.Request.Context(), userID, req)
+	item, err := h.toko.CreateForUser(c.Request.Context(), userID, actorRole, req)
 	if err != nil {
 		handleError(c, err)
 		return
@@ -63,13 +63,13 @@ func (h *TokoHandler) Create(c *gin.Context) {
 }
 
 func (h *TokoHandler) ListBalances(c *gin.Context) {
-	userID, _, err := readAuthContext(c)
+	userID, actorRole, err := readAuthContext(c)
 	if err != nil {
 		handleError(c, err)
 		return
 	}
 
-	items, err := h.toko.ListBalancesByUser(c.Request.Context(), userID)
+	items, err := h.toko.ListBalancesByUser(c.Request.Context(), userID, actorRole)
 	if err != nil {
 		handleError(c, err)
 		return

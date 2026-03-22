@@ -3,7 +3,7 @@
     :value="modelValue"
     :type="type"
     :placeholder="placeholder"
-    :class="cn('flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm outline-none ring-0 placeholder:text-slate-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-200', className)"
+    :class="cn('flex h-10 w-full rounded-md border border-[var(--border)] bg-[var(--background-elevated)] px-3 py-2 text-sm text-[var(--foreground)] outline-none ring-0 placeholder:text-[var(--muted-foreground)]/70 focus:border-[var(--brand)] focus:ring-2 focus:ring-[color-mix(in_oklab,var(--brand)_22%,transparent)]', className)"
     @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
   />
 </template>

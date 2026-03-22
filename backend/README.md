@@ -29,6 +29,32 @@ Tables:
 migrate -path ./migrations -database "mysql://root:password@tcp(localhost:3306)/gue" up
 ```
 
+## Migrate Fresh (Reset Total)
+
+Mode ini akan:
+1. drop database target
+2. create ulang database kosong
+3. apply semua migration
+4. seed payments
+5. bootstrap single dev user
+
+```bash
+go run ./cmd/initdb --fresh
+```
+
+Jika `APP_ENV=production`, `--fresh` diblokir by default. Gunakan explicit override:
+
+```bash
+go run ./cmd/initdb --fresh --allow-production-fresh
+```
+
+Alternatif via Makefile:
+
+```bash
+make migrate-fresh
+make migrate-fresh-force
+```
+
 ## Seed Payments
 
 ```bash
@@ -36,6 +62,31 @@ go run ./cmd/seed
 ```
 
 Seeder is idempotent (safe to rerun without duplicating existing records).
+
+## Build Binaries (server + worker)
+
+Recommended output directory: `backend/bin/`
+
+### PowerShell (Windows)
+
+Build native binaries:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File ./scripts/build.ps1 -Target current
+```
+
+Build Linux binaries:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File ./scripts/build.ps1 -Target linux
+```
+
+### Makefile (Linux/macOS/Git-Bash)
+
+```bash
+make build        # native target -> ./bin/server ./bin/worker ./bin/initdb
+make build-linux  # linux target -> ./bin/server ./bin/worker ./bin/initdb
+```
 
 ## GORM Models
 

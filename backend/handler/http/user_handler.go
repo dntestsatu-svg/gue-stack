@@ -21,12 +21,11 @@ func NewUserHandler(user service.UserUseCase) *UserHandler {
 }
 
 func (h *UserHandler) Me(c *gin.Context) {
-	userID, role, err := readAuthContext(c)
+	userID, _, err := readAuthContext(c)
 	if err != nil {
 		handleError(c, err)
 		return
 	}
-	_ = role
 
 	me, err := h.user.Me(c.Request.Context(), userID)
 	if err != nil {
@@ -40,13 +39,41 @@ func (h *UserHandler) Me(c *gin.Context) {
 	})
 }
 
-func (h *UserHandler) Create(c *gin.Context) {
-	userID, actorRole, err := readAuthContext(c)
+func (h *UserHandler) List(c *gin.Context) {
+	actorUserID, actorRole, err := readAuthContext(c)
 	if err != nil {
 		handleError(c, err)
 		return
 	}
-	_ = userID
+
+	limit := 50
+	if rawLimit := c.Query("limit"); rawLimit != "" {
+		parsed, err := strconv.Atoi(rawLimit)
+		if err != nil {
+			handleError(c, apperror.New(http.StatusBadRequest, "invalid limit query parameter", nil))
+			return
+		}
+		limit = parsed
+	}
+
+	users, err := h.user.List(c.Request.Context(), actorUserID, actorRole, limit)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"data":   users,
+	})
+}
+
+func (h *UserHandler) Create(c *gin.Context) {
+	actorUserID, actorRole, err := readAuthContext(c)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
 
 	var req service.CreateUserInput
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -54,7 +81,7 @@ func (h *UserHandler) Create(c *gin.Context) {
 		return
 	}
 
-	created, err := h.user.Create(c.Request.Context(), actorRole, req)
+	created, err := h.user.Create(c.Request.Context(), actorUserID, actorRole, req)
 	if err != nil {
 		handleError(c, err)
 		return
@@ -67,7 +94,7 @@ func (h *UserHandler) Create(c *gin.Context) {
 }
 
 func (h *UserHandler) UpdateRole(c *gin.Context) {
-	_, actorRole, err := readAuthContext(c)
+	actorUserID, actorRole, err := readAuthContext(c)
 	if err != nil {
 		handleError(c, err)
 		return
@@ -85,7 +112,7 @@ func (h *UserHandler) UpdateRole(c *gin.Context) {
 		return
 	}
 
-	updated, err := h.user.UpdateRole(c.Request.Context(), actorRole, targetID, req)
+	updated, err := h.user.UpdateRole(c.Request.Context(), actorUserID, actorRole, targetID, req)
 	if err != nil {
 		handleError(c, err)
 		return

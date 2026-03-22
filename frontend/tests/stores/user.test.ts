@@ -17,6 +17,8 @@ describe('user store', () => {
       id: 10,
       name: 'Alex',
       email: 'alex@example.com',
+      role: 'user',
+      is_active: true,
     })
 
     const user = useUserStore()

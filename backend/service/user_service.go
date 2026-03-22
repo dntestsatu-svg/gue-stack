@@ -21,8 +21,9 @@ import (
 
 type UserUseCase interface {
 	Me(ctx context.Context, userID uint64) (*UserDTO, error)
-	Create(ctx context.Context, actorRole model.UserRole, input CreateUserInput) (*UserDTO, error)
-	UpdateRole(ctx context.Context, actorRole model.UserRole, targetUserID uint64, input UpdateUserRoleInput) (*UserDTO, error)
+	List(ctx context.Context, actorUserID uint64, actorRole model.UserRole, limit int) ([]UserDTO, error)
+	Create(ctx context.Context, actorUserID uint64, actorRole model.UserRole, input CreateUserInput) (*UserDTO, error)
+	UpdateRole(ctx context.Context, actorUserID uint64, actorRole model.UserRole, targetUserID uint64, input UpdateUserRoleInput) (*UserDTO, error)
 }
 
 type UserService struct {
@@ -99,7 +100,30 @@ func (s *UserService) Me(ctx context.Context, userID uint64) (*UserDTO, error) {
 	return dto, nil
 }
 
-func (s *UserService) Create(ctx context.Context, actorRole model.UserRole, input CreateUserInput) (*UserDTO, error) {
+func (s *UserService) List(ctx context.Context, actorUserID uint64, actorRole model.UserRole, limit int) ([]UserDTO, error) {
+	if !canCreateUser(actorRole) {
+		return nil, apperror.New(http.StatusForbidden, "insufficient role to list users", nil)
+	}
+
+	users, err := s.userRepo.ListByScope(ctx, actorUserID, limit)
+	if err != nil {
+		return nil, apperror.New(http.StatusInternalServerError, "failed to list users", err.Error())
+	}
+
+	items := make([]UserDTO, 0, len(users))
+	for _, user := range users {
+		items = append(items, UserDTO{
+			ID:       user.ID,
+			Name:     user.Name,
+			Email:    user.Email,
+			Role:     user.Role,
+			IsActive: user.IsActive,
+		})
+	}
+	return items, nil
+}
+
+func (s *UserService) Create(ctx context.Context, actorUserID uint64, actorRole model.UserRole, input CreateUserInput) (*UserDTO, error) {
 	if err := s.validate.Struct(input); err != nil {
 		return nil, apperror.New(http.StatusBadRequest, "invalid request payload", err.Error())
 	}
@@ -122,9 +146,12 @@ func (s *UserService) Create(ctx context.Context, actorRole model.UserRole, inpu
 		if role == model.UserRoleDev {
 			return nil, apperror.New(http.StatusForbidden, "role dev is reserved for bootstrap only", nil)
 		}
-		if role != model.UserRoleUser && !canChangeRole(actorRole) {
-			return nil, apperror.New(http.StatusForbidden, "only dev or superadmin can assign privileged role", nil)
+		if !canCreateRole(actorRole, role) {
+			return nil, apperror.New(http.StatusForbidden, "insufficient role to create target role", nil)
 		}
+	}
+	if !canCreateRole(actorRole, role) {
+		return nil, apperror.New(http.StatusForbidden, "insufficient role to create target role", nil)
 	}
 
 	isActive := true
@@ -143,6 +170,7 @@ func (s *UserService) Create(ctx context.Context, actorRole model.UserRole, inpu
 		PasswordHash: hash,
 		Role:         role,
 		IsActive:     isActive,
+		CreatedBy:    &actorUserID,
 	}
 	if err := s.userRepo.Create(ctx, user); err != nil {
 		return nil, apperror.New(http.StatusInternalServerError, "failed to create user", err.Error())
@@ -162,7 +190,7 @@ func (s *UserService) Create(ctx context.Context, actorRole model.UserRole, inpu
 	}, nil
 }
 
-func (s *UserService) UpdateRole(ctx context.Context, actorRole model.UserRole, targetUserID uint64, input UpdateUserRoleInput) (*UserDTO, error) {
+func (s *UserService) UpdateRole(ctx context.Context, actorUserID uint64, actorRole model.UserRole, targetUserID uint64, input UpdateUserRoleInput) (*UserDTO, error) {
 	if err := s.validate.Struct(input); err != nil {
 		return nil, apperror.New(http.StatusBadRequest, "invalid request payload", err.Error())
 	}
@@ -181,6 +209,16 @@ func (s *UserService) UpdateRole(ctx context.Context, actorRole model.UserRole, 
 	newRole := model.UserRole(strings.ToLower(strings.TrimSpace(input.Role)))
 	if newRole == model.UserRoleDev {
 		return nil, apperror.New(http.StatusForbidden, "role dev is reserved for bootstrap only", nil)
+	}
+	if !canCreateRole(actorRole, newRole) {
+		return nil, apperror.New(http.StatusForbidden, "insufficient role to assign target role", nil)
+	}
+	inScope, err := s.userRepo.IsInScope(ctx, actorUserID, targetUserID)
+	if err != nil {
+		return nil, apperror.New(http.StatusInternalServerError, "failed to verify user scope", err.Error())
+	}
+	if !inScope {
+		return nil, apperror.New(http.StatusForbidden, "target user is outside your hierarchy scope", nil)
 	}
 	if targetUser.Role != newRole {
 		if err := s.userRepo.UpdateRole(ctx, targetUserID, newRole); err != nil {
@@ -214,4 +252,17 @@ func canChangeRole(role model.UserRole) bool {
 
 func canCreateUser(role model.UserRole) bool {
 	return role != model.UserRoleUser && role != ""
+}
+
+func canCreateRole(actorRole model.UserRole, targetRole model.UserRole) bool {
+	switch actorRole {
+	case model.UserRoleDev:
+		return targetRole == model.UserRoleSuperAdmin || targetRole == model.UserRoleAdmin || targetRole == model.UserRoleUser
+	case model.UserRoleSuperAdmin:
+		return targetRole == model.UserRoleAdmin || targetRole == model.UserRoleUser
+	case model.UserRoleAdmin:
+		return targetRole == model.UserRoleUser
+	default:
+		return false
+	}
 }

@@ -96,11 +96,13 @@ func NewRouter(
 	transactions.Use(middleware.AuthRequired(tokenManager, userRepo, cookieManager))
 	{
 		transactions.GET("/history", dashboardHandler.TransactionHistory)
+		transactions.GET("/history/export", dashboardHandler.ExportTransactionHistory)
 	}
 
 	users := v1.Group("/users")
 	users.Use(middleware.AuthRequired(tokenManager, userRepo, cookieManager))
 	{
+		users.GET("", middleware.RoleRequired(model.UserRoleDev, model.UserRoleSuperAdmin, model.UserRoleAdmin), userHandler.List)
 		users.POST("", csrfMiddleware, middleware.RoleRequired(model.UserRoleDev, model.UserRoleSuperAdmin, model.UserRoleAdmin), userHandler.Create)
 		users.PATCH("/:id/role", csrfMiddleware, middleware.RoleRequired(model.UserRoleDev, model.UserRoleSuperAdmin), userHandler.UpdateRole)
 	}
@@ -109,9 +111,9 @@ func NewRouter(
 	tokos.Use(middleware.AuthRequired(tokenManager, userRepo, cookieManager))
 	{
 		tokos.GET("", tokoHandler.List)
-		tokos.POST("", csrfMiddleware, tokoHandler.Create)
+		tokos.POST("", csrfMiddleware, middleware.RoleRequired(model.UserRoleDev, model.UserRoleSuperAdmin, model.UserRoleAdmin), tokoHandler.Create)
 		tokos.GET("/balances", tokoHandler.ListBalances)
-		tokos.PATCH("/:id/settlement", csrfMiddleware, middleware.RoleRequired(model.UserRoleDev, model.UserRoleSuperAdmin), tokoHandler.ManualSettlement)
+		tokos.PATCH("/:id/settlement", csrfMiddleware, middleware.RoleRequired(model.UserRoleDev), tokoHandler.ManualSettlement)
 	}
 
 	paymentGateway := v1.Group("/payments/gateway")

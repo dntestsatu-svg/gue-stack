@@ -18,8 +18,9 @@ import (
 
 type mockUserUseCase struct {
 	meFn         func(ctx context.Context, userID uint64) (*service.UserDTO, error)
-	createFn     func(ctx context.Context, actorRole model.UserRole, input service.CreateUserInput) (*service.UserDTO, error)
-	updateRoleFn func(ctx context.Context, actorRole model.UserRole, targetUserID uint64, input service.UpdateUserRoleInput) (*service.UserDTO, error)
+	listFn       func(ctx context.Context, actorUserID uint64, actorRole model.UserRole, limit int) ([]service.UserDTO, error)
+	createFn     func(ctx context.Context, actorUserID uint64, actorRole model.UserRole, input service.CreateUserInput) (*service.UserDTO, error)
+	updateRoleFn func(ctx context.Context, actorUserID uint64, actorRole model.UserRole, targetUserID uint64, input service.UpdateUserRoleInput) (*service.UserDTO, error)
 }
 
 func (m *mockUserUseCase) Me(ctx context.Context, userID uint64) (*service.UserDTO, error) {
@@ -29,18 +30,25 @@ func (m *mockUserUseCase) Me(ctx context.Context, userID uint64) (*service.UserD
 	return m.meFn(ctx, userID)
 }
 
-func (m *mockUserUseCase) Create(ctx context.Context, actorRole model.UserRole, input service.CreateUserInput) (*service.UserDTO, error) {
+func (m *mockUserUseCase) List(ctx context.Context, actorUserID uint64, actorRole model.UserRole, limit int) ([]service.UserDTO, error) {
+	if m.listFn == nil {
+		return nil, nil
+	}
+	return m.listFn(ctx, actorUserID, actorRole, limit)
+}
+
+func (m *mockUserUseCase) Create(ctx context.Context, actorUserID uint64, actorRole model.UserRole, input service.CreateUserInput) (*service.UserDTO, error) {
 	if m.createFn == nil {
 		return nil, nil
 	}
-	return m.createFn(ctx, actorRole, input)
+	return m.createFn(ctx, actorUserID, actorRole, input)
 }
 
-func (m *mockUserUseCase) UpdateRole(ctx context.Context, actorRole model.UserRole, targetUserID uint64, input service.UpdateUserRoleInput) (*service.UserDTO, error) {
+func (m *mockUserUseCase) UpdateRole(ctx context.Context, actorUserID uint64, actorRole model.UserRole, targetUserID uint64, input service.UpdateUserRoleInput) (*service.UserDTO, error) {
 	if m.updateRoleFn == nil {
 		return nil, nil
 	}
-	return m.updateRoleFn(ctx, actorRole, targetUserID, input)
+	return m.updateRoleFn(ctx, actorUserID, actorRole, targetUserID, input)
 }
 
 func withAuthContext(userID uint64, role model.UserRole) gin.HandlerFunc {
@@ -114,7 +122,8 @@ func TestUserHandlerCreate_AndUpdateRole(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	mockUC := &mockUserUseCase{
-		createFn: func(_ context.Context, actorRole model.UserRole, input service.CreateUserInput) (*service.UserDTO, error) {
+		createFn: func(_ context.Context, actorUserID uint64, actorRole model.UserRole, input service.CreateUserInput) (*service.UserDTO, error) {
+			require.Equal(t, uint64(1), actorUserID)
 			require.Equal(t, model.UserRoleAdmin, actorRole)
 			require.Equal(t, "new@example.com", input.Email)
 			return &service.UserDTO{
@@ -125,7 +134,8 @@ func TestUserHandlerCreate_AndUpdateRole(t *testing.T) {
 				IsActive: true,
 			}, nil
 		},
-		updateRoleFn: func(_ context.Context, actorRole model.UserRole, targetUserID uint64, input service.UpdateUserRoleInput) (*service.UserDTO, error) {
+		updateRoleFn: func(_ context.Context, actorUserID uint64, actorRole model.UserRole, targetUserID uint64, input service.UpdateUserRoleInput) (*service.UserDTO, error) {
+			require.Equal(t, uint64(1), actorUserID)
 			require.Equal(t, model.UserRoleSuperAdmin, actorRole)
 			require.Equal(t, uint64(22), targetUserID)
 			require.Equal(t, "admin", input.Role)
@@ -165,4 +175,35 @@ func TestUserHandlerCreate_AndUpdateRole(t *testing.T) {
 	updateRes := httptest.NewRecorder()
 	r.ServeHTTP(updateRes, updateReq)
 	require.Equal(t, http.StatusOK, updateRes.Code)
+}
+
+func TestUserHandlerList(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	mockUC := &mockUserUseCase{
+		listFn: func(_ context.Context, actorUserID uint64, actorRole model.UserRole, limit int) ([]service.UserDTO, error) {
+			require.Equal(t, uint64(1), actorUserID)
+			require.Equal(t, model.UserRoleAdmin, actorRole)
+			require.Equal(t, 25, limit)
+			return []service.UserDTO{
+				{
+					ID:       1,
+					Name:     "Dev",
+					Email:    "dev@gue.local",
+					Role:     model.UserRoleDev,
+					IsActive: true,
+				},
+			}, nil
+		},
+	}
+
+	h := NewUserHandler(mockUC)
+	r := gin.New()
+	r.GET("/users", withAuthContext(1, model.UserRoleAdmin), h.List)
+
+	req := httptest.NewRequest(http.MethodGet, "/users?limit=25", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
 }

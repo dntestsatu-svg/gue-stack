@@ -61,7 +61,7 @@ func (f *fakeTokoDomainRepo) CountByUser(_ context.Context, _ uint64) (int, erro
 	return f.countByUser, nil
 }
 
-func (f *fakeTokoDomainRepo) ListByUser(_ context.Context, _ uint64) ([]model.Toko, error) {
+func (f *fakeTokoDomainRepo) ListByUser(_ context.Context, _ uint64, _ model.UserRole) ([]model.Toko, error) {
 	return nil, nil
 }
 
@@ -84,7 +84,7 @@ type fakeBalanceRepo struct {
 	byTokoID map[uint64]repository.TokoBalanceRecord
 }
 
-func (f *fakeBalanceRepo) ListByUser(_ context.Context, _ uint64) ([]repository.TokoBalanceRecord, error) {
+func (f *fakeBalanceRepo) ListByUser(_ context.Context, _ uint64, _ model.UserRole) ([]repository.TokoBalanceRecord, error) {
 	result := make([]repository.TokoBalanceRecord, 0, len(f.byTokoID))
 	for _, item := range f.byTokoID {
 		result = append(result, item)
@@ -118,7 +118,7 @@ func TestTokoServiceCreateForUserQuotaLimit(t *testing.T) {
 	repo := &fakeTokoDomainRepo{countByUser: 3}
 	svc := NewTokoService(repo, &fakeBalanceRepo{}, 3, 3)
 
-	_, err := svc.CreateForUser(context.Background(), 10, CreateTokoInput{
+	_, err := svc.CreateForUser(context.Background(), 10, model.UserRoleAdmin, CreateTokoInput{
 		Name: "Toko A",
 	})
 
@@ -130,7 +130,7 @@ func TestTokoServiceCreateForUserSuccess(t *testing.T) {
 	repo := &fakeTokoDomainRepo{countByUser: 1}
 	svc := NewTokoService(repo, &fakeBalanceRepo{}, 3, 3)
 
-	result, err := svc.CreateForUser(context.Background(), 10, CreateTokoInput{
+	result, err := svc.CreateForUser(context.Background(), 10, model.UserRoleAdmin, CreateTokoInput{
 		Name: "Toko Alpha",
 	})
 
@@ -142,6 +142,18 @@ func TestTokoServiceCreateForUserSuccess(t *testing.T) {
 	require.Len(t, repo.attached, 1)
 	require.Equal(t, uint64(10), repo.attached[0].userID)
 	require.Equal(t, result.ID, repo.attached[0].tokoID)
+}
+
+func TestTokoServiceCreateForUserForbiddenForUserRole(t *testing.T) {
+	repo := &fakeTokoDomainRepo{countByUser: 0}
+	svc := NewTokoService(repo, &fakeBalanceRepo{}, 3, 3)
+
+	_, err := svc.CreateForUser(context.Background(), 10, model.UserRoleUser, CreateTokoInput{
+		Name: "Toko Forbidden",
+	})
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "insufficient role")
 }
 
 func TestTokoServiceManualSettlementSuccess(t *testing.T) {
@@ -156,7 +168,7 @@ func TestTokoServiceManualSettlementSuccess(t *testing.T) {
 				TokoID:             12,
 				TokoName:           "Toko Delta",
 				SettlementBalance:  0,
-				AvailableBalance:   0,
+				AvailableBalance:   500000,
 				LastSettlementTime: time.Now().UTC(),
 			},
 		},
@@ -165,11 +177,81 @@ func TestTokoServiceManualSettlementSuccess(t *testing.T) {
 
 	result, err := svc.ManualSettlement(context.Background(), model.UserRoleDev, 12, ManualSettlementInput{
 		SettlementBalance: 250000,
-		AvailableBalance:  100000,
 	})
 
 	require.NoError(t, err)
 	require.Equal(t, uint64(12), result.TokoID)
 	require.Equal(t, 250000.0, result.SettlementBalance)
-	require.Equal(t, 100000.0, result.AvailableBalance)
+	require.Equal(t, 247000.0, result.AvailableBalance)
+}
+
+func TestTokoServiceManualSettlementAccumulatesSettlementAndDeductsFee(t *testing.T) {
+	tokoRepo := &fakeTokoDomainRepo{
+		byID: map[uint64]*model.Toko{
+			99: {ID: 99, Name: "Toko Omega"},
+		},
+	}
+	balanceRepo := &fakeBalanceRepo{
+		byTokoID: map[uint64]repository.TokoBalanceRecord{
+			99: {
+				TokoID:             99,
+				TokoName:           "Toko Omega",
+				SettlementBalance:  10000,
+				AvailableBalance:   50000,
+				LastSettlementTime: time.Now().UTC(),
+			},
+		},
+	}
+	svc := NewTokoService(tokoRepo, balanceRepo, 3, 3)
+
+	result, err := svc.ManualSettlement(context.Background(), model.UserRoleDev, 99, ManualSettlementInput{
+		SettlementBalance: 12000,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, 22000.0, result.SettlementBalance)
+	require.Equal(t, 35000.0, result.AvailableBalance)
+}
+
+func TestTokoServiceManualSettlementForbiddenForSuperAdmin(t *testing.T) {
+	tokoRepo := &fakeTokoDomainRepo{
+		byID: map[uint64]*model.Toko{
+			12: {ID: 12, Name: "Toko Delta"},
+		},
+	}
+	svc := NewTokoService(tokoRepo, &fakeBalanceRepo{}, 3, 3)
+
+	_, err := svc.ManualSettlement(context.Background(), model.UserRoleSuperAdmin, 12, ManualSettlementInput{
+		SettlementBalance: 1000,
+	})
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "manual settlement only allowed for dev")
+}
+
+func TestTokoServiceManualSettlementRejectsNegativeAvailable(t *testing.T) {
+	tokoRepo := &fakeTokoDomainRepo{
+		byID: map[uint64]*model.Toko{
+			50: {ID: 50, Name: "Toko Sigma"},
+		},
+	}
+	balanceRepo := &fakeBalanceRepo{
+		byTokoID: map[uint64]repository.TokoBalanceRecord{
+			50: {
+				TokoID:             50,
+				TokoName:           "Toko Sigma",
+				SettlementBalance:  0,
+				AvailableBalance:   5000,
+				LastSettlementTime: time.Now().UTC(),
+			},
+		},
+	}
+	svc := NewTokoService(tokoRepo, balanceRepo, 3, 3)
+
+	_, err := svc.ManualSettlement(context.Background(), model.UserRoleDev, 50, ManualSettlementInput{
+		SettlementBalance: 4000,
+	})
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "insufficient available balance")
 }

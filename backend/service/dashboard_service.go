@@ -16,7 +16,8 @@ import (
 
 type DashboardUseCase interface {
 	Overview(ctx context.Context, userID uint64) (*DashboardOverviewResult, error)
-	TransactionHistory(ctx context.Context, userID uint64, limit int) ([]TransactionHistoryItem, error)
+	TransactionHistory(ctx context.Context, userID uint64, query TransactionHistoryQuery) (*TransactionHistoryPage, error)
+	ExportTransactionHistory(ctx context.Context, userID uint64, query TransactionHistoryQuery, format string) (*TransactionHistoryExport, error)
 }
 
 type DashboardService struct {
@@ -51,6 +52,7 @@ func NewDashboardService(
 
 type DashboardOverviewResult struct {
 	WindowHours          int64                    `json:"window_hours"`
+	CanViewProjectProfit bool                     `json:"can_view_project_profit"`
 	Metrics              DashboardMetricsDTO      `json:"metrics"`
 	StatusSeries         []DashboardStatusSeries  `json:"status_series"`
 	LatestSuccessOrders  []TransactionHistoryItem `json:"latest_success_orders"`
@@ -87,12 +89,35 @@ type TransactionHistoryItem struct {
 	TokoID    uint64 `json:"toko_id"`
 	TokoName  string `json:"toko_name"`
 	Player    string `json:"player,omitempty"`
+	Code      string `json:"code,omitempty"`
 	Type      string `json:"type"`
 	Status    string `json:"status"`
 	Reference string `json:"reference,omitempty"`
 	Amount    uint64 `json:"amount"`
 	Netto     uint64 `json:"netto"`
 	CreatedAt string `json:"created_at"`
+}
+
+type TransactionHistoryQuery struct {
+	Limit      int
+	Offset     int
+	From       *time.Time
+	To         *time.Time
+	SearchTerm string
+}
+
+type TransactionHistoryPage struct {
+	Items   []TransactionHistoryItem `json:"items"`
+	Total   uint64                   `json:"total"`
+	Limit   int                      `json:"limit"`
+	Offset  int                      `json:"offset"`
+	HasMore bool                     `json:"has_more"`
+}
+
+type TransactionHistoryExport struct {
+	Content     []byte
+	ContentType string
+	FileName    string
 }
 
 func (s *DashboardService) Overview(ctx context.Context, userID uint64) (*DashboardOverviewResult, error) {
@@ -160,20 +185,62 @@ func (s *DashboardService) Overview(ctx context.Context, userID uint64) (*Dashbo
 	}, nil
 }
 
-func (s *DashboardService) TransactionHistory(ctx context.Context, userID uint64, limit int) ([]TransactionHistoryItem, error) {
-	if limit <= 0 {
-		limit = 20
-	}
-	if limit > 200 {
-		limit = 200
+func (s *DashboardService) TransactionHistory(ctx context.Context, userID uint64, query TransactionHistoryQuery) (*TransactionHistoryPage, error) {
+	filter := sanitizeTransactionHistoryFilter(query)
+
+	total, err := s.transactionRepo.CountHistoryByUser(ctx, userID, filter)
+	if err != nil {
+		return nil, apperror.New(http.StatusInternalServerError, "failed to count transaction history", err.Error())
 	}
 
-	records, err := s.transactionRepo.ListRecentByUser(ctx, userID, limit)
+	records, err := s.transactionRepo.ListRecentByUser(ctx, userID, filter)
 	if err != nil {
 		return nil, apperror.New(http.StatusInternalServerError, "failed to fetch transaction history", err.Error())
 	}
 
-	return mapTransactionHistory(records), nil
+	items := mapTransactionHistory(records)
+	return &TransactionHistoryPage{
+		Items:   items,
+		Total:   total,
+		Limit:   filter.Limit,
+		Offset:  filter.Offset,
+		HasMore: uint64(filter.Offset+len(items)) < total,
+	}, nil
+}
+
+func (s *DashboardService) ExportTransactionHistory(ctx context.Context, userID uint64, query TransactionHistoryQuery, format string) (*TransactionHistoryExport, error) {
+	filter := sanitizeTransactionHistoryExportFilter(query)
+
+	records, err := s.transactionRepo.ListRecentByUser(ctx, userID, filter)
+	if err != nil {
+		return nil, apperror.New(http.StatusInternalServerError, "failed to fetch transaction history for export", err.Error())
+	}
+	items := mapTransactionHistory(records)
+
+	switch strings.ToLower(strings.TrimSpace(format)) {
+	case "csv":
+		content, exportErr := BuildTransactionHistoryCSV(items)
+		if exportErr != nil {
+			return nil, apperror.New(http.StatusInternalServerError, "failed to export CSV", exportErr.Error())
+		}
+		return &TransactionHistoryExport{
+			Content:     content,
+			ContentType: "text/csv; charset=utf-8",
+			FileName:    "transaction-history.csv",
+		}, nil
+	case "docx":
+		content, exportErr := BuildTransactionHistoryDOCX(items)
+		if exportErr != nil {
+			return nil, apperror.New(http.StatusInternalServerError, "failed to export DOCX", exportErr.Error())
+		}
+		return &TransactionHistoryExport{
+			Content:     content,
+			ContentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+			FileName:    "transaction-history.docx",
+		}, nil
+	default:
+		return nil, apperror.New(http.StatusBadRequest, "invalid export format", "supported formats: csv, docx")
+	}
 }
 
 func (s *DashboardService) latestSuccessOrders(ctx context.Context, userID uint64, limit int) ([]TransactionHistoryItem, error) {
@@ -200,12 +267,56 @@ func mapTransactionHistory(records []repository.TransactionHistoryRecord) []Tran
 		if record.Player != nil {
 			item.Player = *record.Player
 		}
+		if record.Code != nil {
+			item.Code = *record.Code
+		}
 		if record.Reference != nil {
 			item.Reference = *record.Reference
 		}
 		result = append(result, item)
 	}
 	return result
+}
+
+func sanitizeTransactionHistoryFilter(query TransactionHistoryQuery) repository.TransactionHistoryFilter {
+	limit := query.Limit
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 200 {
+		limit = 200
+	}
+
+	offset := query.Offset
+	if offset < 0 {
+		offset = 0
+	}
+
+	return repository.TransactionHistoryFilter{
+		Limit:      limit,
+		Offset:     offset,
+		From:       query.From,
+		To:         query.To,
+		SearchTerm: query.SearchTerm,
+	}
+}
+
+func sanitizeTransactionHistoryExportFilter(query TransactionHistoryQuery) repository.TransactionHistoryFilter {
+	limit := query.Limit
+	if limit <= 0 {
+		limit = 10000
+	}
+	if limit > 10000 {
+		limit = 10000
+	}
+
+	return repository.TransactionHistoryFilter{
+		Limit:      limit,
+		Offset:     0,
+		From:       query.From,
+		To:         query.To,
+		SearchTerm: query.SearchTerm,
+	}
 }
 
 func (s *DashboardService) fetchExternalBalance(ctx context.Context) (DashboardExternalBalance, string) {

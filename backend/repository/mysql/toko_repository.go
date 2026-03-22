@@ -116,14 +116,21 @@ func (r *TokoRepository) CountByUser(ctx context.Context, userID uint64) (int, e
 	return total, nil
 }
 
-func (r *TokoRepository) ListByUser(ctx context.Context, userID uint64) ([]model.Toko, error) {
-	query := `
+func (r *TokoRepository) ListByUser(ctx context.Context, userID uint64, actorRole model.UserRole) ([]model.Toko, error) {
+	query := `SELECT t.id, t.name, t.token, t.charge, t.callback_url, t.created_at, t.updated_at
+FROM tokos t
+ORDER BY t.created_at DESC`
+	args := []any{}
+	if !canViewAllTokos(actorRole) {
+		query = tokoVisibilityCTE() + `
 SELECT t.id, t.name, t.token, t.charge, t.callback_url, t.created_at, t.updated_at
 FROM tokos t
-INNER JOIN toko_users tu ON tu.toko_id = t.id
-WHERE tu.user_id = ?
+INNER JOIN accessible_tokos at ON at.toko_id = t.id
 ORDER BY t.created_at DESC`
-	rows, err := r.db.QueryContext(ctx, query, userID)
+		args = append(args, userID, userID)
+	}
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list tokos by user: %w", err)
 	}

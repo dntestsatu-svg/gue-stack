@@ -70,7 +70,7 @@ func (f *fakeTokoRepo) CountByUser(_ context.Context, _ uint64) (int, error) {
 	return 0, nil
 }
 
-func (f *fakeTokoRepo) ListByUser(_ context.Context, _ uint64) ([]model.Toko, error) {
+func (f *fakeTokoRepo) ListByUser(_ context.Context, _ uint64, _ model.UserRole) ([]model.Toko, error) {
 	return nil, nil
 }
 
@@ -148,12 +148,16 @@ func (f *fakeTransactionRepo) GetHourlyStatusCountsByUser(_ context.Context, _ u
 	return nil, nil
 }
 
-func (f *fakeTransactionRepo) ListRecentByUser(_ context.Context, _ uint64, _ int) ([]repository.TransactionHistoryRecord, error) {
+func (f *fakeTransactionRepo) ListRecentByUser(_ context.Context, _ uint64, _ repository.TransactionHistoryFilter) ([]repository.TransactionHistoryRecord, error) {
 	return nil, nil
 }
 
 func (f *fakeTransactionRepo) ListRecentSuccessByUser(_ context.Context, _ uint64, _ int) ([]repository.TransactionHistoryRecord, error) {
 	return nil, nil
+}
+
+func (f *fakeTransactionRepo) CountHistoryByUser(_ context.Context, _ uint64, _ repository.TransactionHistoryFilter) (uint64, error) {
+	return 0, nil
 }
 
 type fakeGatewayProducer struct {

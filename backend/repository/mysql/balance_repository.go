@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/example/gue/backend/model"
 	"github.com/example/gue/backend/repository"
 	"github.com/shopspring/decimal"
 )
@@ -18,7 +19,7 @@ func NewBalanceRepository(db *sql.DB) *BalanceRepository {
 	return &BalanceRepository{db: db}
 }
 
-func (r *BalanceRepository) ListByUser(ctx context.Context, userID uint64) ([]repository.TokoBalanceRecord, error) {
+func (r *BalanceRepository) ListByUser(ctx context.Context, userID uint64, actorRole model.UserRole) ([]repository.TokoBalanceRecord, error) {
 	query := `
 SELECT
   t.id,
@@ -27,12 +28,27 @@ SELECT
   COALESCE(b.available, 0.00) AS available_balance,
   COALESCE(b.updated_at, t.updated_at) AS last_settlement_time
 FROM tokos t
-INNER JOIN toko_users tu ON tu.toko_id = t.id
 LEFT JOIN balances b ON b.toko_id = t.id
-WHERE tu.user_id = ?
 ORDER BY t.created_at DESC
 `
-	rows, err := r.db.QueryContext(ctx, query, userID)
+	args := []any{}
+	if !canViewAllTokos(actorRole) {
+		query = tokoVisibilityCTE() + `
+SELECT
+  t.id,
+  t.name,
+  COALESCE(b.pending, 0.00) AS settlement_balance,
+  COALESCE(b.available, 0.00) AS available_balance,
+  COALESCE(b.updated_at, t.updated_at) AS last_settlement_time
+FROM tokos t
+INNER JOIN accessible_tokos at ON at.toko_id = t.id
+LEFT JOIN balances b ON b.toko_id = t.id
+ORDER BY t.created_at DESC
+`
+		args = append(args, userID, userID)
+	}
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query toko balances by user: %w", err)
 	}

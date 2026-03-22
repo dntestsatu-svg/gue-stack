@@ -56,7 +56,7 @@ func EnsureSingleDevUser(ctx context.Context, db *sql.DB, input DevUserInput) er
 		if errors.Is(err, sql.ErrNoRows) {
 			result, insertErr := tx.ExecContext(
 				ctx,
-				`INSERT INTO users (name, email, password_hash, role, is_active) VALUES (?, ?, ?, 'dev', 1)`,
+				`INSERT INTO users (name, email, password_hash, role, is_active, created_by) VALUES (?, ?, ?, 'dev', 1, NULL)`,
 				name,
 				email,
 				passwordHash,
@@ -75,7 +75,7 @@ func EnsureSingleDevUser(ctx context.Context, db *sql.DB, input DevUserInput) er
 	} else {
 		if _, updateErr := tx.ExecContext(
 			ctx,
-			`UPDATE users SET name = ?, password_hash = ?, role = 'dev', is_active = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+			`UPDATE users SET name = ?, password_hash = ?, role = 'dev', is_active = 1, created_by = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
 			name,
 			passwordHash,
 			userID,

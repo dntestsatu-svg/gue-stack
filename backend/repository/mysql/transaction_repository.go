@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/example/gue/backend/model"
@@ -157,7 +158,7 @@ func (r *TransactionRepository) UpdateSettlementByID(ctx context.Context, id uin
 }
 
 func (r *TransactionRepository) GetDashboardMetricsByUser(ctx context.Context, userID uint64, from time.Time) (*repository.DashboardMetrics, error) {
-	query := `
+	query := transactionVisibilityCTE() + `
 SELECT
   COUNT(*) AS total_count,
   COALESCE(SUM(CASE WHEN t.status = 'success' THEN 1 ELSE 0 END), 0) AS success_count,
@@ -167,8 +168,8 @@ SELECT
   COALESCE(SUM(CASE WHEN t.status = 'success' AND t.type = 'withdraw' THEN t.amount ELSE 0 END), 0) AS success_withdraw_amount,
   COALESCE(SUM(CASE WHEN t.status = 'success' THEN t.platform_fee ELSE 0 END), 0) AS total_platform_fee
 FROM transactions t
-INNER JOIN toko_users tu ON tu.toko_id = t.toko_id
-WHERE tu.user_id = ? AND t.created_at >= ?
+INNER JOIN accessible_tokos at ON at.toko_id = t.toko_id
+WHERE t.created_at >= ?
 `
 
 	metrics := &repository.DashboardMetrics{}
@@ -188,14 +189,14 @@ WHERE tu.user_id = ? AND t.created_at >= ?
 }
 
 func (r *TransactionRepository) GetHourlyStatusCountsByUser(ctx context.Context, userID uint64, from time.Time) ([]repository.DashboardStatusSeriesPoint, error) {
-	query := `
+	query := transactionVisibilityCTE() + `
 SELECT
   DATE_FORMAT(t.created_at, '%Y-%m-%d %H:00:00') AS hour_bucket,
   COALESCE(SUM(CASE WHEN t.status = 'success' THEN 1 ELSE 0 END), 0) AS success_count,
   COALESCE(SUM(CASE WHEN t.status = 'failed' THEN 1 ELSE 0 END), 0) AS failed_count
 FROM transactions t
-INNER JOIN toko_users tu ON tu.toko_id = t.toko_id
-WHERE tu.user_id = ? AND t.created_at >= ?
+INNER JOIN accessible_tokos at ON at.toko_id = t.toko_id
+WHERE t.created_at >= ?
 GROUP BY hour_bucket
 ORDER BY hour_bucket ASC
 `
@@ -229,21 +230,54 @@ ORDER BY hour_bucket ASC
 	return result, nil
 }
 
-func (r *TransactionRepository) ListRecentByUser(ctx context.Context, userID uint64, limit int) ([]repository.TransactionHistoryRecord, error) {
-	return r.listRecentByUser(ctx, userID, limit, false)
+func (r *TransactionRepository) ListRecentByUser(ctx context.Context, userID uint64, filter repository.TransactionHistoryFilter) ([]repository.TransactionHistoryRecord, error) {
+	return r.listHistoryByUser(ctx, userID, filter, false)
 }
 
 func (r *TransactionRepository) ListRecentSuccessByUser(ctx context.Context, userID uint64, limit int) ([]repository.TransactionHistoryRecord, error) {
-	return r.listRecentByUser(ctx, userID, limit, true)
+	return r.listHistoryByUser(ctx, userID, repository.TransactionHistoryFilter{
+		Limit:  limit,
+		Offset: 0,
+	}, true)
 }
 
-func (r *TransactionRepository) listRecentByUser(ctx context.Context, userID uint64, limit int, successOnly bool) ([]repository.TransactionHistoryRecord, error) {
-	query := `
+func (r *TransactionRepository) CountHistoryByUser(ctx context.Context, userID uint64, filter repository.TransactionHistoryFilter) (uint64, error) {
+	query := transactionVisibilityCTE() + `
+SELECT COUNT(1)
+FROM transactions t
+INNER JOIN accessible_tokos at ON at.toko_id = t.toko_id
+WHERE 1=1
+`
+	args := []any{userID}
+	whereClause, whereArgs := buildHistoryFilterClause(filter, false)
+	query += whereClause
+	args = append(args, whereArgs...)
+
+	var count uint64
+	if err := r.db.QueryRowContext(ctx, query, args...).Scan(&count); err != nil {
+		return 0, fmt.Errorf("count transaction history: %w", err)
+	}
+	return count, nil
+}
+
+func (r *TransactionRepository) listHistoryByUser(ctx context.Context, userID uint64, filter repository.TransactionHistoryFilter, successOnly bool) ([]repository.TransactionHistoryRecord, error) {
+	if filter.Limit <= 0 {
+		filter.Limit = 20
+	}
+	if filter.Limit > 500 {
+		filter.Limit = 500
+	}
+	if filter.Offset < 0 {
+		filter.Offset = 0
+	}
+
+	query := transactionVisibilityCTE() + `
 SELECT
   t.id,
   t.toko_id,
   tk.name,
   t.player,
+  t.code,
   t.type,
   t.status,
   t.reference,
@@ -251,36 +285,37 @@ SELECT
   t.netto,
   t.created_at
 FROM transactions t
-INNER JOIN toko_users tu ON tu.toko_id = t.toko_id
+INNER JOIN accessible_tokos at ON at.toko_id = t.toko_id
 INNER JOIN tokos tk ON tk.id = t.toko_id
-WHERE tu.user_id = ?
+WHERE 1=1
 `
 	args := []any{userID}
-	if successOnly {
-		query += " AND t.status = ?\n"
-		args = append(args, model.TransactionStatusSuccess)
-	}
+	whereClause, whereArgs := buildHistoryFilterClause(filter, successOnly)
+	query += whereClause
+	args = append(args, whereArgs...)
 	query += `
 ORDER BY t.created_at DESC
-LIMIT ?
+LIMIT ? OFFSET ?
 `
-	args = append(args, limit)
+	args = append(args, filter.Limit, filter.Offset)
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query transaction history: %w", err)
 	}
 	defer rows.Close()
 
-	history := make([]repository.TransactionHistoryRecord, 0, limit)
+	history := make([]repository.TransactionHistoryRecord, 0, filter.Limit)
 	for rows.Next() {
 		item := repository.TransactionHistoryRecord{}
 		var player sql.NullString
+		var code sql.NullString
 		var reference sql.NullString
 		if err := rows.Scan(
 			&item.ID,
 			&item.TokoID,
 			&item.TokoName,
 			&player,
+			&code,
 			&item.Type,
 			&item.Status,
 			&reference,
@@ -293,6 +328,9 @@ LIMIT ?
 		if player.Valid {
 			item.Player = &player.String
 		}
+		if code.Valid {
+			item.Code = &code.String
+		}
 		if reference.Valid {
 			item.Reference = &reference.String
 		}
@@ -303,6 +341,32 @@ LIMIT ?
 	}
 
 	return history, nil
+}
+
+func buildHistoryFilterClause(filter repository.TransactionHistoryFilter, successOnly bool) (string, []any) {
+	var builder strings.Builder
+	args := make([]any, 0, 8)
+
+	if successOnly {
+		builder.WriteString(" AND t.status = ?")
+		args = append(args, model.TransactionStatusSuccess)
+	}
+	if filter.From != nil {
+		builder.WriteString(" AND t.created_at >= ?")
+		args = append(args, filter.From.UTC())
+	}
+	if filter.To != nil {
+		builder.WriteString(" AND t.created_at <= ?")
+		args = append(args, filter.To.UTC())
+	}
+
+	term := strings.TrimSpace(filter.SearchTerm)
+	if term != "" {
+		like := "%" + term + "%"
+		builder.WriteString(" AND (t.reference LIKE ? OR t.player LIKE ? OR t.code LIKE ?)")
+		args = append(args, like, like, like)
+	}
+	return builder.String(), args
 }
 
 func nullableString(value *string) any {

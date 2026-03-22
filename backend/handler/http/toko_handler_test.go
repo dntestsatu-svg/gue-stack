@@ -17,31 +17,31 @@ import (
 )
 
 type mockTokoUseCase struct {
-	listFn             func(ctx context.Context, userID uint64) ([]service.TokoDTO, error)
-	createFn           func(ctx context.Context, userID uint64, input service.CreateTokoInput) (*service.TokoDTO, error)
-	listBalancesFn     func(ctx context.Context, userID uint64) ([]service.TokoBalanceDTO, error)
+	listFn             func(ctx context.Context, userID uint64, actorRole model.UserRole) ([]service.TokoDTO, error)
+	createFn           func(ctx context.Context, userID uint64, actorRole model.UserRole, input service.CreateTokoInput) (*service.TokoDTO, error)
+	listBalancesFn     func(ctx context.Context, userID uint64, actorRole model.UserRole) ([]service.TokoBalanceDTO, error)
 	manualSettlementFn func(ctx context.Context, actorRole model.UserRole, tokoID uint64, input service.ManualSettlementInput) (*service.TokoBalanceDTO, error)
 }
 
-func (m *mockTokoUseCase) ListByUser(ctx context.Context, userID uint64) ([]service.TokoDTO, error) {
+func (m *mockTokoUseCase) ListByUser(ctx context.Context, userID uint64, actorRole model.UserRole) ([]service.TokoDTO, error) {
 	if m.listFn == nil {
 		return nil, nil
 	}
-	return m.listFn(ctx, userID)
+	return m.listFn(ctx, userID, actorRole)
 }
 
-func (m *mockTokoUseCase) CreateForUser(ctx context.Context, userID uint64, input service.CreateTokoInput) (*service.TokoDTO, error) {
+func (m *mockTokoUseCase) CreateForUser(ctx context.Context, userID uint64, actorRole model.UserRole, input service.CreateTokoInput) (*service.TokoDTO, error) {
 	if m.createFn == nil {
 		return nil, nil
 	}
-	return m.createFn(ctx, userID, input)
+	return m.createFn(ctx, userID, actorRole, input)
 }
 
-func (m *mockTokoUseCase) ListBalancesByUser(ctx context.Context, userID uint64) ([]service.TokoBalanceDTO, error) {
+func (m *mockTokoUseCase) ListBalancesByUser(ctx context.Context, userID uint64, actorRole model.UserRole) ([]service.TokoBalanceDTO, error) {
 	if m.listBalancesFn == nil {
 		return nil, nil
 	}
-	return m.listBalancesFn(ctx, userID)
+	return m.listBalancesFn(ctx, userID, actorRole)
 }
 
 func (m *mockTokoUseCase) ManualSettlement(ctx context.Context, actorRole model.UserRole, tokoID uint64, input service.ManualSettlementInput) (*service.TokoBalanceDTO, error) {
@@ -63,24 +63,26 @@ func TestTokoHandlerEndpoints_TableDriven(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	mockUC := &mockTokoUseCase{
-		listFn: func(_ context.Context, userID uint64) ([]service.TokoDTO, error) {
+		listFn: func(_ context.Context, userID uint64, actorRole model.UserRole) ([]service.TokoDTO, error) {
 			require.Equal(t, uint64(5), userID)
+			require.Equal(t, model.UserRoleAdmin, actorRole)
 			return []service.TokoDTO{{ID: 1, Name: "Toko A", Token: "abc", Charge: 3}}, nil
 		},
-		createFn: func(_ context.Context, userID uint64, input service.CreateTokoInput) (*service.TokoDTO, error) {
+		createFn: func(_ context.Context, userID uint64, actorRole model.UserRole, input service.CreateTokoInput) (*service.TokoDTO, error) {
 			require.Equal(t, uint64(5), userID)
+			require.Equal(t, model.UserRoleAdmin, actorRole)
 			require.Equal(t, "Toko Baru", input.Name)
 			return &service.TokoDTO{ID: 2, Name: "Toko Baru", Token: "new-token", Charge: 3}, nil
 		},
-		listBalancesFn: func(_ context.Context, userID uint64) ([]service.TokoBalanceDTO, error) {
+		listBalancesFn: func(_ context.Context, userID uint64, actorRole model.UserRole) ([]service.TokoBalanceDTO, error) {
 			require.Equal(t, uint64(5), userID)
+			require.Equal(t, model.UserRoleAdmin, actorRole)
 			return []service.TokoBalanceDTO{{TokoID: 1, TokoName: "Toko A", SettlementBalance: 1000, AvailableBalance: 1200}}, nil
 		},
 		manualSettlementFn: func(_ context.Context, actorRole model.UserRole, tokoID uint64, input service.ManualSettlementInput) (*service.TokoBalanceDTO, error) {
 			require.Equal(t, model.UserRoleDev, actorRole)
 			require.Equal(t, uint64(1), tokoID)
 			require.Equal(t, 100.0, input.SettlementBalance)
-			require.Equal(t, 90.0, input.AvailableBalance)
 			return &service.TokoBalanceDTO{
 				TokoID:            1,
 				TokoName:          "Toko A",
@@ -107,7 +109,7 @@ func TestTokoHandlerEndpoints_TableDriven(t *testing.T) {
 		{name: "list", method: http.MethodGet, path: "/tokos", expectedStatus: http.StatusOK},
 		{name: "create", method: http.MethodPost, path: "/tokos", body: map[string]any{"name": "Toko Baru"}, expectedStatus: http.StatusCreated},
 		{name: "list balances", method: http.MethodGet, path: "/tokos/balances", expectedStatus: http.StatusOK},
-		{name: "manual settlement", method: http.MethodPatch, path: "/tokos/1/settlement", body: map[string]any{"settlement_balance": 100, "available_balance": 90}, expectedStatus: http.StatusOK},
+		{name: "manual settlement", method: http.MethodPatch, path: "/tokos/1/settlement", body: map[string]any{"settlement_balance": 100}, expectedStatus: http.StatusOK},
 	}
 
 	for _, tt := range tests {
@@ -139,7 +141,7 @@ func TestTokoHandlerManualSettlementInvalidTokoID(t *testing.T) {
 	r := gin.New()
 	r.PATCH("/tokos/:id/settlement", withTokoAuthContext(5, model.UserRoleDev), h.ManualSettlement)
 
-	req := httptest.NewRequest(http.MethodPatch, "/tokos/not-a-number/settlement", bytes.NewBufferString(`{"settlement_balance":100,"available_balance":90}`))
+	req := httptest.NewRequest(http.MethodPatch, "/tokos/not-a-number/settlement", bytes.NewBufferString(`{"settlement_balance":100}`))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)

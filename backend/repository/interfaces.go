@@ -11,6 +11,8 @@ type UserRepository interface {
 	Create(ctx context.Context, user *model.User) error
 	GetByEmail(ctx context.Context, email string) (*model.User, error)
 	GetByID(ctx context.Context, id uint64) (*model.User, error)
+	ListByScope(ctx context.Context, actorUserID uint64, limit int) ([]model.User, error)
+	IsInScope(ctx context.Context, actorUserID uint64, targetUserID uint64) (bool, error)
 	UpdateRole(ctx context.Context, id uint64, role model.UserRole) error
 }
 
@@ -19,13 +21,13 @@ type TokoRepository interface {
 	CreateForUserWithQuota(ctx context.Context, userID uint64, toko *model.Toko, maxTokos int) error
 	AttachUser(ctx context.Context, userID, tokoID uint64) error
 	CountByUser(ctx context.Context, userID uint64) (int, error)
-	ListByUser(ctx context.Context, userID uint64) ([]model.Toko, error)
+	ListByUser(ctx context.Context, userID uint64, actorRole model.UserRole) ([]model.Toko, error)
 	GetByID(ctx context.Context, id uint64) (*model.Toko, error)
 	GetByToken(ctx context.Context, token string) (*model.Toko, error)
 }
 
 type BalanceRepository interface {
-	ListByUser(ctx context.Context, userID uint64) ([]TokoBalanceRecord, error)
+	ListByUser(ctx context.Context, userID uint64, actorRole model.UserRole) ([]TokoBalanceRecord, error)
 	GetByTokoID(ctx context.Context, tokoID uint64) (*TokoBalanceRecord, error)
 	UpsertByTokoID(ctx context.Context, tokoID uint64, settlementBalance float64, availableBalance float64) error
 }
@@ -39,8 +41,9 @@ type TransactionRepository interface {
 	UpdateSettlementByID(ctx context.Context, id uint64, status model.TransactionStatus, platformFee uint64, netto uint64) error
 	GetDashboardMetricsByUser(ctx context.Context, userID uint64, from time.Time) (*DashboardMetrics, error)
 	GetHourlyStatusCountsByUser(ctx context.Context, userID uint64, from time.Time) ([]DashboardStatusSeriesPoint, error)
-	ListRecentByUser(ctx context.Context, userID uint64, limit int) ([]TransactionHistoryRecord, error)
+	ListRecentByUser(ctx context.Context, userID uint64, filter TransactionHistoryFilter) ([]TransactionHistoryRecord, error)
 	ListRecentSuccessByUser(ctx context.Context, userID uint64, limit int) ([]TransactionHistoryRecord, error)
+	CountHistoryByUser(ctx context.Context, userID uint64, filter TransactionHistoryFilter) (uint64, error)
 }
 
 type DashboardMetrics struct {
@@ -72,12 +75,21 @@ type TransactionHistoryRecord struct {
 	TokoID    uint64
 	TokoName  string
 	Player    *string
+	Code      *string
 	Type      model.TransactionType
 	Status    model.TransactionStatus
 	Reference *string
 	Amount    uint64
 	Netto     uint64
 	CreatedAt time.Time
+}
+
+type TransactionHistoryFilter struct {
+	Limit      int
+	Offset     int
+	From       *time.Time
+	To         *time.Time
+	SearchTerm string
 }
 
 type RefreshTokenStore interface {

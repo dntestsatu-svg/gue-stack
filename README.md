@@ -8,7 +8,7 @@ Production-quality fullstack starter kit with clean architecture, JWT auth, Redi
 - Go + Gin
 - MySQL
 - Redis (refresh-token/session store + Asynq queue backend)
-- Memcached (optional query cache via abstraction)
+- Memcached (query cache + API response cache via abstraction)
 - Asynq worker (separate process)
 - Viper config loader with env precedence
 - golang-migrate SQL migrations
@@ -62,8 +62,18 @@ cp .env.example .env
 
 2. Start stack:
 ```bash
-docker compose up --build
+docker compose up --build -d
 ```
+
+`initdb` runs automatically before API/worker to:
+- wait for MySQL readiness
+- apply migrations
+- seed payments
+- ensure exactly one `dev` user from `BOOTSTRAP_DEV_*` env
+
+Environment source of truth:
+- use only root `.env`
+- backend and frontend both load variables from root `.env`
 
 3. App endpoints:
 - Frontend: `http://localhost:5173`
@@ -117,19 +127,35 @@ Rollback one migration:
 migrate -path backend/migrations -database "mysql://root:secret@tcp(localhost:3306)/gue" down 1
 ```
 
+Fresh reset database (drop + recreate + migrate + seed + bootstrap dev):
+
+```bash
+cd backend
+go run ./cmd/initdb --fresh
+```
+
 ## API Endpoints
 
 - `POST /api/v1/auth/register`
+- `GET /api/v1/auth/csrf`
 - `POST /api/v1/auth/login`
 - `POST /api/v1/auth/refresh`
 - `POST /api/v1/auth/logout`
 - `GET /api/v1/user/me`
-- `POST /api/v1/payments/gateway/generate` (auth)
-- `POST /api/v1/payments/gateway/check-status/:trx_id` (auth)
-- `POST /api/v1/payments/gateway/inquiry` (auth)
-- `POST /api/v1/payments/gateway/transfer` (auth)
-- `POST /api/v1/payments/gateway/transfer/check-status/:partner_ref_no` (auth)
-- `POST /api/v1/payments/gateway/balance/:merchant_uuid` (auth)
+- `GET /api/v1/tokos` (auth)
+- `POST /api/v1/tokos` (auth, max 3 tokos/user)
+- `GET /api/v1/tokos/balances` (auth)
+- `PATCH /api/v1/tokos/:id/settlement` (auth, dev/superadmin)
+- `GET /api/v1/dashboard/overview` (auth)
+- `GET /api/v1/transactions/history` (auth)
+- `POST /api/v1/users` (auth, role must not be `user`)
+- `PATCH /api/v1/users/:id/role` (auth, role must be `dev` or `superadmin`)
+- `POST /api/v1/payments/gateway/generate` (Bearer toko token)
+- `POST /api/v1/payments/gateway/check-status/:trx_id` (Bearer toko token)
+- `POST /api/v1/payments/gateway/inquiry` (Bearer toko token)
+- `POST /api/v1/payments/gateway/transfer` (Bearer toko token)
+- `POST /api/v1/payments/gateway/transfer/check-status/:partner_ref_no` (Bearer toko token)
+- `POST /api/v1/payments/gateway/balance` (Bearer toko token)
 - `POST /api/v1/payments/gateway/callback/qris` (public callback)
 - `POST /api/v1/payments/gateway/callback/transfer` (public callback)
 
@@ -144,18 +170,22 @@ Internal API examples are available so the team can use project endpoints direct
 Recommended flow:
 
 1. Import collection + environment into Postman.
-2. Fill variables: `merchant_uuid`, `gateway_client`, `gateway_client_key`, `callback_secret`.
-3. Run in order: `Register` or `Login` -> token-dependent endpoints.
+2. Fill variables: `toko_token`, `merchant_uuid`, `gateway_client`, `callback_secret`, and user management vars.
+3. Run in order: `Login` -> `Create Toko` -> payment bridge endpoints.
 
 ## Auth + Authorization Rules
 
 ### Guest users
-- Allowed: `/login`, `/register`
-- Redirected from `/dashboard` to `/login`
+- Allowed: `/login`
+- Redirected from `/dashboard`, `/histori-transaksi`, `/toko` to `/login`
 
 ### Authenticated users
-- Allowed: `/dashboard`
-- Redirected from `/login` and `/register` to `/dashboard`
+- Active users can access `/dashboard`
+- Active users can access `/histori-transaksi`
+- Active users can access `/toko`
+- Inactive users are rejected by backend middleware and redirected to `/login`
+- Only roles `dev` and `superadmin` can change user role via API
+- Only roles `dev` and `superadmin` can apply manual settlement toko
 
 ## Testing
 
@@ -211,25 +241,28 @@ npm run lint
 - Database (MySQL) remains the source of truth.
 
 ### 2) JWT Flow
-`login/register -> access token + refresh token -> access expires -> refresh endpoint rotates tokens`
+`csrf bootstrap -> login -> access/refresh cookies -> access expires -> refresh rotates cookies`
 
-- Access token is short-lived and sent in `Authorization: Bearer`.
-- Refresh token is long-lived JWT with unique token ID (`jti`).
-- Refresh token ID is persisted in Redis.
-- Refresh flow validates JWT signature + Redis presence, then rotates token IDs.
-- Logout revokes refresh token by deleting its token ID from Redis.
+- Access token and refresh token are set as cookies (`HttpOnly`, `SameSite`, optional `Secure`).
+- CSRF token is issued by `GET /api/v1/auth/csrf` and must be sent in `X-CSRF-Token` for mutating requests.
+- Refresh token ID (`jti`) is persisted in Redis.
+- Refresh flow validates JWT signature + Redis presence, rotates refresh token, and sets new cookies.
+- Logout revokes refresh token by deleting its token ID from Redis and clears cookies.
 
 ### 3) Cache Strategy (Read-through)
 
 - Cache is queried first for read-heavy data (`/api/v1/user/me`).
 - On cache miss, data is loaded from DB and stored in cache.
+- External gateway balance on dashboard is cached for `5 minutes`.
 - Business logic depends only on cache interface (`Get`, `Set`, `Delete`).
-- Cache backend can be switched between Redis, Memcached, or Noop.
+- Cache backend can be switched between Memcached or Noop.
+- Redis is reserved only for refresh token/session storage, rate limiting, and Asynq queue.
 
 ### 4) Queue Flow
 `API -> Asynq producer -> Redis queue -> worker`
 
-- Registration enqueues `email:send_welcome` task.
+- User creation enqueues `email:send_welcome` task.
+- Payment gateway callbacks enqueue tasks to `callbacks` queue, then worker updates local transaction settlement.
 - Worker runs as separate process/binary and consumes queued tasks.
 - Worker and HTTP server both support graceful shutdown with SIGINT/SIGTERM.
 
@@ -244,6 +277,8 @@ GitHub Actions workflow (`.github/workflows/ci.yml`) runs:
 - bcrypt password hashing
 - JWT secrets from environment variables
 - no hardcoded production secrets
+- cookie-based auth (`withCredentials` frontend)
+- CSRF protection for mutating endpoints
 - middleware-based auth
 - request validation
 - centralized error response format:
@@ -255,3 +290,19 @@ GitHub Actions workflow (`.github/workflows/ci.yml`) runs:
   "details": "optional"
 }
 ```
+
+## CSRF + Cookie Troubleshooting
+
+If login returns `403 missing csrf cookie`:
+
+1. Ensure frontend calls `GET /api/v1/auth/csrf` before login/refresh/logout.
+2. Ensure frontend sends credentials (`withCredentials: true`).
+3. Ensure CORS origin matches exactly and credentials are enabled.
+4. For local HTTP dev:
+   - `SECURITY_COOKIE_SECURE=false`
+   - `SECURITY_COOKIE_SAME_SITE=lax`
+   - Open frontend and API with the same loopback host (`localhost` with `localhost`, or `127.0.0.1` with `127.0.0.1`).
+5. For cross-origin HTTPS (`https://gue.test` -> `https://api.test`):
+   - `SECURITY_COOKIE_SECURE=true`
+   - `SECURITY_COOKIE_SAME_SITE=none`
+   - `VITE_API_BASE_URL=https://api.test`
