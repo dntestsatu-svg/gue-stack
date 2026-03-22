@@ -1,6 +1,8 @@
 package http
 
 import (
+	"errors"
+	"io"
 	"net/http"
 	"strings"
 
@@ -165,6 +167,9 @@ func (h *AuthHandler) readRefreshToken(c *gin.Context) (string, error) {
 
 	var req refreshRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		if errors.Is(err, io.EOF) {
+			return "", apperror.New(http.StatusUnauthorized, "missing refresh token", nil)
+		}
 		return "", apperror.New(http.StatusBadRequest, "invalid request payload", err.Error())
 	}
 	token := strings.TrimSpace(req.RefreshToken)

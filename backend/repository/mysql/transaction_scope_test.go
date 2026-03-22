@@ -10,7 +10,8 @@ import (
 func TestTransactionVisibilityCTE_RoleSpecificScope(t *testing.T) {
 	query := transactionVisibilityCTE()
 
-	require.True(t, strings.Contains(query, "au.role IN ('dev', 'superadmin')"))
-	require.True(t, strings.Contains(query, "(au.role = 'admin' AND tu.user_id = au.id)"))
-	require.True(t, strings.Contains(query, "(au.role = 'user' AND au.created_by IS NOT NULL AND tu.user_id = au.created_by)"))
+	require.True(t, strings.Contains(query, "WITH RECURSIVE actor_user AS"))
+	require.True(t, strings.Contains(query, "INNER JOIN hierarchy h ON u.created_by = h.id"))
+	require.True(t, strings.Contains(query, "WHERE role = 'user' AND created_by IS NOT NULL"))
+	require.True(t, strings.Contains(query, "WHERE au.role = 'dev' OR su.id IS NOT NULL"))
 }

@@ -73,6 +73,10 @@ export function clearCSRFToken() {
   csrfTokenCache = ''
 }
 
+export function hasCookie(name: string): boolean {
+  return readCookie(name) !== ''
+}
+
 api.interceptors.request.use((config) => {
   const method = (config.method ?? 'get').toUpperCase()
   if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') {

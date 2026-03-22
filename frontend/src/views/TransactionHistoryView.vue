@@ -1,15 +1,12 @@
 <template>
-  <section class="space-y-6">
-    <header class="dashboard-hero">
-      <div class="space-y-2">
-        <p class="dashboard-eyebrow">Transaction Intelligence</p>
-        <h1 class="text-2xl font-semibold tracking-tight md:text-3xl">Histori Transaksi</h1>
-        <p class="text-sm text-[var(--muted-foreground)]">
-          Server-side filtering, search, pagination, dan export untuk dataset besar.
-          <span v-if="lastUpdated" class="ml-1">Updated {{ formatTime(lastUpdated) }}</span>
-        </p>
-      </div>
-      <div class="flex flex-wrap items-center gap-2">
+  <section class="page-shell">
+    <PageHeader
+      eyebrow="Transaction Intelligence"
+      title="Histori Transaksi"
+      description="Server-side filtering, search, pagination, dan export untuk dataset besar."
+      :updated-at="lastUpdated"
+    >
+      <template #actions>
         <Button size="sm" variant="outline" :disabled="loading" @click="loadHistory">
           {{ loading ? 'Loading...' : 'Refresh' }}
         </Button>
@@ -19,19 +16,19 @@
         <Button size="sm" :disabled="exportingDOCX || loading" @click="downloadExport('docx')">
           {{ exportingDOCX ? 'Exporting...' : 'Export DOCX' }}
         </Button>
-      </div>
-    </header>
+      </template>
+    </PageHeader>
 
-    <Card class="app-panel border-none">
+    <Card class="app-panel">
       <CardHeader>
         <CardTitle>Filters</CardTitle>
         <CardDescription>
           Search berdasarkan reference, player, atau code. Rentang tanggal menggunakan UTC.
         </CardDescription>
       </CardHeader>
-      <CardContent class="space-y-4">
-        <div class="grid gap-3 md:grid-cols-4">
-          <div class="space-y-2 md:col-span-2">
+      <CardContent class="space-y-3">
+        <div class="grid gap-3 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.25fr)]">
+          <div class="space-y-2">
             <Label for="trx-search">Search</Label>
             <Input
               id="trx-search"
@@ -40,8 +37,8 @@
               @keydown.enter.prevent="applyFilters"
             />
           </div>
-          <div class="space-y-2 md:col-span-2">
-            <Label>Date Range</Label>
+          <div class="space-y-2">
+            <Label>From - To</Label>
             <DateRangePicker v-model="dateRange" :disabled="loading" />
           </div>
         </div>
@@ -52,7 +49,7 @@
       </CardContent>
     </Card>
 
-    <Card class="app-panel border-none">
+    <Card class="app-panel">
       <CardHeader>
         <CardTitle>Latest Order (All Status)</CardTitle>
         <CardDescription>{{ rangeLabel }}</CardDescription>
@@ -62,8 +59,8 @@
           {{ errorMessage }}
         </p>
 
-        <div class="overflow-x-auto">
-          <table class="w-full min-w-[1080px] text-sm">
+        <div class="app-table-shell">
+          <table class="app-data-table min-w-[1080px] text-sm">
             <thead>
               <tr class="border-b border-[var(--border)] text-left text-[var(--muted-foreground)]">
                 <th class="px-3 py-3 font-medium">Waktu</th>
@@ -131,6 +128,7 @@
 
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
+import PageHeader from '@/components/PageHeader.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -172,7 +170,7 @@ const dateRange = computed({
   },
 })
 
-const { formatCurrency, formatDateMedium, formatTime } = useFormatters()
+const { formatCurrency, formatDateMedium } = useFormatters()
 
 const historyQuery = (): TransactionHistoryQuery => {
   const query: TransactionHistoryQuery = {

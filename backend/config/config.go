@@ -83,6 +83,7 @@ type CookieConfig struct {
 	AccessTokenName  string `mapstructure:"access_token_name"`
 	RefreshTokenName string `mapstructure:"refresh_token_name"`
 	CSRFCookieName   string `mapstructure:"csrf_cookie_name"`
+	SessionHintName  string `mapstructure:"session_hint_name"`
 	Domain           string `mapstructure:"domain"`
 	Path             string `mapstructure:"path"`
 	Secure           bool   `mapstructure:"secure"`
@@ -152,7 +153,7 @@ func Load() (Config, error) {
 	if cfg.Cache.Driver == "memcached" && (!cfg.Memcached.Enabled || strings.TrimSpace(cfg.Memcached.Addr) == "") {
 		return Config{}, fmt.Errorf("CACHE_DRIVER=memcached requires MEMCACHED_ENABLED=true and MEMCACHED_ADDR set")
 	}
-	if cfg.Security.Cookie.AccessTokenName == "" || cfg.Security.Cookie.RefreshTokenName == "" || cfg.Security.Cookie.CSRFCookieName == "" {
+	if cfg.Security.Cookie.AccessTokenName == "" || cfg.Security.Cookie.RefreshTokenName == "" || cfg.Security.Cookie.CSRFCookieName == "" || cfg.Security.Cookie.SessionHintName == "" {
 		return Config{}, fmt.Errorf("security cookie names must be set")
 	}
 	if strings.TrimSpace(cfg.Security.CSRF.HeaderName) == "" {
@@ -229,6 +230,7 @@ func setDefaults(v *viper.Viper, env string) {
 	v.SetDefault("security.cookie.access_token_name", "access_token")
 	v.SetDefault("security.cookie.refresh_token_name", "refresh_token")
 	v.SetDefault("security.cookie.csrf_cookie_name", "csrf_token")
+	v.SetDefault("security.cookie.session_hint_name", "session_hint")
 	v.SetDefault("security.cookie.domain", "")
 	v.SetDefault("security.cookie.path", "/")
 	v.SetDefault("security.cookie.secure", cookieSecureDefault)

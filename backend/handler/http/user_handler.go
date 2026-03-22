@@ -4,8 +4,6 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/example/gue/backend/middleware"
-	"github.com/example/gue/backend/model"
 	"github.com/example/gue/backend/pkg/apperror"
 	"github.com/example/gue/backend/pkg/response"
 	"github.com/example/gue/backend/service"
@@ -21,7 +19,7 @@ func NewUserHandler(user service.UserUseCase) *UserHandler {
 }
 
 func (h *UserHandler) Me(c *gin.Context) {
-	userID, _, err := readAuthContext(c)
+	userID, _, err := readUserContext(c)
 	if err != nil {
 		handleError(c, err)
 		return
@@ -40,20 +38,16 @@ func (h *UserHandler) Me(c *gin.Context) {
 }
 
 func (h *UserHandler) List(c *gin.Context) {
-	actorUserID, actorRole, err := readAuthContext(c)
+	actorUserID, actorRole, err := readUserContext(c)
 	if err != nil {
 		handleError(c, err)
 		return
 	}
 
-	limit := 50
-	if rawLimit := c.Query("limit"); rawLimit != "" {
-		parsed, err := strconv.Atoi(rawLimit)
-		if err != nil {
-			handleError(c, apperror.New(http.StatusBadRequest, "invalid limit query parameter", nil))
-			return
-		}
-		limit = parsed
+	limit, err := parseIntQuery(c, "limit", 50)
+	if err != nil {
+		handleError(c, err)
+		return
 	}
 
 	users, err := h.user.List(c.Request.Context(), actorUserID, actorRole, limit)
@@ -69,7 +63,7 @@ func (h *UserHandler) List(c *gin.Context) {
 }
 
 func (h *UserHandler) Create(c *gin.Context) {
-	actorUserID, actorRole, err := readAuthContext(c)
+	actorUserID, actorRole, err := readUserContext(c)
 	if err != nil {
 		handleError(c, err)
 		return
@@ -94,7 +88,7 @@ func (h *UserHandler) Create(c *gin.Context) {
 }
 
 func (h *UserHandler) UpdateRole(c *gin.Context) {
-	actorUserID, actorRole, err := readAuthContext(c)
+	actorUserID, actorRole, err := readUserContext(c)
 	if err != nil {
 		handleError(c, err)
 		return
@@ -122,26 +116,4 @@ func (h *UserHandler) UpdateRole(c *gin.Context) {
 		"status": "success",
 		"data":   updated,
 	})
-}
-
-func readAuthContext(c *gin.Context) (uint64, model.UserRole, error) {
-	rawUserID, ok := c.Get(middleware.ContextKeyUserID)
-	if !ok {
-		return 0, "", apperror.New(http.StatusUnauthorized, "unauthorized", nil)
-	}
-	userID, ok := rawUserID.(uint64)
-	if !ok {
-		return 0, "", apperror.New(http.StatusUnauthorized, "invalid token claims", nil)
-	}
-
-	rawRole, ok := c.Get(middleware.ContextKeyUserRole)
-	if !ok {
-		return 0, "", apperror.New(http.StatusUnauthorized, "missing user role", nil)
-	}
-	role, ok := rawRole.(model.UserRole)
-	if !ok {
-		return 0, "", apperror.New(http.StatusUnauthorized, "invalid user role", nil)
-	}
-
-	return userID, role, nil
 }

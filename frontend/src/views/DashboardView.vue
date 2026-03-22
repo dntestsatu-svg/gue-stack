@@ -1,21 +1,146 @@
-<template>
-  <section class="space-y-6">
-    <header class="dashboard-hero">
-      <div class="space-y-2">
-        <p class="dashboard-eyebrow">Control Center</p>
-        <h1 class="text-2xl font-semibold tracking-tight md:text-3xl">Enterprise Operations Dashboard</h1>
-        <p class="text-sm text-[var(--muted-foreground)]">
-          Realtime monitoring transaksi gateway dan kesehatan operasional.
-          <span v-if="overview?.updated_at" class="ml-1">Updated {{ formatTime(overview.updated_at) }}</span>
-        </p>
-      </div>
-      <div v-if="canManageUsers" class="flex flex-wrap items-center gap-2">
-        <Button size="sm" @click="openAddUserModal">Add User</Button>
-        <Button size="sm" variant="outline" @click="openUsersModal">List Users</Button>
-      </div>
-    </header>
+<script setup lang="ts">
+import { computed, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { ArrowDownRight, ArrowUpRight, UserPlus, Users } from 'lucide-vue-next'
+import AppIcon from '@/components/AppIcon.vue'
+import EmptyState from '@/components/EmptyState.vue'
+import PageHeader from '@/components/PageHeader.vue'
+import { useFormatters } from '@/composables/useFormatters'
+import { usePolling } from '@/composables/usePolling'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import * as dashboardApi from '@/services/dashboard'
+import { getApiErrorMessage } from '@/services/http'
+import type { DashboardOverview, UserRole } from '@/services/types'
+import { useUserStore } from '@/stores/user'
 
-    <p v-if="errorMessage" class="rounded-md border border-[var(--danger)]/25 bg-[var(--danger)]/8 px-3 py-2 text-sm text-[var(--danger)]">
+const router = useRouter()
+const userStore = useUserStore()
+
+const overview = ref<DashboardOverview | null>(null)
+const errorMessage = ref('')
+const loading = ref(false)
+
+const { formatCurrency, formatDateShort, formatPercent } = useFormatters()
+
+const actorRole = computed<UserRole>(() => userStore.profile?.role ?? 'user')
+const canManageUsers = computed(() => actorRole.value !== 'user')
+const canViewProjectProfit = computed(() => actorRole.value === 'dev' && Boolean(overview.value?.can_view_project_profit))
+
+const loadDashboardData = async () => {
+  loading.value = true
+  errorMessage.value = ''
+  try {
+    overview.value = await dashboardApi.fetchOverview()
+  } catch (error) {
+    errorMessage.value = getApiErrorMessage(error)
+  } finally {
+    loading.value = false
+  }
+}
+
+const { runNow } = usePolling(loadDashboardData, 10000)
+
+const maxSeriesValue = computed(() => {
+  const series = overview.value?.status_series ?? []
+  let maxValue = 0
+  for (const point of series) {
+    maxValue = Math.max(maxValue, point.success_count, point.failed_expired_count)
+  }
+  return maxValue > 0 ? maxValue : 1
+})
+
+const toPolyline = (selector: 'success_count' | 'failed_expired_count') => {
+  const series = overview.value?.status_series ?? []
+  if (series.length === 0) {
+    return ''
+  }
+
+  return series
+    .map((point, index) => {
+      const x = series.length === 1 ? 50 : (index / (series.length - 1)) * 100
+      const normalized = point[selector] / maxSeriesValue.value
+      const y = 36 - normalized * 30
+      return `${x},${y}`
+    })
+    .join(' ')
+}
+
+const successPolyline = computed(() => toPolyline('success_count'))
+const failedPolyline = computed(() => toPolyline('failed_expired_count'))
+
+const metricCards = computed(() => {
+  const metrics = overview.value?.metrics
+  const external = overview.value?.external_balance
+  return [
+    {
+      title: 'Success Rate',
+      value: formatPercent(metrics?.success_rate ?? 0),
+      hint: `${metrics?.success_transactions ?? 0} transaksi sukses`,
+      positive: true,
+      visible: true,
+    },
+    {
+      title: 'Pending Balance (External)',
+      value: formatCurrency(external?.pending_balance ?? 0),
+      hint: 'Sumber: payment gateway',
+      positive: true,
+      visible: true,
+    },
+    {
+      title: 'Available Balance (External)',
+      value: formatCurrency(external?.available_balance ?? 0),
+      hint: 'Sumber: payment gateway',
+      positive: true,
+      visible: true,
+    },
+    {
+      title: 'Total Keuntungan Project',
+      value: formatCurrency(metrics?.project_profit ?? 0),
+      hint: 'Visible for dev role only',
+      positive: true,
+      visible: canViewProjectProfit.value,
+    },
+  ]
+})
+</script>
+
+<template>
+  <section class="page-shell">
+    <PageHeader
+      eyebrow="Control Center"
+      title="Enterprise Operations Dashboard"
+      description="Realtime monitoring transaksi gateway dan kesehatan operasional."
+      :updated-at="overview?.updated_at"
+    >
+      <template #actions>
+        <Button variant="outline" size="sm" :disabled="loading" @click="runNow">
+          {{ loading ? 'Refreshing...' : 'Refresh' }}
+        </Button>
+        <Button v-if="canManageUsers" size="sm" @click="router.push('/users?create=1')">
+          <UserPlus class="mr-2 h-4 w-4" />
+          Add User
+        </Button>
+        <Button v-if="canManageUsers" size="sm" variant="outline" @click="router.push('/users')">
+          <Users class="mr-2 h-4 w-4" />
+          List Users
+        </Button>
+      </template>
+    </PageHeader>
+
+    <p
+      v-if="errorMessage"
+      class="rounded-md border border-[var(--danger)]/25 bg-[var(--danger)]/8 px-3 py-2 text-sm text-[var(--danger)]"
+    >
       {{ errorMessage }}
     </p>
     <p
@@ -26,40 +151,46 @@
     </p>
 
     <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-      <Card v-if="canViewProjectProfit" class="dashboard-kpi-card dashboard-kpi-card-profit">
-        <CardHeader class="pb-2">
-          <CardDescription>Total Keuntungan Project</CardDescription>
-          <CardTitle class="text-2xl text-[var(--success)]">{{ formatCurrency(overview?.metrics.project_profit ?? 0) }}</CardTitle>
-        </CardHeader>
-      </Card>
-      <Card class="dashboard-kpi-card">
-        <CardHeader class="pb-2">
-          <CardDescription>Pending Balance (External)</CardDescription>
-          <CardTitle class="text-2xl">{{ formatCurrency(overview?.external_balance.pending_balance ?? 0) }}</CardTitle>
-        </CardHeader>
-      </Card>
-      <Card class="dashboard-kpi-card">
-        <CardHeader class="pb-2">
-          <CardDescription>Available Balance (External)</CardDescription>
-          <CardTitle class="text-2xl">{{ formatCurrency(overview?.external_balance.available_balance ?? 0) }}</CardTitle>
-        </CardHeader>
-      </Card>
-      <Card class="dashboard-kpi-card">
-        <CardHeader class="pb-2">
-          <CardDescription>Success Rate</CardDescription>
-          <CardTitle class="text-2xl">{{ formatPercent(overview?.metrics.success_rate ?? 0) }}</CardTitle>
-        </CardHeader>
-      </Card>
+      <template v-if="loading && !overview">
+        <Card v-for="idx in 4" :key="idx" class="dashboard-kpi-card">
+          <CardHeader class="pb-2">
+            <Skeleton class="h-4 w-36" />
+            <Skeleton class="h-7 w-24" />
+          </CardHeader>
+        </Card>
+      </template>
+      <template v-else>
+        <Card
+          v-for="item in metricCards.filter((card) => card.visible)"
+          :key="item.title"
+          class="dashboard-kpi-card"
+        >
+          <CardHeader class="space-y-2 pb-2">
+            <CardDescription>{{ item.title }}</CardDescription>
+            <CardTitle class="text-2xl">{{ item.value }}</CardTitle>
+            <div class="text-muted-foreground flex items-center gap-1 text-xs">
+              <AppIcon :icon="item.positive ? ArrowUpRight : ArrowDownRight" class="h-3.5 w-3.5" />
+              {{ item.hint }}
+            </div>
+          </CardHeader>
+        </Card>
+      </template>
     </div>
 
     <div class="grid gap-4 xl:grid-cols-[1.5fr_1fr]">
-      <Card class="app-panel border-none">
+      <Card class="app-panel">
         <CardHeader class="pb-1">
           <CardTitle>Success vs Failed / Expired</CardTitle>
           <CardDescription>Rolling 12 jam terakhir berdasarkan status transaksi.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div class="relative h-64 w-full rounded-lg border border-[var(--border)] bg-[var(--background-muted)]/35 p-3">
+          <div v-if="loading && !overview" class="space-y-2">
+            <Skeleton class="h-64 w-full" />
+          </div>
+          <div
+            v-else-if="(overview?.status_series?.length ?? 0) > 0"
+            class="relative h-64 w-full rounded-lg border border-[var(--border)] bg-[var(--background-muted)]/35 p-3"
+          >
             <svg viewBox="0 0 100 40" class="h-full w-full" preserveAspectRatio="none">
               <g stroke="var(--chart-grid)" stroke-width="0.25">
                 <line v-for="line in 5" :key="line" x1="0" :y1="line * 8" x2="100" :y2="line * 8" />
@@ -82,6 +213,11 @@
               />
             </svg>
           </div>
+          <EmptyState
+            v-else
+            title="Belum Ada Data Chart"
+            description="Data chart akan tampil setelah ada transaksi dalam jendela waktu aktif."
+          />
           <div class="mt-3 flex flex-wrap gap-3 text-sm text-[var(--muted-foreground)]">
             <span>Total: {{ overview?.metrics.total_transactions ?? 0 }}</span>
             <span>Success: {{ overview?.metrics.success_transactions ?? 0 }}</span>
@@ -91,7 +227,7 @@
         </CardContent>
       </Card>
 
-      <Card class="app-panel border-none">
+      <Card class="app-panel">
         <CardHeader class="pb-1">
           <CardTitle>Flow Summary</CardTitle>
           <CardDescription>Ringkasan nominal transaksi sukses.</CardDescription>
@@ -115,312 +251,46 @@
       </Card>
     </div>
 
-    <Card class="app-panel border-none">
+    <Card class="app-panel">
       <CardHeader>
         <CardTitle>Latest Order (Success)</CardTitle>
         <CardDescription>Order sukses terbaru dari semua toko milik user saat ini.</CardDescription>
       </CardHeader>
-      <CardContent class="overflow-x-auto">
-        <table class="w-full min-w-[720px] text-sm">
-          <thead>
-            <tr class="border-b border-[var(--border)] text-left text-[var(--muted-foreground)]">
-              <th class="px-2 py-2 font-medium">Waktu</th>
-              <th class="px-2 py-2 font-medium">Toko</th>
-              <th class="px-2 py-2 font-medium">Reference</th>
-              <th class="px-2 py-2 font-medium text-right">Amount</th>
-              <th class="px-2 py-2 font-medium text-right">Netto</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="item in overview?.latest_success_orders ?? []"
-              :key="item.id"
-              class="border-b border-[var(--border)]/60"
-            >
-              <td class="px-2 py-2">{{ formatDate(item.created_at) }}</td>
-              <td class="px-2 py-2">{{ item.toko_name }}</td>
-              <td class="px-2 py-2">{{ item.reference || '-' }}</td>
-              <td class="px-2 py-2 text-right">{{ formatCurrency(item.amount) }}</td>
-              <td class="px-2 py-2 text-right">{{ formatCurrency(item.netto) }}</td>
-            </tr>
-            <tr v-if="(overview?.latest_success_orders?.length ?? 0) === 0">
-              <td colspan="5" class="px-2 py-8 text-center text-[var(--muted-foreground)]">Belum ada order sukses.</td>
-            </tr>
-          </tbody>
-        </table>
+      <CardContent>
+        <div v-if="loading && !overview" class="space-y-2">
+          <Skeleton class="h-12 w-full" />
+          <Skeleton class="h-12 w-full" />
+        </div>
+        <EmptyState
+          v-else-if="(overview?.latest_success_orders?.length ?? 0) === 0"
+          title="Belum Ada Order Sukses"
+          description="Transaksi sukses pertama akan muncul di tabel ini."
+          action-label="Ke Histori Transaksi"
+          @action="router.push('/histori-transaksi')"
+        />
+        <div v-else class="overflow-hidden rounded-xl border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Waktu</TableHead>
+                <TableHead>Toko</TableHead>
+                <TableHead>Reference</TableHead>
+                <TableHead class="text-right">Amount</TableHead>
+                <TableHead class="text-right">Netto</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow v-for="item in overview?.latest_success_orders" :key="item.id">
+                <TableCell>{{ formatDateShort(item.created_at) }}</TableCell>
+                <TableCell class="font-medium">{{ item.toko_name }}</TableCell>
+                <TableCell>{{ item.reference || '-' }}</TableCell>
+                <TableCell class="text-right">{{ formatCurrency(item.amount) }}</TableCell>
+                <TableCell class="text-right">{{ formatCurrency(item.netto) }}</TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </div>
       </CardContent>
     </Card>
   </section>
-
-  <Teleport to="body">
-    <div v-if="showAddUserModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <button class="absolute inset-0 bg-black/55" type="button" aria-label="Close modal" @click="closeAddUserModal" />
-      <Card class="relative z-10 w-full max-w-lg border border-[var(--border)] shadow-2xl">
-        <CardHeader>
-          <CardTitle>Add User</CardTitle>
-          <CardDescription>Create akun baru untuk tim internal.</CardDescription>
-        </CardHeader>
-        <CardContent class="space-y-4">
-          <form class="space-y-4" @submit.prevent="submitAddUser">
-            <div class="grid gap-2 md:grid-cols-2">
-              <div class="space-y-2">
-                <Label for="user-name">Name</Label>
-                <Input id="user-name" v-model="addUserForm.name" placeholder="Nama lengkap" />
-              </div>
-              <div class="space-y-2">
-                <Label for="user-email">Email</Label>
-                <Input id="user-email" v-model="addUserForm.email" type="email" placeholder="email@domain.com" />
-              </div>
-            </div>
-            <div class="grid gap-2 md:grid-cols-2">
-              <div class="space-y-2">
-                <Label for="user-password">Password</Label>
-                <Input id="user-password" v-model="addUserForm.password" type="password" placeholder="Minimal 8 karakter" />
-              </div>
-              <div class="space-y-2">
-                <Label for="user-role">Role</Label>
-                <select
-                  id="user-role"
-                  v-model="addUserForm.role"
-                  class="h-10 w-full rounded-md border border-[var(--border)] bg-[var(--background-elevated)] px-3 text-sm"
-                >
-                  <option v-for="role in roleOptions" :key="role" :value="role">{{ role }}</option>
-                </select>
-              </div>
-            </div>
-            <label class="inline-flex items-center gap-2 text-sm text-[var(--muted-foreground)]">
-              <input v-model="addUserForm.isActive" type="checkbox" class="h-4 w-4 rounded border-[var(--border)]" />
-              Aktifkan user setelah dibuat
-            </label>
-            <p v-if="addUserErrorMessage" class="text-sm text-[var(--danger)]">{{ addUserErrorMessage }}</p>
-            <div class="flex items-center justify-end gap-2">
-              <Button type="button" variant="ghost" :disabled="addUserLoading" @click="closeAddUserModal">Cancel</Button>
-              <Button type="submit" :disabled="addUserLoading">
-                {{ addUserLoading ? 'Saving...' : 'Create User' }}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
-  </Teleport>
-
-  <Teleport to="body">
-    <div v-if="showUsersModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <button class="absolute inset-0 bg-black/55" type="button" aria-label="Close modal" @click="closeUsersModal" />
-      <Card class="relative z-10 w-full max-w-4xl border border-[var(--border)] shadow-2xl">
-        <CardHeader class="flex flex-row items-center justify-between gap-3">
-          <div>
-            <CardTitle>User Directory</CardTitle>
-            <CardDescription>Daftar akun internal dengan role dan status aktif.</CardDescription>
-          </div>
-          <Button size="sm" variant="outline" :disabled="usersLoading" @click="loadUsers">
-            {{ usersLoading ? 'Loading...' : 'Refresh' }}
-          </Button>
-        </CardHeader>
-        <CardContent>
-          <p v-if="usersErrorMessage" class="mb-3 text-sm text-[var(--danger)]">{{ usersErrorMessage }}</p>
-          <div class="overflow-x-auto">
-            <table class="w-full min-w-[680px] text-sm">
-              <thead>
-                <tr class="border-b border-[var(--border)] text-left text-[var(--muted-foreground)]">
-                  <th class="px-2 py-2 font-medium">Name</th>
-                  <th class="px-2 py-2 font-medium">Email</th>
-                  <th class="px-2 py-2 font-medium">Role</th>
-                  <th class="px-2 py-2 font-medium">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="item in users" :key="item.id" class="border-b border-[var(--border)]/60">
-                  <td class="px-2 py-2">{{ item.name }}</td>
-                  <td class="px-2 py-2">{{ item.email }}</td>
-                  <td class="px-2 py-2">
-                    <span class="status-pill bg-[var(--background-muted)] text-[var(--foreground)]">{{ item.role }}</span>
-                  </td>
-                  <td class="px-2 py-2">
-                    <span
-                      class="status-pill"
-                      :class="item.is_active ? 'bg-[color-mix(in_oklab,var(--success)_20%,transparent)] text-[var(--success)]' : 'bg-[color-mix(in_oklab,var(--danger)_20%,transparent)] text-[var(--danger)]'"
-                    >
-                      {{ item.is_active ? 'active' : 'inactive' }}
-                    </span>
-                  </td>
-                </tr>
-                <tr v-if="!usersLoading && users.length === 0">
-                  <td colspan="4" class="px-2 py-8 text-center text-[var(--muted-foreground)]">Belum ada user.</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  </Teleport>
 </template>
-
-<script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { useFormatters } from '@/composables/useFormatters'
-import { usePolling } from '@/composables/usePolling'
-import { getApiErrorMessage } from '@/services/http'
-import * as dashboardApi from '@/services/dashboard'
-import * as userApi from '@/services/user'
-import type { DashboardOverview, User, UserRole } from '@/services/types'
-import { useUserStore } from '@/stores/user'
-
-const overview = ref<DashboardOverview | null>(null)
-const errorMessage = ref('')
-const userStore = useUserStore()
-
-const showAddUserModal = ref(false)
-const addUserLoading = ref(false)
-const addUserErrorMessage = ref('')
-const addUserForm = reactive({
-  name: '',
-  email: '',
-  password: '',
-  role: 'user' as UserRole,
-  isActive: true,
-})
-
-const showUsersModal = ref(false)
-const usersLoading = ref(false)
-const usersErrorMessage = ref('')
-const users = ref<User[]>([])
-
-const { formatCurrency, formatDateShort, formatPercent, formatTime } = useFormatters()
-
-const actorRole = computed(() => userStore.profile?.role ?? 'user')
-const canManageUsers = computed(() => actorRole.value !== 'user')
-const canViewProjectProfit = computed(() => actorRole.value === 'dev' && Boolean(overview.value?.can_view_project_profit))
-const roleOptions = computed<UserRole[]>(() => {
-  if (actorRole.value === 'dev') {
-    return ['superadmin', 'admin', 'user']
-  }
-  if (actorRole.value === 'superadmin') {
-    return ['admin', 'user']
-  }
-  if (actorRole.value === 'admin') {
-    return ['user']
-  }
-  return []
-})
-
-const loadDashboardData = async () => {
-  errorMessage.value = ''
-  try {
-    overview.value = await dashboardApi.fetchOverview()
-  } catch (error) {
-    errorMessage.value = getApiErrorMessage(error)
-  }
-}
-
-const { runNow } = usePolling(loadDashboardData, 10000)
-
-const maxSeriesValue = computed(() => {
-  const series = overview.value?.status_series ?? []
-  let maxValue = 0
-  for (const item of series) {
-    maxValue = Math.max(maxValue, item.success_count, item.failed_expired_count)
-  }
-  return maxValue || 1
-})
-
-const toPolyline = (selector: 'success_count' | 'failed_expired_count') => {
-  const series = overview.value?.status_series ?? []
-  if (series.length === 0) {
-    return ''
-  }
-  return series
-    .map((item, idx) => {
-      const x = series.length === 1 ? 50 : (idx / (series.length - 1)) * 100
-      const normalized = item[selector] / maxSeriesValue.value
-      const y = 36 - normalized * 30
-      return `${x},${y}`
-    })
-    .join(' ')
-}
-
-const successPolyline = computed(() => toPolyline('success_count'))
-const failedPolyline = computed(() => toPolyline('failed_expired_count'))
-
-const resetAddUserForm = () => {
-  addUserForm.name = ''
-  addUserForm.email = ''
-  addUserForm.password = ''
-  addUserForm.role = roleOptions.value[0] ?? 'user'
-  addUserForm.isActive = true
-}
-
-const openAddUserModal = () => {
-  if (!canManageUsers.value) {
-    return
-  }
-  addUserErrorMessage.value = ''
-  resetAddUserForm()
-  showAddUserModal.value = true
-}
-
-const closeAddUserModal = () => {
-  if (addUserLoading.value) {
-    return
-  }
-  showAddUserModal.value = false
-}
-
-const submitAddUser = async () => {
-  addUserErrorMessage.value = ''
-  addUserLoading.value = true
-  try {
-    await userApi.create({
-      name: addUserForm.name.trim(),
-      email: addUserForm.email.trim(),
-      password: addUserForm.password,
-      role: addUserForm.role,
-      is_active: addUserForm.isActive,
-    })
-    showAddUserModal.value = false
-    if (showUsersModal.value) {
-      await loadUsers()
-    }
-    await runNow()
-  } catch (error) {
-    addUserErrorMessage.value = getApiErrorMessage(error)
-  } finally {
-    addUserLoading.value = false
-  }
-}
-
-const loadUsers = async () => {
-  usersLoading.value = true
-  usersErrorMessage.value = ''
-  try {
-    users.value = await userApi.list(100)
-  } catch (error) {
-    usersErrorMessage.value = getApiErrorMessage(error)
-  } finally {
-    usersLoading.value = false
-  }
-}
-
-const openUsersModal = async () => {
-  if (!canManageUsers.value) {
-    return
-  }
-  showUsersModal.value = true
-  await loadUsers()
-}
-
-const closeUsersModal = () => {
-  if (usersLoading.value) {
-    return
-  }
-  showUsersModal.value = false
-}
-
-const formatDate = (value: string) => formatDateShort(value)
-</script>

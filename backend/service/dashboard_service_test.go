@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -18,6 +19,9 @@ type fakeDashboardTransactionRepo struct {
 	series     []repository.DashboardStatusSeriesPoint
 	history    []repository.TransactionHistoryRecord
 	lastFilter repository.TransactionHistoryFilter
+	metricsHit int
+	seriesHit  int
+	successHit int
 }
 
 func (f *fakeDashboardTransactionRepo) Create(_ context.Context, _ *model.Transaction) error {
@@ -45,11 +49,13 @@ func (f *fakeDashboardTransactionRepo) UpdateSettlementByID(_ context.Context, _
 }
 
 func (f *fakeDashboardTransactionRepo) GetDashboardMetricsByUser(_ context.Context, _ uint64, _ time.Time) (*repository.DashboardMetrics, error) {
+	f.metricsHit++
 	value := f.metrics
 	return &value, nil
 }
 
 func (f *fakeDashboardTransactionRepo) GetHourlyStatusCountsByUser(_ context.Context, _ uint64, _ time.Time) ([]repository.DashboardStatusSeriesPoint, error) {
+	f.seriesHit++
 	return f.series, nil
 }
 
@@ -72,6 +78,7 @@ func (f *fakeDashboardTransactionRepo) ListRecentByUser(_ context.Context, _ uin
 }
 
 func (f *fakeDashboardTransactionRepo) ListRecentSuccessByUser(_ context.Context, _ uint64, limit int) ([]repository.TransactionHistoryRecord, error) {
+	f.successHit++
 	result := make([]repository.TransactionHistoryRecord, 0, limit)
 	for _, item := range f.history {
 		if item.Status != model.TransactionStatusSuccess {
@@ -123,6 +130,7 @@ func (f *fakeDashboardGatewayClient) GetBalance(_ context.Context, _ string, _ p
 type fakeDashboardCache struct {
 	items map[string][]byte
 	ttls  map[string]time.Duration
+	fail  bool
 }
 
 func newFakeDashboardCache() *fakeDashboardCache {
@@ -133,6 +141,9 @@ func newFakeDashboardCache() *fakeDashboardCache {
 }
 
 func (f *fakeDashboardCache) Get(_ context.Context, key string) ([]byte, error) {
+	if f.fail {
+		return nil, assertiveCacheErr("cache unavailable")
+	}
 	value, ok := f.items[key]
 	if !ok {
 		return nil, cache.ErrCacheMiss
@@ -141,6 +152,9 @@ func (f *fakeDashboardCache) Get(_ context.Context, key string) ([]byte, error) 
 }
 
 func (f *fakeDashboardCache) Set(_ context.Context, key string, value any, ttl time.Duration) error {
+	if f.fail {
+		return assertiveCacheErr("cache unavailable")
+	}
 	payload, err := json.Marshal(value)
 	if err != nil {
 		return err
@@ -151,9 +165,18 @@ func (f *fakeDashboardCache) Set(_ context.Context, key string, value any, ttl t
 }
 
 func (f *fakeDashboardCache) Delete(_ context.Context, key string) error {
+	if f.fail {
+		return assertiveCacheErr("cache unavailable")
+	}
 	delete(f.items, key)
 	delete(f.ttls, key)
 	return nil
+}
+
+type assertiveCacheErr string
+
+func (e assertiveCacheErr) Error() string {
+	return string(e)
 }
 
 func TestDashboardServiceOverviewBuildsSeriesAndMetrics(t *testing.T) {
@@ -237,6 +260,49 @@ func TestDashboardServiceTransactionHistoryMapsRecords(t *testing.T) {
 	require.Equal(t, "deposit", result.Items[0].Type)
 }
 
+func TestDashboardServiceTransactionHistoryPropagatesSearchAndDateFilters(t *testing.T) {
+	from := time.Date(2026, 3, 20, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 3, 21, 23, 59, 59, 0, time.UTC)
+	repo := &fakeDashboardTransactionRepo{
+		history: []repository.TransactionHistoryRecord{},
+	}
+	svc := NewDashboardService(repo, nil, cache.NewNoopCache(), "", "", 5*time.Minute)
+
+	_, err := svc.TransactionHistory(context.Background(), 8, TransactionHistoryQuery{
+		Limit:      50,
+		Offset:     10,
+		From:       &from,
+		To:         &to,
+		SearchTerm: "trx-001",
+	})
+	require.NoError(t, err)
+	require.Equal(t, 50, repo.lastFilter.Limit)
+	require.Equal(t, 10, repo.lastFilter.Offset)
+	require.Equal(t, "trx-001", repo.lastFilter.SearchTerm)
+	require.NotNil(t, repo.lastFilter.From)
+	require.NotNil(t, repo.lastFilter.To)
+	require.True(t, repo.lastFilter.From.UTC().Equal(from))
+	require.True(t, repo.lastFilter.To.UTC().Equal(to))
+}
+
+func TestDashboardServiceTransactionHistorySanitizesPaginationBounds(t *testing.T) {
+	repo := &fakeDashboardTransactionRepo{
+		history: []repository.TransactionHistoryRecord{},
+	}
+	svc := NewDashboardService(repo, nil, cache.NewNoopCache(), "", "", 5*time.Minute)
+
+	page, err := svc.TransactionHistory(context.Background(), 8, TransactionHistoryQuery{
+		Limit:  999,
+		Offset: -7,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, page)
+	require.Equal(t, 200, page.Limit)
+	require.Equal(t, 0, page.Offset)
+	require.Equal(t, 200, repo.lastFilter.Limit)
+	require.Equal(t, 0, repo.lastFilter.Offset)
+}
+
 func TestDashboardServiceExportTransactionHistoryCSV(t *testing.T) {
 	player := "player-a"
 	reference := "trx-ref-1"
@@ -275,6 +341,18 @@ func TestDashboardServiceExportTransactionHistoryDefaultsToTenThousand(t *testin
 	svc := NewDashboardService(repo, nil, cache.NewNoopCache(), "", "", 5*time.Minute)
 
 	_, err := svc.ExportTransactionHistory(context.Background(), 1, TransactionHistoryQuery{}, "csv")
+	require.NoError(t, err)
+	require.Equal(t, 10000, repo.lastFilter.Limit)
+	require.Equal(t, 0, repo.lastFilter.Offset)
+}
+
+func TestDashboardServiceExportTransactionHistoryLimitIsCappedToTenThousand(t *testing.T) {
+	repo := &fakeDashboardTransactionRepo{
+		history: []repository.TransactionHistoryRecord{},
+	}
+	svc := NewDashboardService(repo, nil, cache.NewNoopCache(), "", "", 5*time.Minute)
+
+	_, err := svc.ExportTransactionHistory(context.Background(), 1, TransactionHistoryQuery{Limit: 25000}, "csv")
 	require.NoError(t, err)
 	require.Equal(t, 10000, repo.lastFilter.Limit)
 	require.Equal(t, 0, repo.lastFilter.Offset)
@@ -333,4 +411,62 @@ func TestDashboardServiceOverviewCachesExternalBalanceForFiveMinutes(t *testing.
 
 	require.Equal(t, 1, gateway.calls)
 	require.Equal(t, 5*time.Minute, cacheStore.ttls["dashboard:external-balance:merchant-uuid:dewifork"])
+}
+
+func TestDashboardServiceOverviewCachesComputedOverviewForShortTTL(t *testing.T) {
+	repo := &fakeDashboardTransactionRepo{
+		metrics: repository.DashboardMetrics{
+			TotalCount:   4,
+			SuccessCount: 3,
+		},
+	}
+	cacheStore := newFakeDashboardCache()
+	svc := NewDashboardService(repo, nil, cacheStore, "", "", 5*time.Minute)
+
+	first, err := svc.Overview(context.Background(), 44)
+	require.NoError(t, err)
+	require.NotNil(t, first)
+
+	second, err := svc.Overview(context.Background(), 44)
+	require.NoError(t, err)
+	require.NotNil(t, second)
+
+	require.Equal(t, 1, repo.metricsHit)
+	require.Equal(t, 1, repo.seriesHit)
+	require.Equal(t, 1, repo.successHit)
+
+	overviewCacheKey := ""
+	for key, ttl := range cacheStore.ttls {
+		if strings.HasPrefix(key, "dashboard:overview:44:") {
+			overviewCacheKey = key
+			require.Equal(t, 10*time.Second, ttl)
+			break
+		}
+	}
+	require.NotEmpty(t, overviewCacheKey)
+}
+
+func TestDashboardServiceOverviewStillSucceedsWhenCacheFails(t *testing.T) {
+	repo := &fakeDashboardTransactionRepo{
+		metrics: repository.DashboardMetrics{
+			TotalCount:   2,
+			SuccessCount: 1,
+		},
+	}
+	gateway := &fakeDashboardGatewayClient{
+		balance: &paymentgateway.GetBalanceResponse{
+			PendingBalance: 100,
+			SettleBalance:  200,
+		},
+	}
+	cacheStore := newFakeDashboardCache()
+	cacheStore.fail = true
+	svc := NewDashboardService(repo, gateway, cacheStore, "merchant-uuid", "dewifork", 5*time.Minute)
+
+	result, err := svc.Overview(context.Background(), 99)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Empty(t, result.ExternalBalanceError)
+	require.Equal(t, uint64(100), result.ExternalBalance.PendingBalance)
+	require.Equal(t, uint64(200), result.ExternalBalance.AvailableBalance)
 }

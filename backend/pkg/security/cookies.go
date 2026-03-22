@@ -29,11 +29,13 @@ func NewCookieManager(cfg config.CookieConfig, accessTTL time.Duration, refreshT
 func (m *CookieManager) SetAuthCookies(c *gin.Context, accessToken string, refreshToken string) {
 	m.setCookie(c, m.cfg.AccessTokenName, accessToken, int(m.accessTTL.Seconds()), m.cfg.HTTPOnly)
 	m.setCookie(c, m.cfg.RefreshTokenName, refreshToken, int(m.refreshTTL.Seconds()), m.cfg.HTTPOnly)
+	m.setCookie(c, m.cfg.SessionHintName, "1", int(m.refreshTTL.Seconds()), false)
 }
 
 func (m *CookieManager) ClearAuthCookies(c *gin.Context) {
 	m.setCookie(c, m.cfg.AccessTokenName, "", -1, m.cfg.HTTPOnly)
 	m.setCookie(c, m.cfg.RefreshTokenName, "", -1, m.cfg.HTTPOnly)
+	m.setCookie(c, m.cfg.SessionHintName, "", -1, false)
 }
 
 func (m *CookieManager) EnsureCSRFCookie(c *gin.Context) (string, error) {
@@ -71,6 +73,10 @@ func (m *CookieManager) AccessCookieName() string {
 
 func (m *CookieManager) CSRFCookieName() string {
 	return m.cfg.CSRFCookieName
+}
+
+func (m *CookieManager) SessionHintCookieName() string {
+	return m.cfg.SessionHintName
 }
 
 func (m *CookieManager) setCookie(c *gin.Context, name string, value string, maxAge int, httpOnly bool) {

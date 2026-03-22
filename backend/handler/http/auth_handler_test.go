@@ -38,6 +38,7 @@ func testCookieManager() *security.CookieManager {
 			AccessTokenName:  "access_token",
 			RefreshTokenName: "refresh_token",
 			CSRFCookieName:   "csrf_token",
+			SessionHintName:  "session_hint",
 			Domain:           "",
 			Path:             "/",
 			Secure:           false,
@@ -82,4 +83,21 @@ func TestAuthHandler_Register(t *testing.T) {
 	require.Contains(t, w.Body.String(), "csrf_token")
 	setCookies := w.Result().Cookies()
 	require.NotEmpty(t, setCookies)
+}
+
+func TestAuthHandler_RefreshMissingTokenReturnsUnauthorized(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	h := NewAuthHandler(&mockAuthService{}, testCookieManager())
+
+	r := gin.New()
+	r.POST("/refresh", h.Refresh)
+
+	req := httptest.NewRequest(http.MethodPost, "/refresh", bytes.NewReader(nil))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusUnauthorized, w.Code)
+	require.Contains(t, w.Body.String(), "missing refresh token")
 }

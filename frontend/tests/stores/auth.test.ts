@@ -5,6 +5,7 @@ import { useUserStore } from '@/stores/user'
 
 vi.mock('@/services/auth', () => ({
   initCsrf: vi.fn(),
+  hasSessionHint: vi.fn(() => true),
   login: vi.fn(),
   refresh: vi.fn(),
   logout: vi.fn(),
@@ -22,6 +23,7 @@ describe('auth store', () => {
 
   it('stores user session on login', async () => {
     const authApi = await import('@/services/auth')
+    vi.mocked(authApi.hasSessionHint).mockReturnValue(true)
     vi.mocked(authApi.login).mockResolvedValue({
       user: { id: 1, name: 'Jane', email: 'jane@example.com', role: 'user', is_active: true },
       expires_in: 900,
@@ -37,6 +39,8 @@ describe('auth store', () => {
 
   it('restores session from /user/me when cookie session still valid', async () => {
     const userApi = await import('@/services/user')
+    const authApi = await import('@/services/auth')
+    vi.mocked(authApi.hasSessionHint).mockReturnValue(true)
     vi.mocked(userApi.me).mockResolvedValue({
       id: 2,
       name: 'John',
@@ -56,6 +60,7 @@ describe('auth store', () => {
   it('refreshes session when /user/me fails', async () => {
     const userApi = await import('@/services/user')
     const authApi = await import('@/services/auth')
+    vi.mocked(authApi.hasSessionHint).mockReturnValue(true)
     vi.mocked(userApi.me).mockRejectedValueOnce(new Error('unauthorized')).mockResolvedValueOnce({
       id: 2,
       name: 'John',
@@ -75,5 +80,19 @@ describe('auth store', () => {
     expect(result).toBe(true)
     expect(auth.isAuthenticated).toBe(true)
     expect(useUserStore().profile?.name).toBe('John')
+  })
+
+  it('skips restore session requests when no session hint cookie exists', async () => {
+    const userApi = await import('@/services/user')
+    const authApi = await import('@/services/auth')
+    vi.mocked(authApi.hasSessionHint).mockReturnValue(false)
+
+    const auth = useAuthStore()
+    const result = await auth.restoreSession()
+
+    expect(result).toBe(false)
+    expect(auth.isAuthenticated).toBe(false)
+    expect(userApi.me).not.toHaveBeenCalled()
+    expect(authApi.refresh).not.toHaveBeenCalled()
   })
 })

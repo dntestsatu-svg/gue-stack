@@ -48,7 +48,25 @@ export const useAuthStore = defineStore('auth', {
         this.processing = false
       }
     },
+    async register(payload: authApi.RegisterPayload) {
+      this.processing = true
+      try {
+        await authApi.initCsrf()
+        const data = await authApi.register(payload)
+        this.applySession(data)
+        this.ready = true
+        return data
+      } catch (error) {
+        throw new Error(getApiErrorMessage(error))
+      } finally {
+        this.processing = false
+      }
+    },
     async tryRefresh() {
+      if (!authApi.hasSessionHint()) {
+        this.clearSession()
+        return false
+      }
       try {
         await authApi.initCsrf()
         const data = await authApi.refresh()
@@ -62,6 +80,12 @@ export const useAuthStore = defineStore('auth', {
     async restoreSession() {
       if (this.ready) {
         return this.authenticated
+      }
+
+      if (!authApi.hasSessionHint()) {
+        this.clearSession()
+        this.ready = true
+        return false
       }
 
       const userStore = useUserStore()

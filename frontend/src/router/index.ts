@@ -1,20 +1,53 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import LoginView from '@/views/LoginView.vue'
-import DashboardView from '@/views/DashboardView.vue'
-import TransactionHistoryView from '@/views/TransactionHistoryView.vue'
-import TokoView from '@/views/TokoView.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useUserStore } from '@/stores/user'
-import { resolveRedirect } from './guards'
+import { resolveRedirect, resolveRoleRedirect } from './guards'
 
 const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: '/', redirect: '/dashboard' },
-    { path: '/login', name: 'login', component: LoginView },
-    { path: '/dashboard', name: 'dashboard', component: DashboardView, meta: { requiresAuth: true, requiresActive: true } },
-    { path: '/histori-transaksi', name: 'histori-transaksi', component: TransactionHistoryView, meta: { requiresAuth: true, requiresActive: true } },
-    { path: '/toko', name: 'toko', component: TokoView, meta: { requiresAuth: true, requiresActive: true } },
+    {
+      path: '/login',
+      name: 'login',
+      component: () => import('@/views/LoginView.vue'),
+      meta: { authLayout: true, title: 'Sign In' },
+    },
+    {
+      path: '/register',
+      name: 'register',
+      component: () => import('@/views/RegisterView.vue'),
+      meta: { authLayout: true, title: 'Create Account' },
+    },
+    {
+      path: '/dashboard',
+      name: 'dashboard',
+      component: () => import('@/views/DashboardView.vue'),
+      meta: { requiresAuth: true, requiresActive: true, title: 'Dashboard' },
+    },
+    {
+      path: '/histori-transaksi',
+      name: 'histori-transaksi',
+      component: () => import('@/views/TransactionHistoryView.vue'),
+      meta: { requiresAuth: true, requiresActive: true, title: 'Histori Transaksi' },
+    },
+    {
+      path: '/toko',
+      name: 'toko',
+      component: () => import('@/views/TokoView.vue'),
+      meta: { requiresAuth: true, requiresActive: true, title: 'Manajemen Toko' },
+    },
+    {
+      path: '/users',
+      name: 'users',
+      component: () => import('@/views/UserManagementView.vue'),
+      meta: {
+        requiresAuth: true,
+        requiresActive: true,
+        allowedRoles: ['dev', 'superadmin', 'admin'],
+        title: 'User Management',
+      },
+    },
   ],
 })
 
@@ -46,6 +79,11 @@ router.beforeEach(async (to) => {
   )
   if (redirectPath) {
     return { path: redirectPath }
+  }
+
+  const roleRedirect = resolveRoleRedirect(to, userStore.profile?.role ?? null)
+  if (roleRedirect) {
+    return { path: roleRedirect }
   }
   return true
 })

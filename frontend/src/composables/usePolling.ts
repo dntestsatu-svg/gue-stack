@@ -1,13 +1,26 @@
 import { onBeforeUnmount, onMounted } from 'vue'
 
-export function usePolling(task: () => Promise<void>, intervalMs: number) {
+type PollingOptions = {
+  runWhenHidden?: boolean
+}
+
+export function usePolling(
+  task: () => Promise<void>,
+  intervalMs: number,
+  options: PollingOptions = {},
+) {
   let timer: number | null = null
   let inFlight = false
+  let active = true
 
   const run = async () => {
-    if (inFlight) {
+    if (!active || inFlight) {
       return
     }
+    if (!options.runWhenHidden && typeof document !== 'undefined' && document.hidden) {
+      return
+    }
+
     inFlight = true
     try {
       await task()
@@ -17,6 +30,7 @@ export function usePolling(task: () => Promise<void>, intervalMs: number) {
   }
 
   onMounted(() => {
+    active = true
     void run()
     timer = window.setInterval(() => {
       void run()
@@ -24,8 +38,10 @@ export function usePolling(task: () => Promise<void>, intervalMs: number) {
   })
 
   onBeforeUnmount(() => {
+    active = false
     if (timer !== null) {
       window.clearInterval(timer)
+      timer = null
     }
   })
 

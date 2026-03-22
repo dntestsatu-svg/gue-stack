@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolveRedirect } from '@/router/guards'
+import { resolveRedirect, resolveRoleRedirect } from '@/router/guards'
 
 const route = (path: string, requiresAuth = false) => ({
   path,
@@ -17,6 +17,11 @@ describe('router guards', () => {
     expect(redirect).toBe('/dashboard')
   })
 
+  it('redirects authenticated users away from register guest route', () => {
+    const redirect = resolveRedirect(route('/register'), true, true)
+    expect(redirect).toBe('/dashboard')
+  })
+
   it('allows valid route access', () => {
     const redirect = resolveRedirect(route('/dashboard', true), true, true)
     expect(redirect).toBeNull()
@@ -29,5 +34,13 @@ describe('router guards', () => {
       false,
     )
     expect(redirect).toBe('/login')
+  })
+
+  it('redirects role if route has allowed roles', () => {
+    const redirect = resolveRoleRedirect(
+      { path: '/users', meta: { allowedRoles: ['dev', 'admin'] } } as any,
+      'user' as any,
+    )
+    expect(redirect).toBe('/dashboard')
   })
 })

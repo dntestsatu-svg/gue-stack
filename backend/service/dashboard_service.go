@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -27,6 +27,7 @@ type DashboardService struct {
 	merchantUUID    string
 	defaultClient   string
 	balanceTTL      time.Duration
+	overviewTTL     time.Duration
 }
 
 func NewDashboardService(
@@ -47,6 +48,7 @@ func NewDashboardService(
 		merchantUUID:    strings.TrimSpace(merchantUUID),
 		defaultClient:   strings.TrimSpace(defaultClient),
 		balanceTTL:      balanceTTL,
+		overviewTTL:     10 * time.Second,
 	}
 }
 
@@ -123,6 +125,11 @@ type TransactionHistoryExport struct {
 func (s *DashboardService) Overview(ctx context.Context, userID uint64) (*DashboardOverviewResult, error) {
 	const windowHours = int64(12)
 	from := time.Now().UTC().Add(-time.Duration(windowHours-1) * time.Hour).Truncate(time.Hour)
+	cacheKey := s.overviewCacheKey(userID, from)
+
+	if cached, ok := s.getOverviewFromCache(ctx, cacheKey); ok {
+		return cached, nil
+	}
 
 	metrics, err := s.transactionRepo.GetDashboardMetricsByUser(ctx, userID, from)
 	if err != nil {
@@ -164,7 +171,7 @@ func (s *DashboardService) Overview(ctx context.Context, userID uint64) (*Dashbo
 	netFlow := int64(metrics.SuccessDepositAmount) - int64(metrics.SuccessWithdrawAmount)
 	externalBalance, externalErr := s.fetchExternalBalance(ctx)
 
-	return &DashboardOverviewResult{
+	result := &DashboardOverviewResult{
 		WindowHours: windowHours,
 		Metrics: DashboardMetricsDTO{
 			TotalTransactions:   metrics.TotalCount,
@@ -182,7 +189,10 @@ func (s *DashboardService) Overview(ctx context.Context, userID uint64) (*Dashbo
 		ExternalBalance:      externalBalance,
 		ExternalBalanceError: externalErr,
 		UpdatedAt:            time.Now().UTC().Format(time.RFC3339),
-	}, nil
+	}
+
+	s.setOverviewCache(ctx, cacheKey, result)
+	return result, nil
 }
 
 func (s *DashboardService) TransactionHistory(ctx context.Context, userID uint64, query TransactionHistoryQuery) (*TransactionHistoryPage, error) {
@@ -332,8 +342,6 @@ func (s *DashboardService) fetchExternalBalance(ctx context.Context) (DashboardE
 			if unmarshalErr := json.Unmarshal(cachedBytes, &cached); unmarshalErr == nil {
 				return cached, ""
 			}
-		} else if !errors.Is(err, cache.ErrCacheMiss) {
-			return DashboardExternalBalance{}, err.Error()
 		}
 	}
 
@@ -349,9 +357,33 @@ func (s *DashboardService) fetchExternalBalance(ctx context.Context) (DashboardE
 		AvailableBalance: resp.SettleBalance,
 	}
 	if s.cache != nil {
-		if err := s.cache.Set(ctx, cacheKey, balance, s.balanceTTL); err != nil {
-			return balance, err.Error()
-		}
+		_ = s.cache.Set(ctx, cacheKey, balance, s.balanceTTL)
 	}
 	return balance, ""
+}
+
+func (s *DashboardService) overviewCacheKey(userID uint64, from time.Time) string {
+	return "dashboard:overview:" + strconv.FormatUint(userID, 10) + ":" + strconv.FormatInt(from.Unix(), 10)
+}
+
+func (s *DashboardService) getOverviewFromCache(ctx context.Context, key string) (*DashboardOverviewResult, bool) {
+	if s.cache == nil {
+		return nil, false
+	}
+	cachedBytes, err := s.cache.Get(ctx, key)
+	if err != nil {
+		return nil, false
+	}
+	var cached DashboardOverviewResult
+	if err := json.Unmarshal(cachedBytes, &cached); err != nil {
+		return nil, false
+	}
+	return &cached, true
+}
+
+func (s *DashboardService) setOverviewCache(ctx context.Context, key string, result *DashboardOverviewResult) {
+	if s.cache == nil || result == nil {
+		return
+	}
+	_ = s.cache.Set(ctx, key, result, s.overviewTTL)
 }

@@ -25,6 +25,9 @@ export default [
         document: 'readonly',
         localStorage: 'readonly',
         console: 'readonly',
+        KeyboardEvent: 'readonly',
+        Blob: 'readonly',
+        URL: 'readonly',
       },
     },
     plugins: {
@@ -37,6 +40,7 @@ export default [
       'vue/max-attributes-per-line': 'off',
       'vue/singleline-html-element-content-newline': 'off',
       'vue/html-self-closing': 'off',
+      'vue/require-default-prop': 'off',
     },
   },
 ]

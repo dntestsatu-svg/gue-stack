@@ -19,8 +19,19 @@ func NewTokoRepository(db *sql.DB) *TokoRepository {
 }
 
 func (r *TokoRepository) Create(ctx context.Context, toko *model.Toko) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin create toko transaction: %w", err)
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
 	query := `INSERT INTO tokos (name, token, charge, callback_url) VALUES (?, ?, ?, ?)`
-	result, err := r.db.ExecContext(
+	result, err := tx.ExecContext(
 		ctx,
 		query,
 		toko.Name,
@@ -35,6 +46,15 @@ func (r *TokoRepository) Create(ctx context.Context, toko *model.Toko) error {
 	if err != nil {
 		return fmt.Errorf("get inserted toko id: %w", err)
 	}
+
+	if err := insertInitialBalanceTx(ctx, tx, id); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit create toko transaction: %w", err)
+	}
+	committed = true
 	toko.ID = uint64(id)
 	return nil
 }
@@ -89,6 +109,10 @@ func (r *TokoRepository) CreateForUserWithQuota(ctx context.Context, userID uint
 
 	if _, err := tx.ExecContext(ctx, `INSERT INTO toko_users (user_id, toko_id) VALUES (?, ?)`, userID, insertedID); err != nil {
 		return fmt.Errorf("attach user to toko in transaction: %w", err)
+	}
+
+	if err := insertInitialBalanceTx(ctx, tx, insertedID); err != nil {
+		return err
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -193,4 +217,11 @@ func (r *TokoRepository) getOne(ctx context.Context, query string, arg any) (*mo
 		toko.CallbackURL = &callbackURL.String
 	}
 	return toko, nil
+}
+
+func insertInitialBalanceTx(ctx context.Context, tx *sql.Tx, tokoID int64) error {
+	if _, err := tx.ExecContext(ctx, `INSERT INTO balances (toko_id, pending, available) VALUES (?, ?, ?)`, tokoID, 0, 0); err != nil {
+		return fmt.Errorf("create initial toko balance in transaction: %w", err)
+	}
+	return nil
 }

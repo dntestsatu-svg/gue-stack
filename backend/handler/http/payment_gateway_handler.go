@@ -3,7 +3,6 @@ package http
 import (
 	"net/http"
 
-	"github.com/example/gue/backend/middleware"
 	"github.com/example/gue/backend/pkg/apperror"
 	"github.com/example/gue/backend/pkg/response"
 	"github.com/example/gue/backend/queue"
@@ -185,16 +184,4 @@ func (h *PaymentGatewayHandler) TransferCallback(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusAccepted, gin.H{"status": "success", "message": "callback accepted"})
-}
-
-func readTokoIDFromContext(c *gin.Context) (uint64, error) {
-	rawTokoID, ok := c.Get(middleware.ContextKeyTokoID)
-	if !ok {
-		return 0, apperror.New(http.StatusUnauthorized, "invalid toko token", nil)
-	}
-	tokoID, ok := rawTokoID.(uint64)
-	if !ok || tokoID == 0 {
-		return 0, apperror.New(http.StatusUnauthorized, "invalid toko token", nil)
-	}
-	return tokoID, nil
 }

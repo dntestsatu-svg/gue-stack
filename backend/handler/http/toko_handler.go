@@ -19,7 +19,7 @@ func NewTokoHandler(toko service.TokoUseCase) *TokoHandler {
 }
 
 func (h *TokoHandler) List(c *gin.Context) {
-	userID, actorRole, err := readAuthContext(c)
+	userID, actorRole, err := readUserContext(c)
 	if err != nil {
 		handleError(c, err)
 		return
@@ -38,7 +38,7 @@ func (h *TokoHandler) List(c *gin.Context) {
 }
 
 func (h *TokoHandler) Create(c *gin.Context) {
-	userID, actorRole, err := readAuthContext(c)
+	userID, actorRole, err := readUserContext(c)
 	if err != nil {
 		handleError(c, err)
 		return
@@ -63,7 +63,7 @@ func (h *TokoHandler) Create(c *gin.Context) {
 }
 
 func (h *TokoHandler) ListBalances(c *gin.Context) {
-	userID, actorRole, err := readAuthContext(c)
+	userID, actorRole, err := readUserContext(c)
 	if err != nil {
 		handleError(c, err)
 		return
@@ -82,7 +82,7 @@ func (h *TokoHandler) ListBalances(c *gin.Context) {
 }
 
 func (h *TokoHandler) ManualSettlement(c *gin.Context) {
-	_, actorRole, err := readAuthContext(c)
+	_, actorRole, err := readUserContext(c)
 	if err != nil {
 		handleError(c, err)
 		return

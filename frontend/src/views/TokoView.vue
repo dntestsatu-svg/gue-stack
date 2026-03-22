@@ -1,20 +1,17 @@
 <template>
-  <section class="space-y-6">
-    <header class="dashboard-hero">
-      <div class="space-y-2">
-        <p class="dashboard-eyebrow">Toko Workspace</p>
-        <h1 class="text-2xl font-semibold tracking-tight md:text-3xl">Manage Toko & Settlement</h1>
-        <p class="text-sm text-[var(--muted-foreground)]">
-          Available balance & settlement balance dikelola dari settlement internal.
-          <span v-if="lastUpdated" class="ml-1">Updated {{ formatTime(lastUpdated) }}</span>
-        </p>
-      </div>
-      <div class="flex flex-wrap items-center gap-2">
+  <section class="page-shell">
+    <PageHeader
+      eyebrow="Toko Workspace"
+      title="Manage Toko & Settlement"
+      description="Available balance & settlement balance dikelola dari settlement internal."
+      :updated-at="lastUpdated"
+    >
+      <template #actions>
         <Button size="sm" variant="outline" @click="runNow">Refresh</Button>
         <Button size="sm" variant="ghost" @click="scrollToManageSection">Manage Toko</Button>
         <Button v-if="canCreateTokoRole" size="sm" @click="openCreateTokoModal">Create Toko</Button>
-      </div>
-    </header>
+      </template>
+    </PageHeader>
 
     <p v-if="errorMessage" class="rounded-md border border-[var(--danger)]/25 bg-[var(--danger)]/8 px-3 py-2 text-sm text-[var(--danger)]">
       {{ errorMessage }}
@@ -45,15 +42,15 @@
     </div>
 
     <section ref="manageSectionRef">
-      <Card class="app-panel border-none">
+      <Card class="app-panel">
         <CardHeader>
           <CardTitle>Toko Management</CardTitle>
           <CardDescription>
             Token digunakan sebagai Bearer pada internal payment endpoint.
           </CardDescription>
         </CardHeader>
-        <CardContent class="overflow-x-auto">
-          <table class="w-full min-w-[920px] text-sm">
+        <CardContent class="app-table-shell">
+          <table class="app-data-table min-w-[920px] text-sm">
             <thead>
               <tr class="border-b border-[var(--border)] text-left text-[var(--muted-foreground)]">
                 <th class="px-3 py-3 font-medium">Toko</th>
@@ -86,13 +83,13 @@
       </Card>
     </section>
 
-    <Card class="app-panel border-none">
+    <Card class="app-panel">
       <CardHeader>
         <CardTitle>Settlement Balances</CardTitle>
         <CardDescription>Manual settlement hanya untuk role dev. Role lain tetap melihat data secara read-only.</CardDescription>
       </CardHeader>
-      <CardContent class="overflow-x-auto">
-        <table class="w-full min-w-[980px] text-sm">
+      <CardContent class="app-table-shell">
+        <table class="app-data-table min-w-[980px] text-sm">
           <thead>
             <tr class="border-b border-[var(--border)] text-left text-[var(--muted-foreground)]">
               <th class="px-3 py-3 font-medium">Toko</th>
@@ -188,6 +185,7 @@
 
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
+import PageHeader from '@/components/PageHeader.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -211,7 +209,7 @@ const errorMessage = ref('')
 const lastUpdated = ref('')
 const formByToko = reactive<Record<number, SettlementFormState>>({})
 const userStore = useUserStore()
-const { formatCurrency, formatDateMedium, formatTime } = useFormatters()
+const { formatCurrency, formatDateMedium } = useFormatters()
 const manageSectionRef = ref<unknown>(null)
 
 const showCreateTokoModal = ref(false)
