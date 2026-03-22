@@ -38,6 +38,23 @@ const router = createRouter({
       meta: { requiresAuth: true, requiresActive: true, title: 'Manajemen Toko' },
     },
     {
+      path: '/testing',
+      name: 'testing',
+      component: () => import('@/views/TestingView.vue'),
+      meta: { requiresAuth: true, requiresActive: true, title: 'Testing Toko' },
+    },
+    {
+      path: '/bank-management',
+      name: 'bank-management',
+      component: () => import('@/views/BankManagementView.vue'),
+      meta: {
+        requiresAuth: true,
+        requiresActive: true,
+        allowedRoles: ['dev', 'superadmin', 'admin'],
+        title: 'Bank Management',
+      },
+    },
+    {
       path: '/users',
       name: 'users',
       component: () => import('@/views/UserManagementView.vue'),

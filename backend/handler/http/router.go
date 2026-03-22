@@ -25,7 +25,9 @@ func NewRouter(
 	authHandler *AuthHandler,
 	userHandler *UserHandler,
 	tokoHandler *TokoHandler,
+	bankHandler *BankHandler,
 	dashboardHandler *DashboardHandler,
+	testingHandler *TestingHandler,
 	paymentGatewayHandler *PaymentGatewayHandler,
 ) *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
@@ -93,6 +95,13 @@ func NewRouter(
 		dashboard.GET("/overview", dashboardHandler.Overview)
 	}
 
+	testing := v1.Group("/testing")
+	testing.Use(middleware.AuthRequired(tokenManager, userRepo, cookieManager))
+	{
+		testing.POST("/generate-qris", csrfMiddleware, testingHandler.GenerateQris)
+		testing.POST("/callback-readiness", csrfMiddleware, testingHandler.CheckCallbackReadiness)
+	}
+
 	transactions := v1.Group("/transactions")
 	transactions.Use(middleware.AuthRequired(tokenManager, userRepo, cookieManager))
 	{
@@ -108,6 +117,18 @@ func NewRouter(
 		users.PATCH("/:id/role", csrfMiddleware, middleware.RoleRequired(model.UserRoleDev, model.UserRoleSuperAdmin), userHandler.UpdateRole)
 		users.PATCH("/:id/active", csrfMiddleware, middleware.RoleRequired(model.UserRoleDev, model.UserRoleSuperAdmin, model.UserRoleAdmin), userHandler.UpdateActive)
 		users.DELETE("/:id", csrfMiddleware, middleware.RoleRequired(model.UserRoleDev, model.UserRoleSuperAdmin, model.UserRoleAdmin), userHandler.Delete)
+	}
+
+	banks := v1.Group("/banks")
+	banks.Use(
+		middleware.AuthRequired(tokenManager, userRepo, cookieManager),
+		middleware.RoleRequired(model.UserRoleDev, model.UserRoleSuperAdmin, model.UserRoleAdmin),
+	)
+	{
+		banks.GET("", bankHandler.List)
+		banks.GET("/payment-options", bankHandler.PaymentOptions)
+		banks.POST("", csrfMiddleware, bankHandler.Create)
+		banks.DELETE("/:id", csrfMiddleware, bankHandler.Delete)
 	}
 
 	tokos := v1.Group("/tokos")

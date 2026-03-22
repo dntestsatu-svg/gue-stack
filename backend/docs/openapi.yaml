@@ -192,6 +192,81 @@ paths:
       responses:
         "201":
           description: Created
+  /api/v1/banks:
+    get:
+      summary: Paginated bank accounts owned by the authenticated user
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: q
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+        - in: query
+          name: offset
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+    post:
+      summary: Create user bank account from payment catalog selection
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [payment_id, account_name, account_number]
+              properties:
+                payment_id:
+                  type: integer
+                  format: int64
+                account_name:
+                  type: string
+                account_number:
+                  type: string
+      responses:
+        "201":
+          description: Created
+  /api/v1/banks/payment-options:
+    get:
+      summary: Searchable payment catalog options for bank picker
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: q
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+  /api/v1/banks/{id}:
+    delete:
+      summary: Delete bank account owned by the authenticated user
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: OK
   /api/v1/tokos/{id}:
     patch:
       summary: Update toko name and callback URL (dev/superadmin/admin only within visible scope)
@@ -289,6 +364,52 @@ paths:
       responses:
         "200":
           description: OK
+  /api/v1/testing/generate-qris:
+    post:
+      summary: Generate QRIS test flow for a visible toko using authenticated dashboard session
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [toko_id, username, amount]
+              properties:
+                toko_id:
+                  type: integer
+                  format: int64
+                username:
+                  type: string
+                amount:
+                  type: integer
+                expire:
+                  type: integer
+                custom_ref:
+                  type: string
+      responses:
+        "200":
+          description: OK
+  /api/v1/testing/callback-readiness:
+    post:
+      summary: Probe toko callback_url and verify HTTP 200 with JSON body {"success": true}
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [toko_id]
+              properties:
+                toko_id:
+                  type: integer
+                  format: int64
+      responses:
+        "200":
+          description: Structured readiness result
   /api/v1/dashboard/overview:
     get:
       summary: Dashboard overview metrics and chart series

@@ -61,6 +61,7 @@ export interface DashboardExternalBalance {
 export interface DashboardOverview {
   window_hours: number
   can_view_project_profit: boolean
+  can_view_external_balance: boolean
   metrics: DashboardMetrics
   status_series: DashboardStatusSeriesPoint[]
   latest_success_orders: TransactionHistoryItem[]
@@ -145,4 +146,55 @@ export interface TokoWorkspaceQuery {
   limit?: number
   offset?: number
   q?: string
+}
+
+export interface BankItem {
+  id: number
+  payment_id: number
+  bank_name: string
+  account_name: string
+  account_number: string
+  created_at: string
+}
+
+export interface BankListPage {
+  items: BankItem[]
+  total: number
+  limit: number
+  offset: number
+  has_more: boolean
+}
+
+export interface BankListQuery {
+  limit?: number
+  offset?: number
+  q?: string
+}
+
+export interface BankPaymentOption {
+  id: number
+  bank_name: string
+}
+
+export interface TestingGenerateQrisResult {
+  toko_id: number
+  toko_name: string
+  data: string
+  trx_id: string
+  expired_at?: number
+  server_processing_ms: number
+}
+
+export interface TestingCallbackReadinessResult {
+  toko_id: number
+  toko_name: string
+  callback_url: string
+  ready: boolean
+  message: string
+  detail?: string
+  status_code: number
+  received_success: boolean
+  response_excerpt?: string
+  callback_latency_ms: number
+  server_processing_ms: number
 }

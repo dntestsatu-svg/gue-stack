@@ -99,6 +99,36 @@ func parseUserListQuery(c *gin.Context) (service.UserListQuery, error) {
 	}, nil
 }
 
+func parseBankListQuery(c *gin.Context) (service.BankListQuery, error) {
+	limit, err := parseIntQuery(c, "limit", 10)
+	if err != nil {
+		return service.BankListQuery{}, err
+	}
+
+	offset, err := parseIntQuery(c, "offset", 0)
+	if err != nil {
+		return service.BankListQuery{}, err
+	}
+
+	return service.BankListQuery{
+		Limit:      limit,
+		Offset:     offset,
+		SearchTerm: strings.TrimSpace(c.Query("q")),
+	}, nil
+}
+
+func parsePaymentOptionQuery(c *gin.Context) (service.PaymentOptionQuery, error) {
+	limit, err := parseIntQuery(c, "limit", 20)
+	if err != nil {
+		return service.PaymentOptionQuery{}, err
+	}
+
+	return service.PaymentOptionQuery{
+		Limit:      limit,
+		SearchTerm: strings.TrimSpace(c.Query("q")),
+	}, nil
+}
+
 func serviceRoleQuery(value string) model.UserRole {
 	return model.UserRole(strings.ToLower(strings.TrimSpace(value)))
 }

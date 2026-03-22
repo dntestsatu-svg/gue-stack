@@ -57,6 +57,8 @@ func NewHTTPApp(cfg config.Config, logger *slog.Logger) (*HTTPApp, error) {
 	userRepo := mysql.NewUserRepository(database)
 	tokoRepo := mysql.NewTokoRepository(database)
 	balanceRepo := mysql.NewBalanceRepository(database)
+	bankRepo := mysql.NewBankRepository(database)
+	paymentRepo := mysql.NewPaymentRepository(database)
 	transactionRepo := mysql.NewTransactionRepository(database)
 	refreshStore := redisstore.NewRefreshTokenStore(redisClient)
 	tokenManager := jwtpkg.NewManager(
@@ -74,6 +76,7 @@ func NewHTTPApp(cfg config.Config, logger *slog.Logger) (*HTTPApp, error) {
 	authSvc := service.NewAuthService(userRepo, refreshStore, tokenManager, producer, logger)
 	userSvc := service.NewUserService(userRepo, queryCache, cfg.Cache.QueryCacheOn, cfg.Cache.UserMeTTL, cfg.Cache.DefaultTTL, producer, logger)
 	tokoSvc := service.NewTokoService(tokoRepo, balanceRepo, queryCache, cfg.Cache.QueryCacheOn, cfg.Cache.DefaultTTL, 3, 3, logger)
+	bankSvc := service.NewBankService(bankRepo, paymentRepo, queryCache, cfg.Cache.QueryCacheOn, cfg.Cache.DefaultTTL, logger)
 	dashboardSvc := service.NewDashboardService(
 		transactionRepo,
 		gatewayClient,
@@ -94,11 +97,19 @@ func NewHTTPApp(cfg config.Config, logger *slog.Logger) (*HTTPApp, error) {
 		cfg.PaymentGateway.PlatformFeePercent,
 		logger,
 	)
+	testingSvc := service.NewTestingService(
+		tokoRepo,
+		paymentGatewaySvc,
+		nil,
+		logger,
+	)
 
 	authHandler := httpHandler.NewAuthHandler(authSvc, cookieManager)
 	userHandler := httpHandler.NewUserHandler(userSvc)
 	tokoHandler := httpHandler.NewTokoHandler(tokoSvc)
+	bankHandler := httpHandler.NewBankHandler(bankSvc)
 	dashboardHandler := httpHandler.NewDashboardHandler(dashboardSvc)
+	testingHandler := httpHandler.NewTestingHandler(testingSvc)
 	paymentGatewayHandler := httpHandler.NewPaymentGatewayHandler(paymentGatewaySvc)
 	router := httpHandler.NewRouter(
 		logger,
@@ -111,7 +122,9 @@ func NewHTTPApp(cfg config.Config, logger *slog.Logger) (*HTTPApp, error) {
 		authHandler,
 		userHandler,
 		tokoHandler,
+		bankHandler,
 		dashboardHandler,
+		testingHandler,
 		paymentGatewayHandler,
 	)
 

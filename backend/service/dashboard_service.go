@@ -9,13 +9,14 @@ import (
 	"time"
 
 	"github.com/example/gue/backend/cache"
+	"github.com/example/gue/backend/model"
 	"github.com/example/gue/backend/pkg/apperror"
 	"github.com/example/gue/backend/pkg/paymentgateway"
 	"github.com/example/gue/backend/repository"
 )
 
 type DashboardUseCase interface {
-	Overview(ctx context.Context, userID uint64) (*DashboardOverviewResult, error)
+	Overview(ctx context.Context, userID uint64, actorRole model.UserRole) (*DashboardOverviewResult, error)
 	TransactionHistory(ctx context.Context, userID uint64, query TransactionHistoryQuery) (*TransactionHistoryPage, error)
 	ExportTransactionHistory(ctx context.Context, userID uint64, query TransactionHistoryQuery, format string) (*TransactionHistoryExport, error)
 }
@@ -53,14 +54,15 @@ func NewDashboardService(
 }
 
 type DashboardOverviewResult struct {
-	WindowHours          int64                    `json:"window_hours"`
-	CanViewProjectProfit bool                     `json:"can_view_project_profit"`
-	Metrics              DashboardMetricsDTO      `json:"metrics"`
-	StatusSeries         []DashboardStatusSeries  `json:"status_series"`
-	LatestSuccessOrders  []TransactionHistoryItem `json:"latest_success_orders"`
-	ExternalBalance      DashboardExternalBalance `json:"external_balance"`
-	ExternalBalanceError string                   `json:"external_balance_error,omitempty"`
-	UpdatedAt            string                   `json:"updated_at"`
+	WindowHours            int64                    `json:"window_hours"`
+	CanViewProjectProfit   bool                     `json:"can_view_project_profit"`
+	CanViewExternalBalance bool                     `json:"can_view_external_balance"`
+	Metrics                DashboardMetricsDTO      `json:"metrics"`
+	StatusSeries           []DashboardStatusSeries  `json:"status_series"`
+	LatestSuccessOrders    []TransactionHistoryItem `json:"latest_success_orders"`
+	ExternalBalance        DashboardExternalBalance `json:"external_balance"`
+	ExternalBalanceError   string                   `json:"external_balance_error,omitempty"`
+	UpdatedAt              string                   `json:"updated_at"`
 }
 
 type DashboardMetricsDTO struct {
@@ -122,10 +124,11 @@ type TransactionHistoryExport struct {
 	FileName    string
 }
 
-func (s *DashboardService) Overview(ctx context.Context, userID uint64) (*DashboardOverviewResult, error) {
+func (s *DashboardService) Overview(ctx context.Context, userID uint64, actorRole model.UserRole) (*DashboardOverviewResult, error) {
 	const windowHours = int64(12)
 	from := time.Now().UTC().Add(-time.Duration(windowHours-1) * time.Hour).Truncate(time.Hour)
-	cacheKey := s.overviewCacheKey(userID, from)
+	cacheKey := s.overviewCacheKey(userID, actorRole, from)
+	canViewPrivilegedFinancials := actorRole == model.UserRoleDev
 
 	if cached, ok := s.getOverviewFromCache(ctx, cacheKey); ok {
 		return cached, nil
@@ -169,10 +172,21 @@ func (s *DashboardService) Overview(ctx context.Context, userID uint64) (*Dashbo
 	}
 
 	netFlow := int64(metrics.SuccessDepositAmount) - int64(metrics.SuccessWithdrawAmount)
-	externalBalance, externalErr := s.fetchExternalBalance(ctx)
+	externalBalance := DashboardExternalBalance{}
+	externalErr := ""
+	if canViewPrivilegedFinancials {
+		externalBalance, externalErr = s.fetchExternalBalance(ctx)
+	}
+
+	projectProfit := metrics.TotalPlatformFee
+	if !canViewPrivilegedFinancials {
+		projectProfit = 0
+	}
 
 	result := &DashboardOverviewResult{
-		WindowHours: windowHours,
+		WindowHours:            windowHours,
+		CanViewProjectProfit:   canViewPrivilegedFinancials,
+		CanViewExternalBalance: canViewPrivilegedFinancials,
 		Metrics: DashboardMetricsDTO{
 			TotalTransactions:   metrics.TotalCount,
 			SuccessTransactions: metrics.SuccessCount,
@@ -182,7 +196,7 @@ func (s *DashboardService) Overview(ctx context.Context, userID uint64) (*Dashbo
 			SuccessDeposit:      metrics.SuccessDepositAmount,
 			SuccessWithdraw:     metrics.SuccessWithdrawAmount,
 			NetFlow:             netFlow,
-			ProjectProfit:       metrics.TotalPlatformFee,
+			ProjectProfit:       projectProfit,
 		},
 		StatusSeries:         series,
 		LatestSuccessOrders:  successOrders,
@@ -362,8 +376,8 @@ func (s *DashboardService) fetchExternalBalance(ctx context.Context) (DashboardE
 	return balance, ""
 }
 
-func (s *DashboardService) overviewCacheKey(userID uint64, from time.Time) string {
-	return "dashboard:overview:" + strconv.FormatUint(userID, 10) + ":" + strconv.FormatInt(from.Unix(), 10)
+func (s *DashboardService) overviewCacheKey(userID uint64, actorRole model.UserRole, from time.Time) string {
+	return "dashboard:overview:" + strconv.FormatUint(userID, 10) + ":" + string(actorRole) + ":" + strconv.FormatInt(from.Unix(), 10)
 }
 
 func (s *DashboardService) getOverviewFromCache(ctx context.Context, key string) (*DashboardOverviewResult, bool) {

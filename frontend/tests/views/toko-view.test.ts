@@ -191,6 +191,15 @@ describe('TokoView', () => {
     callbackInput!.dispatchEvent(new window.Event('input'))
     await flushPromises()
 
+    const regenerateButton = Array.from(document.body.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Generate New Token'),
+    )
+    expect(regenerateButton).toBeDefined()
+    regenerateButton!.click()
+    await flushPromises()
+
+    expect(regenerateTokoTokenMock).toHaveBeenCalledWith(1)
+
     const saveButton = Array.from(document.body.querySelectorAll('button')).find((button) =>
       button.textContent?.includes('Save Changes'),
     )
@@ -202,15 +211,6 @@ describe('TokoView', () => {
       name: 'Toko Alpha Updated',
       callback_url: 'https://example.com/updated',
     })
-
-    const regenerateButton = Array.from(document.body.querySelectorAll('button')).find((button) =>
-      button.textContent?.includes('Generate New Token'),
-    )
-    expect(regenerateButton).toBeDefined()
-    regenerateButton!.click()
-    await flushPromises()
-
-    expect(regenerateTokoTokenMock).toHaveBeenCalledWith(1)
     expect(toastSuccessMock).toHaveBeenCalled()
   })
 })

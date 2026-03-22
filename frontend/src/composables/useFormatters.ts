@@ -25,6 +25,8 @@ const mediumTimeFormatter = new Intl.DateTimeFormat('id-ID', {
   timeStyle: 'medium',
 })
 
+const compactNumberFormatter = new Intl.NumberFormat('id-ID')
+
 export function useFormatters() {
   const formatCurrency = (value: number, maximumFractionDigits = 0) => {
     const formatter =
@@ -38,6 +40,7 @@ export function useFormatters() {
   }
 
   const formatPercent = (value: number, fractionDigits = 1) => `${value.toFixed(fractionDigits)}%`
+  const formatNumber = (value: number) => compactNumberFormatter.format(value)
 
   const formatDateShort = (value: string) => shortDateTimeFormatter.format(new Date(value))
   const formatDateMedium = (value: string) => mediumDateTimeFormatter.format(new Date(value))
@@ -46,6 +49,7 @@ export function useFormatters() {
   return {
     formatCurrency,
     formatPercent,
+    formatNumber,
     formatDateShort,
     formatDateMedium,
     formatTime,

@@ -84,6 +84,7 @@ function normalizeOverview(payload: unknown): DashboardOverview {
   return {
     window_hours: toNumber(record.window_hours, 12),
     can_view_project_profit: toBoolean(record.can_view_project_profit, false),
+    can_view_external_balance: toBoolean(record.can_view_external_balance, false),
     metrics: {
       total_transactions: toNumber(metrics.total_transactions),
       success_transactions: toNumber(metrics.success_transactions),

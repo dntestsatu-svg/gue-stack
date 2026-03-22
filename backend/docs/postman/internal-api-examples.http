@@ -15,6 +15,7 @@
 @newUserRole = user
 @targetUserID =
 @targetRole = admin
+@targetBankID =
 
 ### Register
 POST {{baseUrl}}/api/v1/auth/register
@@ -113,6 +114,29 @@ Content-Type: application/json
 DELETE {{baseUrl}}/api/v1/users/{{targetUserID}}
 Authorization: Bearer {{accessToken}}
 
+### List Banks (current authenticated user only)
+GET {{baseUrl}}/api/v1/banks?limit=10&offset=0&q=bca
+Authorization: Bearer {{accessToken}}
+
+### Search Bank Options from Payment Catalog
+GET {{baseUrl}}/api/v1/banks/payment-options?limit=20&q=mandiri
+Authorization: Bearer {{accessToken}}
+
+### Create Bank for Current User
+POST {{baseUrl}}/api/v1/banks
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "payment_id": 1,
+  "account_name": "PT GUE CONTROL",
+  "account_number": "1234567890"
+}
+
+### Delete Bank for Current User
+DELETE {{baseUrl}}/api/v1/banks/{{targetBankID}}
+Authorization: Bearer {{accessToken}}
+
 ### List Tokos (maks 3 toko / user)
 GET {{baseUrl}}/api/v1/tokos
 Authorization: Bearer {{accessToken}}
@@ -144,6 +168,28 @@ Content-Type: application/json
 ### Regenerate Toko Token
 POST {{baseUrl}}/api/v1/tokos/1/regenerate-token
 Authorization: Bearer {{accessToken}}
+
+### Testing Page - Generate QRIS via Authenticated Session
+POST {{baseUrl}}/api/v1/testing/generate-qris
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "toko_id": 1,
+  "username": "player-testing-01",
+  "amount": 10000,
+  "expire": 600,
+  "custom_ref": "TESTING001"
+}
+
+### Testing Page - Callback Readiness Check
+POST {{baseUrl}}/api/v1/testing/callback-readiness
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "toko_id": 1
+}
 
 ### Generate QRIS/VA (auth pakai bearer toko token)
 POST {{baseUrl}}/api/v1/payments/gateway/generate

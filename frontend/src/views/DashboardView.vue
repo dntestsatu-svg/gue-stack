@@ -31,11 +31,19 @@ const overview = ref<DashboardOverview | null>(null)
 const errorMessage = ref('')
 const loading = ref(false)
 
-const { formatCurrency, formatDateShort, formatPercent } = useFormatters()
+const { formatCurrency, formatDateShort, formatNumber, formatPercent } = useFormatters()
 
 const actorRole = computed<UserRole>(() => userStore.profile?.role ?? 'user')
 const canManageUsers = computed(() => actorRole.value !== 'user')
-const canViewProjectProfit = computed(() => actorRole.value === 'dev' && Boolean(overview.value?.can_view_project_profit))
+const canViewProjectProfit = computed(() => Boolean(overview.value?.can_view_project_profit))
+const canViewExternalBalance = computed(() => Boolean(overview.value?.can_view_external_balance))
+
+type DashboardMetricCard = {
+  title: string
+  value: string
+  hint: string
+  positive: boolean
+}
 
 const loadDashboardData = async () => {
   loading.value = true
@@ -54,36 +62,64 @@ const { runNow } = usePolling(loadDashboardData, 10000)
 const metricCards = computed(() => {
   const metrics = overview.value?.metrics
   const external = overview.value?.external_balance
-  return [
+  const cards: DashboardMetricCard[] = [
     {
       title: 'Success Rate',
       value: formatPercent(metrics?.success_rate ?? 0),
       hint: `${metrics?.success_transactions ?? 0} transaksi sukses`,
       positive: true,
-      visible: true,
     },
-    {
-      title: 'Pending Balance (External)',
-      value: formatCurrency(external?.pending_balance ?? 0),
-      hint: 'Sumber: payment gateway',
-      positive: true,
-      visible: true,
-    },
-    {
-      title: 'Available Balance (External)',
-      value: formatCurrency(external?.available_balance ?? 0),
-      hint: 'Sumber: payment gateway',
-      positive: true,
-      visible: true,
-    },
-    {
+  ]
+
+  if (canViewExternalBalance.value) {
+    cards.push(
+      {
+        title: 'Pending Balance (External)',
+        value: formatCurrency(external?.pending_balance ?? 0),
+        hint: 'Sumber: payment gateway',
+        positive: true,
+      },
+      {
+        title: 'Available Balance (External)',
+        value: formatCurrency(external?.available_balance ?? 0),
+        hint: 'Sumber: payment gateway',
+        positive: true,
+      },
+    )
+  } else {
+    cards.push(
+      {
+        title: 'Total Transaksi Sukses',
+        value: formatNumber(metrics?.success_transactions ?? 0),
+        hint: 'Scoped sesuai relasi toko akun ini',
+        positive: true,
+      },
+      {
+        title: 'Total Deposit Sukses',
+        value: formatCurrency(metrics?.success_deposit ?? 0),
+        hint: 'Akumulasi nominal deposit sukses',
+        positive: true,
+      },
+    )
+  }
+
+  if (canViewProjectProfit.value) {
+    cards.push({
       title: 'Total Keuntungan Project',
       value: formatCurrency(metrics?.project_profit ?? 0),
       hint: 'Visible for dev role only',
       positive: true,
-      visible: canViewProjectProfit.value,
-    },
-  ]
+    })
+  } else {
+    cards.push({
+      title: 'Transaksi Pending',
+      value: formatNumber(metrics?.pending_transactions ?? 0),
+      hint: 'Masih menunggu penyelesaian status',
+      positive: (metrics?.pending_transactions ?? 0) === 0,
+    })
+  }
+
+  return cards
 })
 </script>
 
@@ -117,7 +153,7 @@ const metricCards = computed(() => {
       {{ errorMessage }}
     </p>
     <p
-      v-if="overview?.external_balance_error"
+      v-if="canViewExternalBalance && overview?.external_balance_error"
       class="rounded-md border border-(--warning)/30 bg-(--warning)/10 px-3 py-2 text-sm text-(--warning)"
     >
       External balance warning: {{ overview.external_balance_error }}
@@ -134,7 +170,7 @@ const metricCards = computed(() => {
       </template>
       <template v-else>
         <Card
-          v-for="item in metricCards.filter((card) => card.visible)"
+          v-for="item in metricCards"
           :key="item.title"
           class="dashboard-kpi-card"
         >

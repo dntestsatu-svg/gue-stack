@@ -23,6 +23,7 @@ type User struct {
 	UpdatedAt    time.Time `json:"updated_at"`
 
 	Tokos []Toko `json:"tokos,omitempty" gorm:"many2many:toko_users;joinForeignKey:UserID;joinReferences:TokoID"`
+	Banks []Bank `json:"banks,omitempty" gorm:"foreignKey:UserID;references:ID"`
 }
 
 func (User) TableName() string {

@@ -4,7 +4,9 @@ import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import App from '@/App.vue'
 import DashboardView from '@/views/DashboardView.vue'
+import BankManagementView from '@/views/BankManagementView.vue'
 import LoginView from '@/views/LoginView.vue'
+import TestingView from '@/views/TestingView.vue'
 import TokoView from '@/views/TokoView.vue'
 import TransactionHistoryView from '@/views/TransactionHistoryView.vue'
 import UserManagementView from '@/views/UserManagementView.vue'
@@ -21,10 +23,16 @@ const {
   fetchHistoryMock,
   exportHistoryMock,
   fetchWorkspaceMock,
+  fetchTokosMock,
   applySettlementMock,
   createTokoMock,
   updateTokoMock,
   regenerateTokoTokenMock,
+  generateTestingQrisMock,
+  checkCallbackReadinessMock,
+  listBanksMock,
+  createBankMock,
+  removeBankMock,
   listUsersMock,
   meMock,
   createUserMock,
@@ -40,10 +48,16 @@ const {
   fetchHistoryMock: vi.fn(),
   exportHistoryMock: vi.fn(),
   fetchWorkspaceMock: vi.fn(),
+  fetchTokosMock: vi.fn(),
   applySettlementMock: vi.fn(),
   createTokoMock: vi.fn(),
   updateTokoMock: vi.fn(),
   regenerateTokoTokenMock: vi.fn(),
+  generateTestingQrisMock: vi.fn(),
+  checkCallbackReadinessMock: vi.fn(),
+  listBanksMock: vi.fn(),
+  createBankMock: vi.fn(),
+  removeBankMock: vi.fn(),
   listUsersMock: vi.fn(),
   meMock: vi.fn(),
   createUserMock: vi.fn(),
@@ -67,10 +81,23 @@ vi.mock('@/services/dashboard', () => ({
 
 vi.mock('@/services/toko', () => ({
   fetchWorkspace: fetchWorkspaceMock,
+  fetchTokos: fetchTokosMock,
   applySettlement: applySettlementMock,
   createToko: createTokoMock,
   updateToko: updateTokoMock,
   regenerateTokoToken: regenerateTokoTokenMock,
+}))
+
+vi.mock('@/services/testing', () => ({
+  generateQris: generateTestingQrisMock,
+  checkCallbackReadiness: checkCallbackReadinessMock,
+}))
+
+vi.mock('@/services/bank', () => ({
+  list: listBanksMock,
+  create: createBankMock,
+  remove: removeBankMock,
+  paymentOptions: vi.fn(),
 }))
 
 vi.mock('@/services/user', () => ({
@@ -119,6 +146,18 @@ function createTestRouter() {
         meta: { requiresAuth: true, requiresActive: true, title: 'Manajemen Toko' },
       },
       {
+        path: '/testing',
+        name: 'testing',
+        component: TestingView,
+        meta: { requiresAuth: true, requiresActive: true, title: 'Testing Toko' },
+      },
+      {
+        path: '/bank-management',
+        name: 'bank-management',
+        component: BankManagementView,
+        meta: { requiresAuth: true, requiresActive: true, title: 'Bank Management' },
+      },
+      {
         path: '/users',
         name: 'users',
         component: UserManagementView,
@@ -132,6 +171,7 @@ function mockDashboardOverview() {
   fetchOverviewMock.mockResolvedValue({
     window_hours: 12,
     can_view_project_profit: true,
+    can_view_external_balance: true,
     metrics: {
       total_transactions: 10,
       success_transactions: 8,
@@ -214,7 +254,23 @@ describe('App SPA routing', () => {
       offset: 0,
       has_more: false,
     })
+    fetchTokosMock.mockResolvedValue([
+      {
+        id: 1,
+        name: 'Toko Alpha',
+        token: 'tok_alpha',
+        charge: 3,
+        callback_url: 'https://merchant.example.com/callback',
+      },
+    ])
     listUsersMock.mockResolvedValue({
+      items: [],
+      total: 0,
+      limit: 10,
+      offset: 0,
+      has_more: false,
+    })
+    listBanksMock.mockResolvedValue({
       items: [],
       total: 0,
       limit: 10,
@@ -313,6 +369,17 @@ describe('App SPA routing', () => {
     await flushPromises()
     expect(wrapper.text()).toContain('Manage Toko & Settlement')
     expect(wrapper.text()).toContain('Create Toko')
+
+    await router.push('/testing')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Testing Toko')
+    expect(wrapper.text()).toContain('Generate QRIS')
+    expect(wrapper.text()).toContain('Callback Readiness')
+
+    await router.push('/bank-management')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Bank Management')
+    expect(wrapper.text()).toContain('Add Bank')
 
     await router.push('/users')
     await flushPromises()

@@ -160,7 +160,11 @@ func (c *HTTPClient) Generate(ctx context.Context, req GenerateRequest) (*Genera
 	if !resp.Status {
 		return nil, &APIError{Message: upstreamMessage(resp.Error, "generate failed"), StatusCode: http.StatusBadGateway, Body: string(body)}
 	}
-	return &GenerateResponse{Data: resp.Data, TrxID: resp.TrxID, ExpiredAt: resp.ExpiredAt}, nil
+	return &GenerateResponse{
+		Data:      resp.Data,
+		TrxID:     resp.TrxID,
+		ExpiredAt: normalizeGenerateExpiredAt(resp.ExpiredAt, req.Expire, time.Now().UTC()),
+	}, nil
 }
 
 func (c *HTTPClient) CheckStatusV2(ctx context.Context, trxID string, req CheckStatusRequest) (*CheckStatusResponse, error) {
@@ -383,4 +387,32 @@ func upstreamMessage(msg, fallback string) string {
 		return fallback
 	}
 	return msg
+}
+
+func normalizeGenerateExpiredAt(raw *int64, requestedExpire *int, now time.Time) *int64 {
+	if raw == nil {
+		if requestedExpire == nil || *requestedExpire <= 0 {
+			return nil
+		}
+		expiresAt := now.Add(time.Duration(*requestedExpire) * time.Second).Unix()
+		return &expiresAt
+	}
+
+	value := *raw
+	switch {
+	case value <= 0:
+		if requestedExpire == nil || *requestedExpire <= 0 {
+			return nil
+		}
+		expiresAt := now.Add(time.Duration(*requestedExpire) * time.Second).Unix()
+		return &expiresAt
+	case value >= 1_000_000_000_000:
+		expiresAt := value / 1000
+		return &expiresAt
+	case value < 946684800:
+		expiresAt := now.Add(time.Duration(value) * time.Second).Unix()
+		return &expiresAt
+	default:
+		return raw
+	}
 }

@@ -4,8 +4,10 @@ import { computed, markRaw } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   ChartArea,
+  FlaskConical,
   History,
   LayoutDashboard,
+  Landmark,
   LogOut,
   Shield,
   Store,
@@ -45,6 +47,8 @@ const menuItems: MenuItem[] = [
   { title: 'Dashboard', to: '/dashboard', icon: markRaw(LayoutDashboard) },
   { title: 'Histori Transaksi', to: '/histori-transaksi', icon: markRaw(History) },
   { title: 'Toko', to: '/toko', icon: markRaw(Store) },
+  { title: 'Testing', to: '/testing', icon: markRaw(FlaskConical) },
+  { title: 'Bank Management', to: '/bank-management', icon: markRaw(Landmark), roles: ['dev', 'superadmin', 'admin'] },
   { title: 'User Management', to: '/users', icon: markRaw(Shield), roles: ['dev', 'superadmin', 'admin'] },
 ]
 

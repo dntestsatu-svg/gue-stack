@@ -16,16 +16,16 @@ import (
 )
 
 type mockDashboardUseCase struct {
-	overviewFn func(ctx context.Context, userID uint64) (*service.DashboardOverviewResult, error)
+	overviewFn func(ctx context.Context, userID uint64, actorRole model.UserRole) (*service.DashboardOverviewResult, error)
 	historyFn  func(ctx context.Context, userID uint64, query service.TransactionHistoryQuery) (*service.TransactionHistoryPage, error)
 	exportFn   func(ctx context.Context, userID uint64, query service.TransactionHistoryQuery, format string) (*service.TransactionHistoryExport, error)
 }
 
-func (m *mockDashboardUseCase) Overview(ctx context.Context, userID uint64) (*service.DashboardOverviewResult, error) {
+func (m *mockDashboardUseCase) Overview(ctx context.Context, userID uint64, actorRole model.UserRole) (*service.DashboardOverviewResult, error) {
 	if m.overviewFn == nil {
 		return nil, nil
 	}
-	return m.overviewFn(ctx, userID)
+	return m.overviewFn(ctx, userID, actorRole)
 }
 
 func (m *mockDashboardUseCase) TransactionHistory(ctx context.Context, userID uint64, query service.TransactionHistoryQuery) (*service.TransactionHistoryPage, error) {
@@ -57,8 +57,9 @@ func TestDashboardHandlerOverviewAndHistory_TableDriven(t *testing.T) {
 	to := "2026-03-21"
 
 	mockUC := &mockDashboardUseCase{
-		overviewFn: func(_ context.Context, userID uint64) (*service.DashboardOverviewResult, error) {
+		overviewFn: func(_ context.Context, userID uint64, actorRole model.UserRole) (*service.DashboardOverviewResult, error) {
 			require.Equal(t, uint64(77), userID)
+			require.Equal(t, model.UserRoleDev, actorRole)
 			return &service.DashboardOverviewResult{WindowHours: 12}, nil
 		},
 		historyFn: func(_ context.Context, userID uint64, query service.TransactionHistoryQuery) (*service.TransactionHistoryPage, error) {
@@ -139,10 +140,12 @@ func TestDashboardHandlerOverviewRedactsProjectProfitForNonDev(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	mockUC := &mockDashboardUseCase{
-		overviewFn: func(_ context.Context, _ uint64) (*service.DashboardOverviewResult, error) {
+		overviewFn: func(_ context.Context, _ uint64, _ model.UserRole) (*service.DashboardOverviewResult, error) {
 			return &service.DashboardOverviewResult{
+				CanViewProjectProfit:   false,
+				CanViewExternalBalance: false,
 				Metrics: service.DashboardMetricsDTO{
-					ProjectProfit: 7777,
+					ProjectProfit: 0,
 				},
 				UpdatedAt: time.Now().UTC().Format(time.RFC3339),
 			}, nil
@@ -159,6 +162,7 @@ func TestDashboardHandlerOverviewRedactsProjectProfitForNonDev(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, w.Code)
 	require.Contains(t, w.Body.String(), `"can_view_project_profit":false`)
+	require.Contains(t, w.Body.String(), `"can_view_external_balance":false`)
 	require.Contains(t, w.Body.String(), `"project_profit":0`)
 }
 
@@ -166,7 +170,7 @@ func TestDashboardHandlerOverviewUnauthorized(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	mockUC := &mockDashboardUseCase{
-		overviewFn: func(_ context.Context, _ uint64) (*service.DashboardOverviewResult, error) {
+		overviewFn: func(_ context.Context, _ uint64, _ model.UserRole) (*service.DashboardOverviewResult, error) {
 			return nil, apperror.New(http.StatusInternalServerError, "unexpected", nil)
 		},
 	}

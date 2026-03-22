@@ -42,6 +42,18 @@ type BalanceRepository interface {
 	UpsertByTokoID(ctx context.Context, tokoID uint64, settlementBalance float64, availableBalance float64) error
 }
 
+type BankRepository interface {
+	ListByUser(ctx context.Context, userID uint64, filter BankListFilter) ([]model.Bank, error)
+	CountByUser(ctx context.Context, userID uint64, filter BankListFilter) (uint64, error)
+	Create(ctx context.Context, bank *model.Bank) error
+	DeleteByUser(ctx context.Context, userID uint64, bankID uint64) error
+}
+
+type PaymentRepository interface {
+	GetByID(ctx context.Context, id uint64) (*model.Payment, error)
+	SearchOptions(ctx context.Context, filter PaymentOptionFilter) ([]model.Payment, error)
+}
+
 type TransactionRepository interface {
 	Create(ctx context.Context, trx *model.Transaction) error
 	GetByReference(ctx context.Context, reference string) (*model.Transaction, error)
@@ -129,6 +141,17 @@ type TransactionHistoryFilter struct {
 	Offset     int
 	From       *time.Time
 	To         *time.Time
+	SearchTerm string
+}
+
+type BankListFilter struct {
+	Limit      int
+	Offset     int
+	SearchTerm string
+}
+
+type PaymentOptionFilter struct {
+	Limit      int
 	SearchTerm string
 }
 

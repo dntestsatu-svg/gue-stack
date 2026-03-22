@@ -220,12 +220,14 @@ func TestDashboardServiceOverviewBuildsSeriesAndMetrics(t *testing.T) {
 	}
 	svc := NewDashboardService(repo, gateway, cache.NewNoopCache(), "merchant-uuid", "dewifork", 5*time.Minute)
 
-	result, err := svc.Overview(context.Background(), 1)
+	result, err := svc.Overview(context.Background(), 1, model.UserRoleDev)
 	require.NoError(t, err)
 	require.Len(t, result.StatusSeries, 12)
 	require.InDelta(t, 70, result.Metrics.SuccessRate, 0.001)
 	require.Equal(t, int64(120000), result.Metrics.NetFlow)
 	require.Equal(t, uint64(4500), result.Metrics.ProjectProfit)
+	require.True(t, result.CanViewProjectProfit)
+	require.True(t, result.CanViewExternalBalance)
 	require.Len(t, result.LatestSuccessOrders, 1)
 	require.Equal(t, uint64(10000), result.ExternalBalance.PendingBalance)
 	require.Equal(t, uint64(25000), result.ExternalBalance.AvailableBalance)
@@ -399,12 +401,12 @@ func TestDashboardServiceOverviewCachesExternalBalanceForFiveMinutes(t *testing.
 	cacheStore := newFakeDashboardCache()
 	svc := NewDashboardService(repo, gateway, cacheStore, "merchant-uuid", "dewifork", 5*time.Minute)
 
-	first, err := svc.Overview(context.Background(), 1)
+	first, err := svc.Overview(context.Background(), 1, model.UserRoleDev)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1200), first.ExternalBalance.PendingBalance)
 	require.Equal(t, uint64(3400), first.ExternalBalance.AvailableBalance)
 
-	second, err := svc.Overview(context.Background(), 1)
+	second, err := svc.Overview(context.Background(), 1, model.UserRoleDev)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1200), second.ExternalBalance.PendingBalance)
 	require.Equal(t, uint64(3400), second.ExternalBalance.AvailableBalance)
@@ -423,11 +425,11 @@ func TestDashboardServiceOverviewCachesComputedOverviewForShortTTL(t *testing.T)
 	cacheStore := newFakeDashboardCache()
 	svc := NewDashboardService(repo, nil, cacheStore, "", "", 5*time.Minute)
 
-	first, err := svc.Overview(context.Background(), 44)
+	first, err := svc.Overview(context.Background(), 44, model.UserRoleDev)
 	require.NoError(t, err)
 	require.NotNil(t, first)
 
-	second, err := svc.Overview(context.Background(), 44)
+	second, err := svc.Overview(context.Background(), 44, model.UserRoleDev)
 	require.NoError(t, err)
 	require.NotNil(t, second)
 
@@ -437,7 +439,7 @@ func TestDashboardServiceOverviewCachesComputedOverviewForShortTTL(t *testing.T)
 
 	overviewCacheKey := ""
 	for key, ttl := range cacheStore.ttls {
-		if strings.HasPrefix(key, "dashboard:overview:44:") {
+		if strings.HasPrefix(key, "dashboard:overview:44:dev:") {
 			overviewCacheKey = key
 			require.Equal(t, 10*time.Second, ttl)
 			break
@@ -463,10 +465,39 @@ func TestDashboardServiceOverviewStillSucceedsWhenCacheFails(t *testing.T) {
 	cacheStore.fail = true
 	svc := NewDashboardService(repo, gateway, cacheStore, "merchant-uuid", "dewifork", 5*time.Minute)
 
-	result, err := svc.Overview(context.Background(), 99)
+	result, err := svc.Overview(context.Background(), 99, model.UserRoleDev)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.Empty(t, result.ExternalBalanceError)
 	require.Equal(t, uint64(100), result.ExternalBalance.PendingBalance)
 	require.Equal(t, uint64(200), result.ExternalBalance.AvailableBalance)
+}
+
+func TestDashboardServiceOverviewRedactsPrivilegedFinancialsForNonDev(t *testing.T) {
+	repo := &fakeDashboardTransactionRepo{
+		metrics: repository.DashboardMetrics{
+			TotalCount:       6,
+			SuccessCount:     4,
+			PendingCount:     1,
+			FailedCount:      1,
+			TotalPlatformFee: 5500,
+		},
+	}
+	gateway := &fakeDashboardGatewayClient{
+		balance: &paymentgateway.GetBalanceResponse{
+			PendingBalance: 1000,
+			SettleBalance:  2000,
+		},
+	}
+	svc := NewDashboardService(repo, gateway, cache.NewNoopCache(), "merchant-uuid", "dewifork", 5*time.Minute)
+
+	result, err := svc.Overview(context.Background(), 101, model.UserRoleAdmin)
+	require.NoError(t, err)
+	require.False(t, result.CanViewProjectProfit)
+	require.False(t, result.CanViewExternalBalance)
+	require.Equal(t, uint64(0), result.Metrics.ProjectProfit)
+	require.Equal(t, uint64(0), result.ExternalBalance.PendingBalance)
+	require.Equal(t, uint64(0), result.ExternalBalance.AvailableBalance)
+	require.Empty(t, result.ExternalBalanceError)
+	require.Equal(t, 0, gateway.calls)
 }

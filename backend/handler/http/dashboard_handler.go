@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/example/gue/backend/model"
 	"github.com/example/gue/backend/service"
 	"github.com/gin-gonic/gin"
 )
@@ -24,14 +23,10 @@ func (h *DashboardHandler) Overview(c *gin.Context) {
 		return
 	}
 
-	data, err := h.dashboard.Overview(c.Request.Context(), uid)
+	data, err := h.dashboard.Overview(c.Request.Context(), uid, role)
 	if err != nil {
 		handleError(c, err)
 		return
-	}
-	data.CanViewProjectProfit = role == model.UserRoleDev
-	if !data.CanViewProjectProfit {
-		data.Metrics.ProjectProfit = 0
 	}
 
 	c.JSON(http.StatusOK, gin.H{
