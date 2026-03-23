@@ -47,3 +47,39 @@ func TestSecurityHeadersAddsHSTSForForwardedHTTPS(t *testing.T) {
 	require.Equal(t, http.StatusOK, res.Code)
 	require.Equal(t, "max-age=63072000; includeSubDomains; preload", res.Header().Get("Strict-Transport-Security"))
 }
+
+func TestSecurityHeadersAddsNoIndexForAPIResponses(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	router := gin.New()
+	router.Use(SecurityHeaders())
+	router.GET("/api/v1/auth/session", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/session", nil)
+	req.Host = "api.bola788.store"
+	res := httptest.NewRecorder()
+	router.ServeHTTP(res, req)
+
+	require.Equal(t, http.StatusOK, res.Code)
+	require.Equal(t, "noindex, nofollow", res.Header().Get("X-Robots-Tag"))
+}
+
+func TestSecurityHeadersAddsNoIndexForOpenAPIDoc(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	router := gin.New()
+	router.Use(SecurityHeaders())
+	router.GET("/openapi.yaml", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/openapi.yaml", nil)
+	req.Host = "bola788.store"
+	res := httptest.NewRecorder()
+	router.ServeHTTP(res, req)
+
+	require.Equal(t, http.StatusOK, res.Code)
+	require.Equal(t, "noindex, nofollow", res.Header().Get("X-Robots-Tag"))
+}

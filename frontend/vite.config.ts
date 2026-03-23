@@ -6,6 +6,7 @@ import tailwindcss from '@tailwindcss/vite'
 import { fileURLToPath, URL } from 'node:url'
 
 hydrateFrontendEnv()
+const publicRoutes = readPublicRoutes()
 
 export default defineConfig({
   envDir: '..',
@@ -14,7 +15,8 @@ export default defineConfig({
     script: 'async',
     formatting: 'minify',
     includedRoutes(paths) {
-      return paths.filter((path) => ['/', '/login', '/register'].includes(path))
+      const prerenderRoutes = new Set(['/', '/login', '/register', ...publicRoutes])
+      return paths.filter((path) => prerenderRoutes.has(path))
     },
   },
   resolve: {
@@ -81,4 +83,10 @@ function readEnvFile(filePath: string) {
   } catch {
     return {}
   }
+}
+
+function readPublicRoutes() {
+  const content = readFileSync(fileURLToPath(new URL('./src/content/public-pages.json', import.meta.url)), 'utf8')
+  const pages = JSON.parse(content) as Array<{ path: string }>
+  return pages.map((page) => page.path)
 }

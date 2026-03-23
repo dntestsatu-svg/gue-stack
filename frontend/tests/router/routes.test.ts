@@ -10,4 +10,12 @@ describe('router public routes', () => {
     expect(rootRoute?.meta?.publicLayout).toBe(true)
     expect(rootRoute?.meta?.requiresAuth).toBeUndefined()
   })
+
+  it('exposes merchant SEO pages as public routes', () => {
+    const featureRoute = routes.find((route) => route.path === '/fitur-qris-merchant')
+
+    expect(featureRoute).toBeTruthy()
+    expect(featureRoute?.meta?.publicLayout).toBe(true)
+    expect(featureRoute?.meta?.requiresAuth).toBeUndefined()
+  })
 })

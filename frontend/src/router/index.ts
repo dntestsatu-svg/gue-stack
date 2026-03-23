@@ -2,6 +2,7 @@ import {
   type RouteRecordRaw,
   type Router,
 } from 'vue-router'
+import { publicPagesCatalog } from '@/lib/public-pages'
 import { useAuthStore } from '@/stores/auth'
 import { useUserStore } from '@/stores/user'
 import { resolveRedirect, resolveRoleRedirect } from './guards'
@@ -18,6 +19,15 @@ export const routes: RouteRecordRaw[] = [
       title: 'Gateway QRIS untuk Merchant',
     },
   },
+  ...publicPagesCatalog.map((page) => ({
+    path: page.path,
+    name: page.key,
+    component: () => import('@/views/PublicContentPageView.vue'),
+    meta: {
+      publicLayout: true,
+      title: page.title,
+    },
+  } satisfies RouteRecordRaw)),
   {
     path: '/login',
     name: 'login',

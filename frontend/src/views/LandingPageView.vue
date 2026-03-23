@@ -33,6 +33,7 @@ useSeoMeta({
   description,
   robots: 'index, follow',
   ogType: 'website',
+  ogSiteName: siteConfig.name,
   ogTitle: title,
   ogDescription: description,
   ogUrl: canonicalURL,
@@ -62,6 +63,7 @@ useHead({
           '@context': 'https://schema.org',
           '@type': 'WebSite',
           name: siteConfig.name,
+          alternateName: 'APIGOQR Merchant Gateway',
           url: canonicalURL,
           description,
         },
@@ -72,6 +74,32 @@ useHead({
           url: canonicalURL,
           logo: withSiteURL('/images/landing-og.svg'),
           sameAs: [canonicalURL],
+        },
+        {
+          '@context': 'https://schema.org',
+          '@type': 'ItemList',
+          itemListElement: [
+            {
+              '@type': 'SiteNavigationElement',
+              name: 'Dashboard Panel',
+              url: withSiteURL('/dashboard-panel'),
+            },
+            {
+              '@type': 'SiteNavigationElement',
+              name: 'Create Account',
+              url: withSiteURL('/create-account'),
+            },
+            {
+              '@type': 'SiteNavigationElement',
+              name: 'Fitur QRIS Merchant',
+              url: withSiteURL('/fitur-qris-merchant'),
+            },
+            {
+              '@type': 'SiteNavigationElement',
+              name: 'Terms of Service',
+              url: withSiteURL('/terms-of-service'),
+            },
+          ],
         },
       ]),
     },
@@ -99,6 +127,8 @@ onMounted(() => {
           <a href="#fitur">Fitur</a>
           <a href="#alur">Alur Integrasi</a>
           <a href="#arsitektur">Arsitektur</a>
+          <a href="/dashboard-panel">Dashboard Panel</a>
+          <a href="/create-account">Create Account</a>
           <a href="#faq">FAQ</a>
         </div>
 
@@ -173,6 +203,7 @@ onMounted(() => {
               Merchant mengirim request generate. Project meneruskan ke external API, lalu menyimpan transaksi
               dengan status pending sebelum QR payload dikembalikan.
             </p>
+            <a class="landing-inline-link" href="/fitur-qris-merchant">Baca panduan fitur merchant</a>
           </article>
           <article class="landing-feature-card">
             <h3>Webhook idempotent dan callback final</h3>
@@ -180,6 +211,7 @@ onMounted(() => {
               Status success, failed, atau expired hanya difinalisasi satu kali. Setelah valid, project mengirim
               callback final ke server merchant yang sudah terdaftar.
             </p>
+            <a class="landing-inline-link" href="/webhook-callback-merchant">Baca panduan callback merchant</a>
           </article>
           <article class="landing-feature-card">
             <h3>Pending balance, settle balance, dan withdraw flow</h3>
@@ -187,6 +219,7 @@ onMounted(() => {
               Pending balance masuk otomatis dari deposit sukses. Settle balance dipindah manual sesuai proses
               operasional. Withdraw cost tetap terpisah dari keuntungan platform.
             </p>
+            <a class="landing-inline-link" href="/kontrol-balance-dan-withdraw">Baca panduan balance dan withdraw</a>
           </article>
           <article class="landing-feature-card">
             <h3>RBAC dan tenant scope yang ketat</h3>
@@ -194,6 +227,56 @@ onMounted(() => {
               Role dev, superadmin, admin, dan user memiliki pembatasan akses yang jelas agar data merchant dan
               toko tidak bocor lintas hierarchy.
             </p>
+            <a class="landing-inline-link" href="/syarat-layanan">Lihat syarat penggunaan platform</a>
+          </article>
+        </div>
+      </section>
+
+      <section class="landing-section landing-shell-width" aria-labelledby="public-guides-title">
+        <div class="landing-section-heading">
+          <p class="landing-kicker">Halaman publik</p>
+          <h2 id="public-guides-title">Permukaan SEO yang dibuat untuk merchant, finance ops, dan tim integrasi</h2>
+          <p>
+            Selain landing page utama, APIGOQR sekarang punya beberapa halaman publik yang membahas fitur, callback,
+            balance, dan dokumen legal secara terpisah agar lebih mudah diindeks dan dibaca crawler.
+          </p>
+        </div>
+
+        <div class="landing-resource-grid">
+          <article class="landing-resource-card">
+            <h3>Dashboard Panel</h3>
+            <p>Penjelasan publik tentang panel merchant untuk testing callback, transaksi, balance, dan operasional payout.</p>
+            <a href="/dashboard-panel">Buka halaman</a>
+          </article>
+          <article class="landing-resource-card">
+            <h3>Create Account</h3>
+            <p>Halaman onboarding publik untuk calon merchant sebelum pindah ke form register dan dashboard operasional.</p>
+            <a href="/create-account">Buka halaman</a>
+          </article>
+          <article class="landing-resource-card">
+            <h3>Fitur QRIS Merchant</h3>
+            <p>Ringkasan fitur inti merchant: generate QRIS, transaksi pending, callback final, dan operasional dashboard.</p>
+            <a href="/fitur-qris-merchant">Buka halaman</a>
+          </article>
+          <article class="landing-resource-card">
+            <h3>Kontrol Balance dan Withdraw</h3>
+            <p>Penjelasan pending, settle, platform fee, dan withdraw cost agar angka merchant tetap bisa dijelaskan.</p>
+            <a href="/kontrol-balance-dan-withdraw">Buka halaman</a>
+          </article>
+          <article class="landing-resource-card">
+            <h3>Terms of Service</h3>
+            <p>Halaman legal publik tentang syarat penggunaan dashboard, token toko, callback merchant, dan layanan APIGOQR.</p>
+            <a href="/terms-of-service">Buka halaman</a>
+          </article>
+          <article class="landing-resource-card">
+            <h3>Privacy Policy</h3>
+            <p>Ringkasan publik tentang pengelolaan data merchant, toko, callback URL, dan data transaksi dalam sistem.</p>
+            <a href="/privacy-policy">Buka halaman</a>
+          </article>
+          <article class="landing-resource-card">
+            <h3>Webhook Callback Merchant</h3>
+            <p>Penjelasan idempotency, status final, callback_url merchant, dan observability saat integrasi QRIS berjalan.</p>
+            <a href="/webhook-callback-merchant">Buka halaman</a>
           </article>
         </div>
       </section>
@@ -321,6 +404,13 @@ onMounted(() => {
             <li><a href="/login">Masuk</a></li>
             <li><a href="/register">Daftar</a></li>
             <li><a href="#fitur">Fitur</a></li>
+            <li><a href="/dashboard-panel">Dashboard Panel</a></li>
+            <li><a href="/create-account">Create Account</a></li>
+            <li><a href="/fitur-qris-merchant">Fitur Merchant</a></li>
+            <li><a href="/webhook-callback-merchant">Webhook Callback</a></li>
+            <li><a href="/kontrol-balance-dan-withdraw">Balance dan Withdraw</a></li>
+            <li><a href="/privacy-policy">Privacy Policy</a></li>
+            <li><a href="/terms-of-service">Terms of Service</a></li>
           </ul>
         </nav>
 

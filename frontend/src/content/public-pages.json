@@ -1,0 +1,341 @@
+[
+  {
+    "key": "dashboard-panel",
+    "path": "/dashboard-panel",
+    "title": "Dashboard Panel",
+    "description": "Halaman publik tentang dashboard panel APIGOQR untuk merchant, finance ops, testing callback, histori transaksi, dan kontrol balance toko.",
+    "kicker": "Dashboard overview",
+    "heroTitle": "Dashboard panel merchant yang dirancang untuk operasi QRIS, callback, dan kontrol balance.",
+    "heroBody": "Dashboard APIGOQR bukan hanya halaman login. Ini adalah panel operasional untuk merchant yang perlu mengelola toko, callback URL, testing integrasi, histori transaksi, bank payout, dan withdraw dengan struktur yang bisa dibaca tim operasional.",
+    "changefreq": "weekly",
+    "priority": 0.82,
+    "sections": [
+      {
+        "title": "Satu panel untuk tim integrasi dan tim operasional",
+        "paragraphs": [
+          "Setelah masuk, merchant dan tim ops dapat mengelola toko, token, callback_url, histori transaksi, testing callback, bank management, dan withdraw dari satu dashboard yang konsisten.",
+          "Pendekatan ini mengurangi perpindahan alat kerja dan membuat proses investigasi integrasi atau audit transaksi lebih cepat."
+        ],
+        "highlights": [
+          "Manajemen toko dan token merchant",
+          "Histori transaksi dan export",
+          "Testing callback readiness dan QRIS"
+        ]
+      },
+      {
+        "title": "Dashboard dibangun untuk data finansial yang tidak bercampur",
+        "paragraphs": [
+          "Project memisahkan pending balance, settle balance, project fee, dan withdraw cost agar tim finance bisa menjelaskan setiap angka dengan jelas.",
+          "Role-based access control juga dipakai agar halaman yang sensitif tidak bisa diakses sembarang user."
+        ],
+        "highlights": [
+          "Pending dan settle balance dipisah",
+          "Project fee tidak bercampur dengan withdraw cost",
+          "Akses halaman dibatasi per role"
+        ]
+      }
+    ],
+    "faq": [
+      {
+        "question": "Apakah halaman ini bisa diakses tanpa login?",
+        "answer": "Halaman publik ini bisa diakses tanpa login, tetapi dashboard operasional aslinya tetap membutuhkan autentikasi."
+      }
+    ]
+  },
+  {
+    "key": "create-account",
+    "path": "/create-account",
+    "title": "Create Account",
+    "description": "Halaman publik untuk membuat akun merchant APIGOQR dan memahami proses onboarding, token toko, callback, dan penggunaan dashboard.",
+    "kicker": "Onboarding",
+    "heroTitle": "Create account untuk merchant yang ingin mulai integrasi QRIS dengan struktur operasional yang jelas.",
+    "heroBody": "Halaman ini menjelaskan apa yang didapat merchant setelah membuat akun APIGOQR: dashboard operasional, toko, token merchant, callback testing, bank payout, dan jalur withdraw yang konsisten.",
+    "changefreq": "weekly",
+    "priority": 0.82,
+    "sections": [
+      {
+        "title": "Akun merchant dipakai untuk masuk ke workspace operasional",
+        "paragraphs": [
+          "Saat merchant membuat akun, mereka mendapatkan akses ke workspace yang dapat dipakai untuk membuat toko, mengambil token, mengatur callback URL, dan memulai integrasi.",
+          "Onboarding ini sengaja dibuat sederhana agar merchant bisa segera berpindah dari halaman publik ke dashboard tanpa kebingungan struktur."
+        ],
+        "highlights": [
+          "Akun baru default ke role admin merchant",
+          "Bisa langsung membuat toko dan callback URL",
+          "Bisa lanjut ke testing dan dokumentasi API"
+        ]
+      },
+      {
+        "title": "Halaman publik ini untuk mesin pencari, bukan pengganti form register",
+        "paragraphs": [
+          "Form register asli tetap ada di route aplikasi. Namun untuk SEO, halaman publik seperti ini lebih cocok diindeks daripada halaman form murni yang berubah menurut session user.",
+          "Dengan model ini, hasil pencarian bisa mengarahkan calon merchant ke konteks yang benar sebelum mereka menekan tombol daftar."
+        ],
+        "highlights": [
+          "Cocok untuk sitelink hasil pencarian",
+          "Memberi konteks sebelum user mendaftar",
+          "Tetap mengarahkan ke form register asli"
+        ]
+      }
+    ],
+    "faq": [
+      {
+        "question": "Mengapa tidak langsung mengindeks halaman register?",
+        "answer": "Karena halaman publik yang menjelaskan onboarding lebih stabil dan lebih berguna untuk hasil pencarian daripada form autentikasi murni."
+      }
+    ]
+  },
+  {
+    "key": "fitur-qris-merchant",
+    "path": "/fitur-qris-merchant",
+    "title": "Fitur QRIS Merchant",
+    "description": "Panduan fitur APIGOQR untuk merchant yang membutuhkan generate QRIS, transaksi pending, callback final, dan orkestrasi payment yang stabil.",
+    "kicker": "Merchant guide",
+    "heroTitle": "Fitur gateway QRIS merchant yang dirancang untuk alur final dan bisa diaudit.",
+    "heroBody": "Halaman ini merangkum fitur yang paling relevan untuk merchant yang ingin menghubungkan website mereka ke APIGOQR: generate QRIS, status final, pending balance, bank inquiry, dan kontrol operasional tanpa membuka credential external API ke merchant.",
+    "changefreq": "weekly",
+    "priority": 0.9,
+    "sections": [
+      {
+        "title": "Generate QRIS yang menyimpan transaksi lokal lebih dulu",
+        "paragraphs": [
+          "Merchant website memanggil endpoint generate QRIS menggunakan bearer token toko. Project meneruskan request ke external API, lalu menyimpan transaksi lokal dengan status pending sebelum QR payload dikembalikan.",
+          "Pola ini membuat order merchant tidak hanya bergantung pada respons vendor. Transaksi lokal sudah punya jejak audit sejak awal, sehingga check-status, callback, dan rekonsiliasi tidak dimulai dari nol."
+        ],
+        "highlights": [
+          "Generate QRIS dengan token toko, bukan credential vendor",
+          "Transaksi pending disimpan sebelum QR dikembalikan",
+          "Check-status dapat memakai cache snapshot final per trx_id"
+        ]
+      },
+      {
+        "title": "Webhook final dan callback merchant yang lebih stabil",
+        "paragraphs": [
+          "Saat external API mengirim webhook success, failed, atau expired, project memvalidasi request, menjaga idempotency, dan hanya memfinalisasi transaksi sekali.",
+          "Setelah status final tervalidasi, project mengirim callback ke callback_url merchant. Merchant menerima payload final yang siap dipakai untuk update order, tanpa harus menyentuh detail sensitif dari vendor."
+        ],
+        "highlights": [
+          "Webhook processing idempotent",
+          "Callback final ke merchant setelah status tervalidasi",
+          "Payload merchant memakai token toko, bukan merchant_id vendor"
+        ]
+      },
+      {
+        "title": "Operasional merchant tidak berhenti di pembayaran",
+        "paragraphs": [
+          "Dashboard juga mencakup testing toko, callback readiness, bank management, withdraw, dan histori transaksi. Tujuannya bukan hanya menerima pembayaran, tetapi menjaga aliran uang dan integrasi merchant tetap bisa dipantau.",
+          "Untuk merchant yang punya tim operasional, struktur ini memudahkan pembagian tugas antara owner toko, finance ops, dan developer merchant."
+        ],
+        "highlights": [
+          "Testing route untuk validasi callback merchant",
+          "Bank inquiry sebelum simpan rekening payout",
+          "Withdraw flow yang memisahkan settle balance dan biaya vendor"
+        ]
+      }
+    ],
+    "faq": [
+      {
+        "question": "Apakah merchant perlu menyimpan client key vendor?",
+        "answer": "Tidak. Merchant hanya memakai bearer token toko untuk memanggil API project ini."
+      },
+      {
+        "question": "Apakah route ini cocok untuk merchant production?",
+        "answer": "Ya, karena alurnya sudah mencakup transaksi pending, webhook final, callback merchant, dan kontrol balance toko yang jelas."
+      }
+    ]
+  },
+  {
+    "key": "webhook-callback-merchant",
+    "path": "/webhook-callback-merchant",
+    "title": "Webhook Callback Merchant",
+    "description": "Penjelasan alur webhook idempotent dan callback final merchant di APIGOQR untuk memastikan status pembayaran QRIS konsisten dan tidak dobel.",
+    "kicker": "Callback reliability",
+    "heroTitle": "Webhook idempotent dan callback final merchant harus diperlakukan sebagai kontrak, bukan sekadar notifikasi.",
+    "heroBody": "APIGOQR dirancang supaya final status pembayaran QRIS tidak dobel, tidak race, dan tidak bergantung pada polling merchant. Fokus utamanya adalah validasi webhook, finalisasi transaksi yang aman, lalu callback final ke callback_url merchant.",
+    "changefreq": "weekly",
+    "priority": 0.85,
+    "sections": [
+      {
+        "title": "Idempotency mencegah transaksi yang sama difinalisasi dua kali",
+        "paragraphs": [
+          "External API bisa saja mengirim webhook ulang. Karena itu finalisasi transaksi berdasarkan trx_id harus atomik dan hanya boleh berhasil saat status sebelumnya masih pending.",
+          "Pendekatan ini menghindari kasus pending balance bertambah dua kali, callback merchant dikirim berulang, atau histori transaksi menjadi tidak konsisten."
+        ],
+        "highlights": [
+          "Finalisasi berbasis trx_id",
+          "Status hanya bisa berpindah sekali dari pending ke status final",
+          "Race condition dibatasi di layer repository dan service"
+        ]
+      },
+      {
+        "title": "Callback merchant dikirim setelah status final tervalidasi",
+        "paragraphs": [
+          "Merchant tidak menerima callback sementara atau status spekulatif. Callback baru dikirim setelah project menerima dan memproses status final success, failed, atau expired dari vendor.",
+          "Dengan pola ini, merchant website dapat memperlakukan callback sebagai sinyal update order yang final."
+        ],
+        "highlights": [
+          "Callback hanya setelah status final",
+          "Support untuk success, failed, dan expired",
+          "Callback readiness bisa diuji dari halaman testing"
+        ]
+      },
+      {
+        "title": "Observability tetap penting untuk tim merchant",
+        "paragraphs": [
+          "Project menyimpan snapshot final di cache dan menulis log untuk webhook masuk, callback keluar, dan error. Ini memudahkan tim merchant saat perlu rekonsiliasi atau investigasi integrasi.",
+          "Kalau callback merchant tidak merespons HTTP 200 dengan body success, tim merchant bisa mendeteksinya lebih cepat lewat route testing."
+        ],
+        "highlights": [
+          "Cache snapshot per trx_id",
+          "Logging untuk webhook, callback, dan error",
+          "Testing callback readiness untuk server merchant"
+        ]
+      }
+    ],
+    "faq": [
+      {
+        "question": "Mengapa callback merchant tidak dikirim segera saat QR dibuat?",
+        "answer": "Karena callback merchant dipakai untuk status final transaksi, bukan untuk status pending saat QR baru dibuat."
+      },
+      {
+        "question": "Mengapa idempotency penting?",
+        "answer": "Tanpa idempotency, webhook dobel bisa menyebabkan pending balance, histori, atau callback merchant diproses lebih dari sekali."
+      }
+    ]
+  },
+  {
+    "key": "kontrol-balance-dan-withdraw",
+    "path": "/kontrol-balance-dan-withdraw",
+    "title": "Kontrol Balance dan Withdraw",
+    "description": "Penjelasan pending balance, settle balance, platform fee, dan withdraw cost di APIGOQR agar pergerakan saldo merchant tetap konsisten.",
+    "kicker": "Finance operations",
+    "heroTitle": "Kontrol balance merchant harus konsisten, eksplisit, dan bisa dijelaskan ke tim finance.",
+    "heroBody": "APIGOQR memisahkan pending balance, settle balance, platform fee, dan withdraw cost agar angka yang terlihat merchant tidak bercampur. Halaman ini menjelaskan prinsip akuntansi operasional yang dipakai project.",
+    "changefreq": "weekly",
+    "priority": 0.85,
+    "sections": [
+      {
+        "title": "Pending balance berasal dari deposit sukses setelah potongan fee platform",
+        "paragraphs": [
+          "Saat transaksi QRIS sukses difinalisasi, hak toko masuk ke pending balance. Komisi platform dihitung per deposit sukses, bukan dari saldo agregat yang terus berubah.",
+          "Model ini lebih aman karena fee platform terkunci pada event finansial yang spesifik dan tidak tercampur dengan fee withdraw vendor."
+        ],
+        "highlights": [
+          "Platform fee dihitung per deposit sukses",
+          "Pending balance masuk setelah finalisasi sukses",
+          "Project profit tidak dihitung dari withdraw fee vendor"
+        ]
+      },
+      {
+        "title": "Settle balance dipisahkan dari pending balance",
+        "paragraphs": [
+          "Settle balance tidak muncul otomatis. Perpindahan dari pending ke settle dilakukan sesuai proses settlement yang dikendalikan tim operasional project.",
+          "Pemisahan ini membuat tim finance bisa menjelaskan dengan jelas saldo mana yang sudah siap dipakai untuk withdraw dan saldo mana yang masih berada di pending."
+        ],
+        "highlights": [
+          "Pending dan settle balance tidak digabung",
+          "Settlement dilakukan manual sesuai proses ops",
+          "Withdraw hanya bersumber dari settle balance"
+        ]
+      },
+      {
+        "title": "Withdraw cost vendor tetap dibebankan ke saldo settle toko",
+        "paragraphs": [
+          "Fee transfer dari vendor bukan profit project. Fee tersebut tetap menjadi biaya operasional payout yang dibebankan ke settle balance toko saat withdraw diproses.",
+          "Dengan pemisahan ini, laporan merchant tetap bisa menjelaskan mana hak toko, mana fee platform, dan mana biaya vendor untuk payout."
+        ],
+        "highlights": [
+          "Withdraw cost bukan platform revenue",
+          "Reserve settle balance dilakukan sebelum transfer",
+          "Refund dapat dilakukan jika transfer gagal"
+        ]
+      }
+    ],
+    "faq": [
+      {
+        "question": "Mengapa settle balance tidak otomatis bertambah?",
+        "answer": "Karena settle balance mewakili saldo yang sudah dipindahkan ke tahap siap withdraw sesuai proses settlement operasional."
+      },
+      {
+        "question": "Apakah withdraw fee termasuk keuntungan project?",
+        "answer": "Tidak. Withdraw fee adalah biaya vendor transfer dan tidak dicatat sebagai keuntungan platform."
+      }
+    ]
+  },
+  {
+    "key": "kebijakan-privasi",
+    "path": "/privacy-policy",
+    "title": "Privacy Policy",
+    "description": "Kebijakan privasi APIGOQR untuk pengelolaan data merchant, callback URL, token toko, dan data operasional gateway QRIS.",
+    "kicker": "Legal",
+    "heroTitle": "Kebijakan privasi APIGOQR untuk data merchant dan operasional QRIS.",
+    "heroBody": "Halaman ini menjelaskan data yang dikumpulkan, alasan pengumpulan, dan prinsip pengamanan dasar untuk akun, toko, callback URL, rekening payout, serta data transaksi yang dikelola di APIGOQR.",
+    "changefreq": "monthly",
+    "priority": 0.5,
+    "sections": [
+      {
+        "title": "Data yang diproses",
+        "paragraphs": [
+          "APIGOQR memproses data akun, data toko, token toko, callback URL, rekening payout, dan data transaksi yang diperlukan untuk menjalankan alur payment orchestration.",
+          "Data tersebut diproses untuk autentikasi, pengiriman callback, histori transaksi, monitoring saldo, dan fungsi operasional lain yang berkaitan langsung dengan layanan."
+        ],
+        "highlights": [
+          "Data akun dan role pengguna",
+          "Data toko, token, dan callback URL",
+          "Data transaksi, bank inquiry, dan withdraw"
+        ]
+      },
+      {
+        "title": "Prinsip penggunaan",
+        "paragraphs": [
+          "Data digunakan untuk menjalankan layanan, menjaga keamanan akses, memproses webhook dan callback, serta mendukung kebutuhan audit dan troubleshooting.",
+          "Credential sensitif external API tidak dibuka ke merchant. Merchant berinteraksi dengan bearer token toko, bukan client key vendor."
+        ],
+        "highlights": [
+          "Data digunakan untuk fungsi layanan inti",
+          "Akses dibatasi oleh role dan tenant scope",
+          "Credential vendor tidak dipublikasikan ke merchant"
+        ]
+      }
+    ],
+    "faq": []
+  },
+  {
+    "key": "terms-of-service",
+    "path": "/terms-of-service",
+    "title": "Terms of Service",
+    "description": "Syarat layanan APIGOQR untuk penggunaan dashboard, token toko, callback merchant, dan operasional payment orchestration QRIS.",
+    "kicker": "Legal",
+    "heroTitle": "Syarat layanan untuk penggunaan dashboard dan API APIGOQR.",
+    "heroBody": "Halaman ini merangkum syarat dasar penggunaan layanan APIGOQR, termasuk tanggung jawab pengguna terhadap token toko, callback endpoint merchant, serta penggunaan dashboard operasional dan API merchant.",
+    "changefreq": "monthly",
+    "priority": 0.5,
+    "sections": [
+      {
+        "title": "Kewajiban pengguna",
+        "paragraphs": [
+          "Pengguna bertanggung jawab menjaga kerahasiaan akun dan token toko yang dipakai untuk integrasi merchant. Endpoint callback merchant juga harus dikelola dengan benar agar dapat menerima status final transaksi.",
+          "Pengguna dilarang memakai layanan untuk aktivitas yang melanggar hukum, menyalahi kontrak integrasi, atau mengganggu keamanan dan stabilitas sistem."
+        ],
+        "highlights": [
+          "Jaga keamanan akun dan token toko",
+          "Pastikan callback endpoint merchant valid",
+          "Gunakan layanan sesuai hukum dan kontrak integrasi"
+        ]
+      },
+      {
+        "title": "Batas layanan",
+        "paragraphs": [
+          "Ketersediaan layanan dapat dipengaruhi oleh sistem pihak ketiga seperti external API, jaringan, atau infrastruktur merchant sendiri. Karena itu, tim merchant tetap perlu menerapkan monitoring pada callback dan endpoint integrasi mereka.",
+          "Project berupaya menyediakan handler, logging, cache, dan kontrol balance yang konsisten, tetapi merchant tetap bertanggung jawab menguji implementasi di lingkungan mereka."
+        ],
+        "highlights": [
+          "Ada ketergantungan pada vendor dan infrastruktur merchant",
+          "Merchant tetap perlu testing dan monitoring",
+          "Dokumentasi dan route testing disediakan untuk membantu integrasi"
+        ]
+      }
+    ],
+    "faq": []
+  }
+]
