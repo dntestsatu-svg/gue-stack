@@ -88,7 +88,7 @@ function handleOpenChange(nextOpen: boolean) {
 <template>
   <Dialog :open="open" @update:open="handleOpenChange">
     <DialogTrigger as-child>
-      <Button variant="outline" size="icon" class="hidden md:inline-flex">
+      <Button variant="outline" size="icon" class="app-header-control hidden md:inline-flex">
         <KeyRound class="h-4 w-4" />
         <span class="sr-only">Change password</span>
       </Button>

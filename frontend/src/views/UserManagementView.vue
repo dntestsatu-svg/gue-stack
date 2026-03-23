@@ -391,7 +391,7 @@ void loadUsers()
       <AlertDescription>{{ errorMessage }}</AlertDescription>
     </Alert>
 
-    <Card class="app-panel">
+    <Card class="app-panel app-filter-card">
       <CardHeader>
         <CardTitle>Filters</CardTitle>
         <CardDescription>Search berdasarkan nama atau email. Filter role memakai komponen select shadcn-vue.</CardDescription>
@@ -528,7 +528,7 @@ void loadUsers()
       </Table>
     </div>
 
-    <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-(--background-elevated) px-4 py-3">
+    <div class="app-pagination-bar">
       <div class="space-y-1">
         <p class="text-sm font-medium text-foreground">{{ rangeLabel }}</p>
         <p class="text-xs text-muted-foreground">Page {{ currentPage }} • Limit {{ pagination.limit }}</p>

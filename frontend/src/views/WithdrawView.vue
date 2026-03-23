@@ -316,7 +316,7 @@ void loadPageData()
               </div>
 
               <div class="grid gap-3 md:grid-cols-2">
-                <div class="rounded-xl border bg-(--background-muted) p-4">
+                <div class="app-info-tile">
                   <div class="flex items-start gap-3">
                     <Store class="mt-0.5 h-4 w-4 text-primary" />
                     <div class="space-y-1">
@@ -329,7 +329,7 @@ void loadPageData()
                   </div>
                 </div>
 
-                <div class="rounded-xl border bg-(--background-muted) p-4">
+                <div class="app-info-tile">
                   <div class="flex items-start gap-3">
                     <Landmark class="mt-0.5 h-4 w-4 text-primary" />
                     <div class="space-y-1">
@@ -369,7 +369,7 @@ void loadPageData()
                   <Badge variant="outline">{{ inquiryResult.bank_name }}</Badge>
                   <Badge variant="secondary">Inquiry ID {{ inquiryResult.inquiry_id }}</Badge>
                 </div>
-                <div class="rounded-xl border bg-(--background-muted) p-4 text-sm">
+                <div class="app-tone-card text-sm">
                   <p><strong>{{ inquiryResult.account_name }}</strong></p>
                   <p class="text-muted-foreground">{{ inquiryResult.account_number }}</p>
                   <p class="mt-2 text-muted-foreground">Fee gateway: {{ formatCurrency(inquiryResult.fee) }}</p>
@@ -435,7 +435,7 @@ void loadPageData()
           </CardContent>
         </Card>
 
-        <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-(--background-elevated) px-4 py-3">
+        <div class="app-pagination-bar">
           <div class="space-y-1">
             <p class="text-sm font-medium text-foreground">{{ historyRangeLabel }}</p>
             <p class="text-xs text-muted-foreground">Page {{ historyCurrentPage }} • Limit {{ historyPagination.limit }}</p>

@@ -74,9 +74,9 @@ const handleLogout = async () => {
     <SidebarHeader>
       <SidebarMenu>
         <SidebarMenuItem>
-          <SidebarMenuButton tooltip="GUE Control" class="h-10" @click="router.push('/dashboard')">
+          <SidebarMenuButton tooltip="GUE Control" class="app-sidebar-brand" @click="router.push('/dashboard')">
             <div class="flex items-center gap-2">
-              <div class="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
+              <div class="app-sidebar-logo">
                 <ChartArea class="h-4 w-4" />
               </div>
               <div class="flex min-w-0 flex-col leading-tight">
@@ -111,7 +111,7 @@ const handleLogout = async () => {
 
     <SidebarFooter>
       <div class="space-y-3 p-2">
-        <div class="rounded-lg border border-border bg-(--background-muted)/60 p-3">
+        <div class="app-sidebar-user-card">
           <div class="flex items-center justify-between gap-2">
             <p class="truncate text-sm font-semibold">{{ userStore.profile?.name || 'Unknown User' }}</p>
             <Badge variant="secondary" class="capitalize">{{ role }}</Badge>
@@ -119,7 +119,7 @@ const handleLogout = async () => {
           <p class="text-muted-foreground truncate text-xs">{{ userStore.profile?.email }}</p>
         </div>
         <Separator />
-        <Button variant="outline" class="w-full justify-start gap-2" @click="handleLogout">
+        <Button variant="outline" class="app-sidebar-logout w-full" @click="handleLogout">
           <LogOut class="h-4 w-4" />
           <span>Logout</span>
         </Button>

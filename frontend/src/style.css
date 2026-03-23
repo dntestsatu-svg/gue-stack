@@ -116,11 +116,12 @@
   body {
     @apply m-0 min-h-screen antialiased;
     background:
-      radial-gradient(circle at 15% 10%, color-mix(in oklab, var(--brand) 14%, transparent), transparent 36%),
-      radial-gradient(circle at 85% 0%, color-mix(in oklab, var(--chart-withdraw) 10%, transparent), transparent 32%),
-      linear-gradient(180deg, var(--background), color-mix(in oklab, var(--background) 92%, black));
+      radial-gradient(circle at 14% 8%, color-mix(in oklab, var(--brand) 18%, transparent), transparent 34%),
+      radial-gradient(circle at 88% 0%, color-mix(in oklab, var(--chart-success) 11%, transparent), transparent 28%),
+      linear-gradient(180deg, color-mix(in oklab, var(--background) 96%, #02060d), color-mix(in oklab, var(--background) 88%, black));
     color: var(--foreground);
     overflow-x: clip;
+    position: relative;
   }
   #app {
     min-height: 100dvh;
@@ -132,6 +133,33 @@
   }
   * {
     border-color: var(--border);
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -2;
+    pointer-events: none;
+    background:
+      linear-gradient(to right, color-mix(in oklab, var(--border) 42%, transparent) 1px, transparent 1px),
+      linear-gradient(to bottom, color-mix(in oklab, var(--border) 32%, transparent) 1px, transparent 1px);
+    background-size: 72px 72px;
+    mask-image: linear-gradient(180deg, transparent 0%, black 18%, black 82%, transparent 100%);
+    opacity: 0.16;
+  }
+
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(circle at 18% 0%, color-mix(in oklab, var(--brand) 16%, transparent), transparent 30%),
+      radial-gradient(circle at 100% 8%, color-mix(in oklab, var(--chart-success) 12%, transparent), transparent 26%),
+      radial-gradient(circle at 50% 100%, color-mix(in oklab, var(--chart-withdraw) 8%, transparent), transparent 30%);
+    opacity: 0.9;
   }
 }
 
@@ -163,13 +191,15 @@
   }
 
   .app-panel {
-    @apply overflow-hidden rounded-[1.5rem] border;
+    @apply overflow-hidden rounded-[1.45rem] border;
     border-color: color-mix(in oklab, var(--border) 82%, transparent);
     background:
-      linear-gradient(180deg, color-mix(in oklab, var(--background-elevated) 97%, transparent), color-mix(in oklab, var(--background-muted) 34%, transparent));
+      radial-gradient(circle at 100% 0%, color-mix(in oklab, var(--brand) 9%, transparent), transparent 36%),
+      linear-gradient(180deg, color-mix(in oklab, var(--background-elevated) 98%, transparent), color-mix(in oklab, var(--background-muted) 44%, transparent));
     box-shadow:
       inset 0 1px 0 color-mix(in oklab, white 18%, transparent),
-      0 28px 60px -42px color-mix(in oklab, #000 42%, transparent);
+      0 30px 80px -48px color-mix(in oklab, #000 52%, transparent);
+    backdrop-filter: blur(16px);
   }
 
   .dashboard-hero {
@@ -177,11 +207,11 @@
     border-color: color-mix(in oklab, var(--border) 78%, transparent);
     background:
       radial-gradient(circle at 92% 8%, color-mix(in oklab, var(--brand) 18%, transparent), transparent 42%),
-      radial-gradient(circle at 10% 100%, color-mix(in oklab, var(--chart-success) 8%, transparent), transparent 34%),
+      radial-gradient(circle at 10% 100%, color-mix(in oklab, var(--chart-success) 10%, transparent), transparent 34%),
       linear-gradient(142deg, color-mix(in oklab, var(--background-elevated) 96%, transparent), color-mix(in oklab, var(--background-muted) 74%, transparent));
     box-shadow:
       inset 0 1px 0 color-mix(in oklab, white 16%, transparent),
-      0 36px 88px -52px color-mix(in oklab, var(--brand) 52%, transparent);
+      0 38px 94px -56px color-mix(in oklab, var(--brand) 56%, transparent);
   }
 
   .page-header-copy {
@@ -207,14 +237,14 @@
   }
 
   .dashboard-kpi-card {
-    @apply min-h-[10.5rem] rounded-[1.35rem] border;
+    @apply min-h-[9.75rem] rounded-[1.3rem] border;
     border-color: color-mix(in oklab, var(--border) 76%, transparent);
     background:
-      radial-gradient(circle at 100% 0%, color-mix(in oklab, var(--brand) 10%, transparent), transparent 38%),
-      linear-gradient(165deg, color-mix(in oklab, var(--background-elevated) 98%, transparent), color-mix(in oklab, var(--background-muted) 72%, transparent));
+      radial-gradient(circle at 100% 0%, color-mix(in oklab, var(--brand) 12%, transparent), transparent 38%),
+      linear-gradient(165deg, color-mix(in oklab, var(--background-elevated) 99%, transparent), color-mix(in oklab, var(--background-muted) 66%, transparent));
     box-shadow:
       inset 0 1px 0 color-mix(in oklab, white 24%, transparent),
-      0 24px 54px -38px color-mix(in oklab, #000 42%, transparent);
+      0 26px 60px -42px color-mix(in oklab, #000 48%, transparent);
   }
 
   .dashboard-kpi-card-profit {
@@ -224,9 +254,287 @@
   }
 
   .dashboard-stat-row {
-    @apply flex items-center justify-between rounded-lg border px-3 py-2;
+    @apply flex items-center justify-between rounded-xl border px-3 py-2.5;
     border-color: var(--border);
-    background: color-mix(in oklab, var(--background-muted) 64%, transparent);
+    background: color-mix(in oklab, var(--background-muted) 72%, transparent);
+    box-shadow: inset 0 1px 0 color-mix(in oklab, white 10%, transparent);
+  }
+
+  .app-topbar {
+    border-bottom-color: color-mix(in oklab, var(--border) 88%, transparent);
+    background:
+      linear-gradient(180deg, color-mix(in oklab, var(--background) 94%, transparent), color-mix(in oklab, var(--background) 84%, transparent));
+    box-shadow: 0 16px 36px -26px color-mix(in oklab, #000 46%, transparent);
+    backdrop-filter: blur(20px);
+  }
+
+  .app-topbar-inner {
+    @apply flex min-h-17 min-w-0 flex-wrap items-center gap-3 px-4 py-3 lg:px-6;
+  }
+
+  .app-topbar-copy {
+    @apply min-w-0 flex-1;
+  }
+
+  .app-topbar-copy h1 {
+    @apply truncate text-[1.02rem] font-semibold tracking-tight md:text-[1.12rem];
+  }
+
+  .app-topbar-copy p {
+    @apply hidden truncate text-[0.79rem] text-muted-foreground md:block;
+  }
+
+  .app-topbar-actions {
+    @apply ml-auto flex shrink-0 items-center gap-2 self-start sm:self-center;
+  }
+
+  .app-header-control {
+    @apply h-9 rounded-xl border px-3 text-sm;
+    border-color: color-mix(in oklab, var(--border) 84%, transparent);
+    background: color-mix(in oklab, var(--background-muted) 72%, transparent);
+    box-shadow: inset 0 1px 0 color-mix(in oklab, white 12%, transparent);
+  }
+
+  .theme-toggle {
+    min-width: 6.5rem;
+  }
+
+  .app-shell [data-sidebar="sidebar"] {
+    background:
+      linear-gradient(180deg, color-mix(in oklab, var(--sidebar) 96%, transparent), color-mix(in oklab, var(--background-muted) 78%, transparent));
+    border-color: color-mix(in oklab, var(--sidebar-border) 90%, transparent);
+    box-shadow:
+      inset 0 1px 0 color-mix(in oklab, white 10%, transparent),
+      0 26px 70px -46px color-mix(in oklab, #000 62%, transparent);
+    backdrop-filter: blur(18px);
+  }
+
+  .app-shell [data-slot="sidebar-group-label"] {
+    @apply px-3 text-[0.68rem] font-semibold uppercase tracking-[0.18em];
+    color: color-mix(in oklab, var(--sidebar-foreground) 54%, var(--brand));
+  }
+
+  .app-shell [data-slot="sidebar-menu-button"] {
+    @apply h-10 rounded-xl px-3 text-[0.94rem] font-medium;
+    border: 1px solid transparent;
+    transition:
+      background-color 180ms ease,
+      border-color 180ms ease,
+      box-shadow 180ms ease,
+      transform 180ms ease;
+  }
+
+  .app-shell [data-slot="sidebar-menu-button"]:hover {
+    background: color-mix(in oklab, var(--sidebar-accent) 72%, transparent);
+    border-color: color-mix(in oklab, var(--border) 54%, transparent);
+  }
+
+  .app-shell [data-slot="sidebar-menu-button"][data-active="true"] {
+    background:
+      linear-gradient(180deg, color-mix(in oklab, var(--background-muted) 90%, transparent), color-mix(in oklab, var(--background-elevated) 96%, transparent));
+    border-color: color-mix(in oklab, var(--brand) 28%, var(--border));
+    box-shadow:
+      inset 0 1px 0 color-mix(in oklab, white 10%, transparent),
+      0 18px 36px -28px color-mix(in oklab, var(--brand) 48%, transparent);
+  }
+
+  .app-sidebar-brand {
+    @apply h-11 rounded-xl border px-3;
+    border-color: color-mix(in oklab, var(--border) 82%, transparent);
+    background:
+      radial-gradient(circle at 0% 0%, color-mix(in oklab, var(--brand) 15%, transparent), transparent 38%),
+      color-mix(in oklab, var(--background-muted) 76%, transparent);
+    box-shadow: inset 0 1px 0 color-mix(in oklab, white 10%, transparent);
+  }
+
+  .app-sidebar-logo {
+    @apply flex h-8 w-8 items-center justify-center rounded-xl border;
+    border-color: color-mix(in oklab, var(--brand) 26%, var(--border));
+    background: linear-gradient(180deg, color-mix(in oklab, var(--brand) 24%, transparent), color-mix(in oklab, var(--background-muted) 90%, transparent));
+    box-shadow:
+      inset 0 1px 0 color-mix(in oklab, white 14%, transparent),
+      0 14px 26px -18px color-mix(in oklab, var(--brand) 52%, transparent);
+  }
+
+  .app-sidebar-user-card {
+    @apply rounded-xl border p-3;
+    border-color: color-mix(in oklab, var(--border) 82%, transparent);
+    background:
+      radial-gradient(circle at 100% 0%, color-mix(in oklab, var(--brand) 10%, transparent), transparent 44%),
+      color-mix(in oklab, var(--background-muted) 72%, transparent);
+    box-shadow: inset 0 1px 0 color-mix(in oklab, white 8%, transparent);
+  }
+
+  .app-sidebar-logout {
+    @apply h-10 rounded-xl justify-start gap-2;
+    border-color: color-mix(in oklab, var(--border) 82%, transparent);
+    background: color-mix(in oklab, var(--background-muted) 54%, transparent);
+  }
+
+  .app-auth-card-grid {
+    @apply grid w-full max-w-5xl overflow-hidden rounded-[1.9rem] border;
+    border-color: color-mix(in oklab, var(--border) 82%, transparent);
+    background:
+      radial-gradient(circle at 0% 0%, color-mix(in oklab, var(--brand) 12%, transparent), transparent 32%),
+      linear-gradient(180deg, color-mix(in oklab, var(--background-elevated) 98%, transparent), color-mix(in oklab, var(--background-muted) 60%, transparent));
+    box-shadow:
+      inset 0 1px 0 color-mix(in oklab, white 12%, transparent),
+      0 44px 120px -68px color-mix(in oklab, #000 64%, transparent);
+  }
+
+  .app-auth-card-grid {
+    grid-template-columns: minmax(0, 1.05fr) minmax(340px, 0.95fr);
+  }
+
+  .app-auth-copy {
+    @apply relative min-w-0 overflow-hidden px-6 py-8 sm:px-8 sm:py-10 lg:px-10;
+    background:
+      radial-gradient(circle at 0% 0%, color-mix(in oklab, var(--chart-success) 10%, transparent), transparent 36%),
+      radial-gradient(circle at 100% 0%, color-mix(in oklab, var(--brand) 14%, transparent), transparent 38%),
+      linear-gradient(180deg, color-mix(in oklab, var(--background-muted) 86%, transparent), color-mix(in oklab, var(--background-elevated) 92%, transparent));
+  }
+
+  .app-auth-copy::after {
+    content: "";
+    position: absolute;
+    inset: auto 0 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--brand) 34%, transparent), transparent);
+    opacity: 0.7;
+  }
+
+  .app-auth-kicker {
+    @apply text-[0.7rem] font-semibold uppercase tracking-[0.22em];
+    color: color-mix(in oklab, var(--brand-strong) 82%, var(--foreground));
+  }
+
+  .app-auth-title {
+    @apply mt-4 max-w-lg text-3xl font-semibold tracking-tight sm:text-4xl;
+  }
+
+  .app-auth-description {
+    @apply mt-4 max-w-xl text-sm leading-7 text-muted-foreground sm:text-[0.95rem];
+  }
+
+  .app-auth-points {
+    @apply mt-8 grid gap-3 sm:grid-cols-2;
+  }
+
+  .app-auth-point {
+    @apply rounded-2xl border px-4 py-4;
+    border-color: color-mix(in oklab, var(--border) 72%, transparent);
+    background: color-mix(in oklab, var(--background-elevated) 54%, transparent);
+    box-shadow: inset 0 1px 0 color-mix(in oklab, white 8%, transparent);
+  }
+
+  .app-auth-point strong {
+    @apply block text-sm font-semibold text-foreground;
+  }
+
+  .app-auth-point span {
+    @apply mt-1 block text-sm leading-6 text-muted-foreground;
+  }
+
+  .app-auth-card {
+    @apply border-0 rounded-none;
+    background: color-mix(in oklab, var(--background-elevated) 76%, transparent);
+    box-shadow: none;
+  }
+
+  .app-auth-card [data-slot="card-header"] {
+    @apply px-6 pb-4 pt-8 sm:px-8;
+  }
+
+  .app-auth-card [data-slot="card-content"] {
+    @apply px-6 pb-8 sm:px-8;
+  }
+
+  .app-auth-form {
+    @apply space-y-4;
+  }
+
+  .app-auth-link {
+    @apply font-medium text-primary transition-colors hover:text-(--brand-strong);
+  }
+
+  .app-empty-state {
+    @apply rounded-[1.15rem] border px-6 py-11;
+    border-color: color-mix(in oklab, var(--border) 72%, transparent);
+    background:
+      radial-gradient(circle at 50% 0%, color-mix(in oklab, var(--brand) 7%, transparent), transparent 46%),
+      color-mix(in oklab, var(--background-muted) 42%, transparent);
+    box-shadow: inset 0 1px 0 color-mix(in oklab, white 8%, transparent);
+  }
+
+  .app-filter-card {
+    position: relative;
+  }
+
+  .app-filter-card::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--brand) 26%, transparent), transparent);
+    opacity: 0.9;
+  }
+
+  .app-filter-actions {
+    @apply flex flex-wrap items-center justify-end gap-2;
+  }
+
+  .app-pagination-bar {
+    @apply flex flex-wrap items-center justify-between gap-3 rounded-[1.15rem] border px-4 py-3;
+    border-color: color-mix(in oklab, var(--border) 82%, transparent);
+    background:
+      linear-gradient(180deg, color-mix(in oklab, var(--background-elevated) 98%, transparent), color-mix(in oklab, var(--background-muted) 54%, transparent));
+    box-shadow:
+      inset 0 1px 0 color-mix(in oklab, white 10%, transparent),
+      0 24px 48px -40px color-mix(in oklab, #000 42%, transparent);
+  }
+
+  .app-info-tile {
+    @apply rounded-xl border p-4;
+    border-color: color-mix(in oklab, var(--border) 78%, transparent);
+    background:
+      linear-gradient(180deg, color-mix(in oklab, var(--background-muted) 86%, transparent), color-mix(in oklab, var(--background-elevated) 94%, transparent));
+    box-shadow: inset 0 1px 0 color-mix(in oklab, white 8%, transparent);
+  }
+
+  .app-tone-card {
+    @apply rounded-xl border p-4;
+    border-color: color-mix(in oklab, var(--border) 76%, transparent);
+    background: color-mix(in oklab, var(--background-muted) 72%, transparent);
+    box-shadow: inset 0 1px 0 color-mix(in oklab, white 8%, transparent);
+  }
+
+  .app-panel [data-slot="card-header"] {
+    padding: 1.35rem 1.35rem 0.95rem;
+  }
+
+  .app-panel [data-slot="card-content"] {
+    padding: 0 1.35rem 1.35rem;
+  }
+
+  .app-panel [data-slot="card-title"] {
+    @apply text-[1.02rem] font-semibold tracking-tight;
+  }
+
+  .app-panel [data-slot="card-description"] {
+    @apply text-[0.92rem] leading-6;
+  }
+
+  .dashboard-kpi-card [data-slot="card-header"] {
+    padding: 1.15rem 1.15rem 1rem;
+  }
+
+  .dashboard-kpi-card [data-slot="card-description"] {
+    @apply text-[0.72rem] font-semibold uppercase tracking-[0.16em];
+    color: color-mix(in oklab, var(--brand-strong) 60%, var(--muted-foreground));
+  }
+
+  .dashboard-kpi-card [data-slot="card-title"] {
+    @apply text-[1.8rem] font-semibold tracking-tight;
   }
 
   .docs-code-block {
@@ -249,9 +557,201 @@
   }
 
   .docs-mini-card {
-    @apply rounded-[1.2rem] border;
+    @apply min-w-0 rounded-[1rem] border;
     border-color: color-mix(in oklab, var(--border) 76%, transparent);
     background: linear-gradient(180deg, color-mix(in oklab, var(--background-elevated) 98%, transparent), color-mix(in oklab, var(--background-muted) 58%, transparent));
+  }
+
+  .docs-metric-grid {
+    @apply grid items-stretch gap-3 md:grid-cols-2;
+  }
+
+  .docs-metric-grid > :first-child {
+    grid-column: 1 / -1;
+  }
+
+  .docs-step-grid {
+    @apply grid gap-4 xl:grid-cols-4;
+    grid-auto-rows: 1fr;
+  }
+
+  .docs-step-card {
+    @apply h-full rounded-[1rem] border;
+    border-color: color-mix(in oklab, var(--border) 76%, transparent);
+    background:
+      radial-gradient(circle at 100% 0%, color-mix(in oklab, var(--brand) 9%, transparent), transparent 44%),
+      linear-gradient(180deg, color-mix(in oklab, var(--background-elevated) 99%, transparent), color-mix(in oklab, var(--background-muted) 50%, transparent));
+    box-shadow:
+      inset 0 1px 0 color-mix(in oklab, white 10%, transparent),
+      0 22px 44px -36px color-mix(in oklab, #000 42%, transparent);
+  }
+
+  .docs-step-card [data-slot="card-header"] {
+    @apply flex h-full flex-col gap-2.5;
+    padding: 1rem 1rem 1.05rem;
+  }
+
+  .docs-step-card [data-slot="card-title"] {
+    @apply text-[1rem] leading-6;
+  }
+
+  .docs-step-card [data-slot="card-description"] {
+    @apply text-[0.92rem] leading-6;
+    color: color-mix(in oklab, var(--foreground) 58%, var(--muted-foreground));
+  }
+
+  .docs-metric-card {
+    @apply h-full overflow-hidden rounded-[1rem];
+    background:
+      radial-gradient(circle at 100% 0%, color-mix(in oklab, var(--brand) 8%, transparent), transparent 42%),
+      linear-gradient(180deg, color-mix(in oklab, var(--background-elevated) 99%, transparent), color-mix(in oklab, var(--background-muted) 52%, transparent));
+    box-shadow:
+      inset 0 1px 0 color-mix(in oklab, white 10%, transparent),
+      0 22px 46px -34px color-mix(in oklab, #000 44%, transparent);
+  }
+
+  .docs-metric-card-profit {
+    background:
+      radial-gradient(circle at 100% 0%, color-mix(in oklab, var(--success) 14%, transparent), transparent 42%),
+      linear-gradient(180deg, color-mix(in oklab, var(--background-elevated) 99%, transparent), color-mix(in oklab, var(--background-muted) 52%, transparent));
+  }
+
+  .docs-metric-card-header {
+    @apply flex flex-row items-center gap-3 space-y-0;
+    padding: 0.85rem 0.85rem 0.4rem;
+  }
+
+  .docs-metric-icon {
+    @apply flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border;
+    border-color: color-mix(in oklab, var(--border) 82%, transparent);
+    background: color-mix(in oklab, var(--background-muted) 68%, transparent);
+    box-shadow: inset 0 1px 0 color-mix(in oklab, white 10%, transparent);
+  }
+
+  .docs-metric-heading {
+    @apply min-w-0 space-y-1;
+    min-height: 3.4rem;
+  }
+
+  .docs-metric-heading [data-slot="card-description"] {
+    line-height: 1.45;
+    color: color-mix(in oklab, var(--foreground) 58%, var(--muted-foreground));
+  }
+
+  .docs-metric-card-body {
+    display: grid;
+    grid-template-rows: auto auto 1fr;
+    gap: 0.28rem;
+    padding: 0 0.85rem 0.85rem;
+    min-height: 0;
+  }
+
+  .docs-metric-card-value {
+    @apply text-[1.55rem] font-semibold tracking-tight;
+    color: color-mix(in oklab, var(--foreground) 94%, white 6%);
+    line-height: 0.98;
+  }
+
+  .docs-metric-card-value-sm {
+    @apply text-[1.28rem] leading-tight;
+  }
+
+  .docs-metric-eyebrow {
+    @apply text-[0.56rem] font-semibold uppercase tracking-[0.14em];
+    color: color-mix(in oklab, var(--brand) 78%, var(--foreground));
+  }
+
+  .docs-metric-card-note {
+    @apply text-[0.79rem] leading-5 text-muted-foreground;
+    overflow-wrap: anywhere;
+    align-self: end;
+  }
+
+  .docs-metric-grid > :first-child .docs-metric-heading {
+    min-height: 0;
+  }
+
+  .docs-metric-grid > :first-child .docs-metric-card-body {
+    grid-template-columns: minmax(8rem, 0.42fr) minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    grid-template-areas:
+      "value note"
+      "eyebrow note";
+    column-gap: 1rem;
+    row-gap: 0.2rem;
+    align-items: start;
+  }
+
+  .docs-metric-grid > :first-child .docs-metric-card-value {
+    grid-area: value;
+  }
+
+  .docs-metric-grid > :first-child .docs-metric-eyebrow {
+    grid-area: eyebrow;
+  }
+
+  .docs-metric-grid > :first-child .docs-metric-card-note {
+    grid-area: note;
+    align-self: center;
+  }
+
+  .docs-table-card {
+    align-self: start;
+  }
+
+  .docs-table-card [data-slot="card-content"] {
+    padding-top: 0.15rem;
+  }
+
+  .docs-table-tight {
+    min-width: 100%;
+    width: auto;
+    table-layout: auto;
+  }
+
+  .docs-table-tight [data-slot="table-head"] {
+    height: 2.75rem;
+    padding-inline: 0.85rem;
+  }
+
+  .docs-table-tight [data-slot="table-cell"] {
+    padding: 0.85rem;
+    vertical-align: top;
+  }
+
+  .docs-table-tight [data-slot="table-row"] > [data-slot="table-cell"]:last-child,
+  .docs-table-tight [data-slot="table-row"] > [data-slot="table-head"]:last-child {
+    min-width: 18rem;
+  }
+
+  .docs-inline-insights {
+    @apply grid gap-3 md:grid-cols-3;
+  }
+
+  .docs-inline-insight {
+    @apply rounded-xl border px-3.5 py-3;
+    border-color: color-mix(in oklab, var(--border) 72%, transparent);
+    background:
+      linear-gradient(180deg, color-mix(in oklab, var(--background-muted) 80%, transparent), color-mix(in oklab, var(--background-elevated) 94%, transparent));
+    box-shadow: inset 0 1px 0 color-mix(in oklab, white 8%, transparent);
+  }
+
+  .docs-inline-insight-title {
+    @apply text-[0.7rem] font-semibold uppercase tracking-[0.16em];
+    color: color-mix(in oklab, var(--brand) 72%, var(--foreground));
+  }
+
+  .docs-inline-insight-copy {
+    @apply mt-2 text-[0.86rem] leading-6 text-muted-foreground;
+  }
+
+  .docs-mini-card [data-slot="card-header"],
+  .docs-mini-card [data-slot="card-content"] {
+    min-width: 0;
+  }
+
+  .docs-mini-card [data-slot="card-description"] {
+    overflow-wrap: anywhere;
   }
 
   .metric-value {
@@ -273,6 +773,60 @@
     width: max-content;
   }
 
+  .app-panel [data-slot="table-container"] {
+    border-top: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
+    background: linear-gradient(180deg, color-mix(in oklab, var(--background-elevated) 68%, transparent), transparent);
+  }
+
+  .app-panel [data-slot="table-header"] {
+    background: color-mix(in oklab, var(--background-muted) 58%, transparent);
+  }
+
+  .app-panel [data-slot="table-head"] {
+    height: 3rem;
+    padding-inline: 1rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: color-mix(in oklab, var(--brand-strong) 40%, var(--muted-foreground));
+    white-space: nowrap;
+  }
+
+  .app-panel [data-slot="table-cell"] {
+    padding: 0.95rem 1rem;
+  }
+
+  .app-panel [data-slot="table-row"] {
+    border-bottom-color: color-mix(in oklab, var(--border) 64%, transparent);
+  }
+
+  .app-panel [data-slot="table-row"]:hover {
+    background: color-mix(in oklab, var(--background-muted) 52%, transparent);
+  }
+
+  input,
+  textarea,
+  [data-slot="select-trigger"] {
+    border-color: color-mix(in oklab, var(--border) 82%, transparent);
+    background: color-mix(in oklab, var(--background-muted) 54%, transparent);
+    box-shadow: inset 0 1px 0 color-mix(in oklab, white 8%, transparent);
+  }
+
+  [data-slot="select-trigger"] {
+    @apply rounded-xl;
+  }
+
+  [data-slot="select-content"] {
+    border-color: color-mix(in oklab, var(--border) 82%, transparent);
+    background:
+      linear-gradient(180deg, color-mix(in oklab, var(--background-elevated) 98%, transparent), color-mix(in oklab, var(--background-muted) 64%, transparent));
+    box-shadow:
+      inset 0 1px 0 color-mix(in oklab, white 10%, transparent),
+      0 24px 48px -36px color-mix(in oklab, #000 54%, transparent);
+    backdrop-filter: blur(18px);
+  }
+
   [data-sonner-toaster] {
     position: fixed !important;
     z-index: 1200 !important;
@@ -281,6 +835,30 @@
 
   [data-sonner-toast] {
     pointer-events: auto;
+  }
+
+  @media (max-width: 960px) {
+    .app-auth-card-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .app-auth-copy {
+      @apply border-b;
+      border-color: color-mix(in oklab, var(--border) 76%, transparent);
+    }
+  }
+
+  @media (max-width: 1180px) {
+    .docs-table-tight {
+      width: max-content;
+      min-width: 100%;
+    }
+  }
+
+  @media (max-width: 767px) {
+    .docs-metric-grid > :first-child {
+      grid-column: auto;
+    }
   }
 }
 

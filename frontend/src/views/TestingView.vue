@@ -246,7 +246,7 @@ void loadTokos()
               </Badge>
             </div>
 
-            <div class="lg:col-span-2 rounded-xl border bg-(--background-muted) p-4">
+            <div class="app-tone-card lg:col-span-2">
               <p class="text-sm font-medium text-foreground">Callback URL</p>
               <p class="mt-1 break-all text-sm text-muted-foreground">
                 {{ selectedToko?.callback_url || 'Belum ada callback URL yang tersimpan untuk toko ini.' }}
@@ -289,7 +289,7 @@ void loadTokos()
                 </Button>
               </div>
 
-              <div v-if="generateResult" class="rounded-xl border bg-(--background-muted) p-4">
+              <div v-if="generateResult" class="app-tone-card">
                 <div class="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p class="text-sm font-semibold text-foreground">{{ generateResult.toko_name }}</p>
@@ -332,7 +332,7 @@ void loadTokos()
               </CardDescription>
             </CardHeader>
             <CardContent class="space-y-4">
-              <div class="rounded-xl border bg-(--background-muted) p-4">
+              <div class="app-tone-card">
                 <p class="text-sm text-muted-foreground">
                   Jika response tidak sesuai kontrak, user akan diberi tahu bahwa API merchant belum terintegrasi dengan baik.
                 </p>
@@ -359,19 +359,19 @@ void loadTokos()
               </Alert>
 
               <div v-if="readinessResult" class="grid gap-3 md:grid-cols-2">
-                <div class="rounded-xl border bg-(--background-muted) p-4">
+                <div class="app-info-tile">
                   <p class="text-xs uppercase tracking-[0.18em] text-muted-foreground">Callback Latency</p>
                   <p class="mt-2 text-2xl font-semibold text-foreground">{{ readinessResult.callback_latency_ms }} ms</p>
                 </div>
-                <div class="rounded-xl border bg-(--background-muted) p-4">
+                <div class="app-info-tile">
                   <p class="text-xs uppercase tracking-[0.18em] text-muted-foreground">Go Server Processing</p>
                   <p class="mt-2 text-2xl font-semibold text-foreground">{{ readinessResult.server_processing_ms }} ms</p>
                 </div>
-                <div class="rounded-xl border bg-(--background-muted) p-4">
+                <div class="app-info-tile">
                   <p class="text-xs uppercase tracking-[0.18em] text-muted-foreground">HTTP Status</p>
                   <p class="mt-2 text-2xl font-semibold text-foreground">{{ readinessResult.status_code || '-' }}</p>
                 </div>
-                <div class="rounded-xl border bg-(--background-muted) p-4">
+                <div class="app-info-tile">
                   <p class="text-xs uppercase tracking-[0.18em] text-muted-foreground">Probe Result</p>
                   <div class="mt-2 flex items-center gap-2">
                     <Badge :variant="readinessResult.ready ? 'default' : 'secondary'">

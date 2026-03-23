@@ -11,6 +11,7 @@ describe('ApiDocumentationView', () => {
     expect(wrapper.text()).toContain('Generate QRIS Example')
     expect(wrapper.text()).toContain('Callback Payload ke Merchant Website')
     expect(wrapper.text()).toContain('Financial Rules yang Berlaku')
-    expect(wrapper.text()).toContain('3% per success deposit')
+    expect(wrapper.text()).toContain('3%')
+    expect(wrapper.text()).toContain('Deposit fee')
   })
 })

@@ -2,7 +2,7 @@
   <Button
     variant="outline"
     size="sm"
-    class="theme-toggle min-w-24 justify-center gap-2"
+    class="app-header-control theme-toggle min-w-24 justify-center gap-2"
     @click="toggleTheme"
   >
     <span aria-hidden="true">

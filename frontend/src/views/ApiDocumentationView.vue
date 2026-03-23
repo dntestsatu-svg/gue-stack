@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import {
+  ArrowDownUp,
   BookOpenText,
   Cable,
   CheckCheck,
   Copy,
   Landmark,
+  ReceiptText,
   ShieldCheck,
+  TrendingUp,
   WalletCards,
 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
@@ -38,25 +41,45 @@ type StepDoc = {
   description: string
 }
 
+type InsightDoc = {
+  title: string
+  description: string
+}
+
 const platformFeePercent = 3
 const apiBaseURL = computed(() => `${resolveApiBaseURL(import.meta.env.VITE_API_BASE_URL)}/api/v1`)
 
 const quickStartSteps: StepDoc[] = [
   {
     title: '1. Ambil Token Toko',
-    description: 'Token toko didapat dari route Toko. Token ini dipakai sebagai Bearer token saat merchant website memanggil API project ini.',
+    description: 'Ambil token toko, simpan di backend merchant, lalu kirim sebagai Bearer token saat memanggil API.',
   },
   {
     title: '2. Simpan Callback URL',
-    description: 'Set callback_url toko ke endpoint server merchant yang akan menerima update transaksi final dari project ini.',
+    description: 'Isi callback_url toko ke endpoint merchant yang menerima status final transaksi dari project ini.',
   },
   {
     title: '3. Generate QRIS',
-    description: 'Merchant website memanggil endpoint generate. Project ini akan meneruskan request ke external API, menyimpan transaksi pending, lalu mengembalikan QR payload.',
+    description: 'Panggil endpoint generate. Project meneruskan ke external API, menyimpan pending, lalu mengembalikan QR payload.',
   },
   {
     title: '4. Terima Callback Final',
-    description: 'Setelah external API mengirim webhook success/failed/expired ke project ini, project akan memprosesnya secara idempotent lalu callback ke merchant website.',
+    description: 'Saat external API mengirim webhook final, project memprosesnya secara idempotent lalu callback ke merchant.',
+  },
+]
+
+const endpointInsights: InsightDoc[] = [
+  {
+    title: 'Request Prefix',
+    description: 'Semua endpoint merchant berada di bawah /api/v1 dan menerima request JSON.',
+  },
+  {
+    title: 'Auth Contract',
+    description: 'Semua request merchant memakai Bearer token toko. Secret external API tidak pernah diekspos.',
+  },
+  {
+    title: 'Final Status',
+    description: 'Status final yang perlu ditangani merchant hanya success, failed, atau expired.',
   },
 ]
 
@@ -85,8 +108,28 @@ const operationalNotes: StepDoc[] = [
     description: 'Settle balance tidak muncul otomatis dari deposit. Saldo ini diisi lewat settlement manual developer yang memindahkan pending -> settle.',
   },
   {
+    title: 'Withdraw Source',
+    description: 'Withdraw hanya boleh memakai settle balance. Pending balance tidak dipakai langsung untuk transfer.',
+  },
+  {
     title: 'Withdraw Fee',
     description: 'Fee withdraw external tidak dihitung sebagai profit project. Fee ini tetap membebani saldo settle toko pada saat withdraw.',
+  },
+  {
+    title: 'Status Lifecycle',
+    description: 'Merchant cukup memperlakukan success, failed, dan expired sebagai status final transaksi.',
+  },
+  {
+    title: '20 Minute Expiry',
+    description: 'Transaksi pending yang melewati 20 menit akan di-expire otomatis oleh scheduler project.',
+  },
+  {
+    title: 'Check-Status Cache',
+    description: 'Check status dapat membaca snapshot final dari cache trx_id agar tidak selalu menembak external API.',
+  },
+  {
+    title: 'Callback Contract',
+    description: 'Endpoint callback merchant idealnya membalas HTTP 200 dengan body {"success": true}.',
   },
 ]
 
@@ -196,8 +239,8 @@ const copyText = async (value: string, label: string) => {
       </AlertDescription>
     </Alert>
 
-    <div class="grid gap-4 xl:grid-cols-4">
-      <Card v-for="step in quickStartSteps" :key="step.title" class="dashboard-kpi-card">
+    <div class="docs-step-grid">
+      <Card v-for="step in quickStartSteps" :key="step.title" class="docs-step-card">
         <CardHeader class="space-y-2">
           <CardTitle class="text-base">{{ step.title }}</CardTitle>
           <CardDescription>{{ step.description }}</CardDescription>
@@ -205,16 +248,16 @@ const copyText = async (value: string, label: string) => {
       </Card>
     </div>
 
-    <div class="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,0.95fr)]">
-      <Card class="app-panel">
+    <div class="grid items-start gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,0.95fr)]">
+      <Card class="app-panel docs-table-card">
         <CardHeader>
           <CardTitle>Merchant Endpoint Catalog</CardTitle>
           <CardDescription>
-		<strong class="mt-5">Prefix: </strong><code>/api/v1</code>
+            <strong class="mt-5">Prefix: </strong><code>/api/v1</code>
           </CardDescription>
         </CardHeader>
         <CardContent class="app-table-shell">
-          <Table class="app-data-table">
+          <Table class="app-data-table docs-table-tight">
             <TableHeader>
               <TableRow>
                 <TableHead>Method</TableHead>
@@ -232,10 +275,17 @@ const copyText = async (value: string, label: string) => {
                 </TableCell>
                 <TableCell><code>{{ endpoint.path }}</code></TableCell>
                 <TableCell>{{ endpoint.auth }}</TableCell>
-                <TableCell class="min-w-80 whitespace-normal">{{ endpoint.purpose }}</TableCell>
+                <TableCell class="whitespace-normal">{{ endpoint.purpose }}</TableCell>
               </TableRow>
             </TableBody>
           </Table>
+
+          <div class="docs-inline-insights mt-4">
+            <div v-for="item in endpointInsights" :key="item.title" class="docs-inline-insight">
+              <p class="docs-inline-insight-title">{{ item.title }}</p>
+              <p class="docs-inline-insight-copy">{{ item.description }}</p>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -387,27 +437,60 @@ const copyText = async (value: string, label: string) => {
           <div class="docs-code-block">
             <pre>{{ financialFormulaSnippet }}</pre>
           </div>
-          <div class="grid gap-3 md:grid-cols-3">
-            <Card class="docs-mini-card">
-              <CardHeader class="space-y-1 pb-3">
-                <CardTitle class="text-sm">Project Profit</CardTitle>
-                <CardDescription>Hanya dari platform fee deposit sukses.</CardDescription>
+          <div class="docs-metric-grid">
+            <Card class="docs-mini-card docs-metric-card docs-metric-card-profit">
+              <CardHeader class="docs-metric-card-header">
+                <div class="docs-metric-icon">
+                  <TrendingUp class="h-4 w-4" />
+                </div>
+                <div class="docs-metric-heading">
+                  <CardTitle class="text-sm">Project Profit</CardTitle>
+                  <CardDescription>3% dari tiap deposit success.</CardDescription>
+                </div>
               </CardHeader>
-              <CardContent class="pt-0">
-                <Badge>{{ platformFeePercent }}% per success deposit</Badge>
+              <CardContent class="docs-metric-card-body">
+                <div class="docs-metric-card-value">{{ platformFeePercent }}%</div>
+                <div class="docs-metric-eyebrow">Deposit fee</div>
+                <p class="docs-metric-card-note">
+                  Fee dipotong saat deposit success final lalu dicatat ke ledger.
+                </p>
               </CardContent>
             </Card>
-            <Card class="docs-mini-card">
-              <CardHeader class="space-y-1 pb-3">
-                <CardTitle class="text-sm">Pending Balance Toko</CardTitle>
-                <CardDescription>Naik otomatis setelah deposit sukses difinalisasi.</CardDescription>
+            <Card class="docs-mini-card docs-metric-card">
+              <CardHeader class="docs-metric-card-header">
+                <div class="docs-metric-icon">
+                  <ArrowDownUp class="h-4 w-4" />
+                </div>
+                <div class="docs-metric-heading">
+                  <CardTitle class="text-sm">Pending Credit</CardTitle>
+                  <CardDescription>Masuk ke pending balance toko.</CardDescription>
+                </div>
               </CardHeader>
+              <CardContent class="docs-metric-card-body">
+                <div class="docs-metric-card-value docs-metric-card-value-sm">Auto Credit</div>
+                <div class="docs-metric-eyebrow">Webhook verified</div>
+                <p class="docs-metric-card-note">
+                  Hak toko masuk ke pending setelah amount dipotong platform fee.
+                </p>
+              </CardContent>
             </Card>
-            <Card class="docs-mini-card">
-              <CardHeader class="space-y-1 pb-3">
-                <CardTitle class="text-sm">Withdraw Fee</CardTitle>
-                <CardDescription>Bukan profit project dan tetap membebani settle balance toko.</CardDescription>
+            <Card class="docs-mini-card docs-metric-card">
+              <CardHeader class="docs-metric-card-header">
+                <div class="docs-metric-icon">
+                  <ReceiptText class="h-4 w-4" />
+                </div>
+                <div class="docs-metric-heading">
+                  <CardTitle class="text-sm">Withdraw Cost</CardTitle>
+                  <CardDescription>Biaya vendor, bukan profit project.</CardDescription>
+                </div>
               </CardHeader>
+              <CardContent class="docs-metric-card-body">
+                <div class="docs-metric-card-value docs-metric-card-value-sm">External Fee</div>
+                <div class="docs-metric-eyebrow">Vendor transfer</div>
+                <p class="docs-metric-card-note">
+                  Biaya vendor tetap dibebankan ke settle balance saat withdraw berjalan.
+                </p>
+              </CardContent>
             </Card>
           </div>
         </CardContent>

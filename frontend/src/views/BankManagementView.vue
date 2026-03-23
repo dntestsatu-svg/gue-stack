@@ -347,7 +347,7 @@ void loadBanks()
       </Card>
     </div>
 
-    <Card class="app-panel">
+    <Card class="app-panel app-filter-card">
       <CardHeader>
         <CardTitle>Filters</CardTitle>
         <CardDescription>Search berdasarkan bank name, account name, atau account number. Pagination diproses server-side.</CardDescription>
@@ -439,7 +439,7 @@ void loadBanks()
       </Table>
     </div>
 
-    <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-(--background-elevated) px-4 py-3">
+    <div class="app-pagination-bar">
       <div class="space-y-1">
         <p class="text-sm font-medium text-foreground">{{ rangeLabel }}</p>
         <p class="text-xs text-muted-foreground">Page {{ currentPage }} • Limit {{ pagination.limit }}</p>
@@ -488,7 +488,7 @@ void loadBanks()
           </DialogDescription>
         </DialogHeader>
 
-        <div class="rounded-xl border bg-(--background-elevated) p-4">
+        <div class="app-tone-card">
           <p class="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Inquiry Result</p>
           <div class="mt-3 space-y-2 text-sm">
             <p>

@@ -504,7 +504,7 @@ void loadWorkspace()
       </Card>
     </div>
 
-    <Card class="app-panel">
+    <Card class="app-panel app-filter-card">
       <CardHeader>
         <CardTitle>Filters</CardTitle>
         <CardDescription>Search berdasarkan nama toko, token, atau callback URL. Pagination diproses server-side.</CardDescription>
@@ -669,7 +669,7 @@ void loadWorkspace()
         </CardContent>
       </Card>
 
-      <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-(--background-elevated) px-4 py-3">
+      <div class="app-pagination-bar">
         <div class="space-y-1">
           <p class="text-sm font-medium text-foreground">{{ rangeLabel }}</p>
           <p class="text-xs text-muted-foreground">Page {{ currentPage }} • Limit {{ pagination.limit }}</p>

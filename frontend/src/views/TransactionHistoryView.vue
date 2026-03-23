@@ -19,7 +19,7 @@
       </template>
     </PageHeader>
 
-    <Card class="app-panel">
+    <Card class="app-panel app-filter-card">
       <CardHeader>
         <CardTitle>Filters</CardTitle>
         <CardDescription>
@@ -41,7 +41,7 @@
             <DateRangePicker v-model="dateRange" :disabled="loading" />
           </div>
         </div>
-        <div class="flex flex-wrap items-center justify-end gap-2">
+        <div class="app-filter-actions">
           <Button variant="ghost" size="sm" :disabled="loading" @click="resetFilters">Reset</Button>
           <Button size="sm" :disabled="loading" @click="applyFilters">Apply Filters</Button>
         </div>
@@ -107,7 +107,7 @@
           </table>
         </div>
 
-        <div class="mt-4 flex flex-wrap items-center justify-between gap-2">
+        <div class="app-pagination-bar mt-4">
           <p class="text-sm text-muted-foreground">
             Page {{ currentPage }} • Limit {{ pagination.limit }}
           </p>

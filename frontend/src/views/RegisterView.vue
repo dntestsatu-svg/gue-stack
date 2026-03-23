@@ -36,43 +36,65 @@ const onSubmit = async () => {
 </script>
 
 <template>
-  <Card class="app-panel border-none shadow-[0_24px_80px_-52px_rgba(0,0,0,.45)]">
-    <CardHeader class="space-y-2 text-center">
-      <CardTitle class="text-2xl tracking-tight">Create Account</CardTitle>
-      <CardDescription>Daftar untuk mulai menggunakan API gateway workspace.</CardDescription>
-    </CardHeader>
-
-    <CardContent class="space-y-5">
-      <Alert v-if="errorMessage" variant="destructive">
-        <TriangleAlert class="h-4 w-4" />
-        <AlertTitle>Registration Error</AlertTitle>
-        <AlertDescription>{{ errorMessage }}</AlertDescription>
-      </Alert>
-
-      <form class="space-y-4" @submit.prevent="onSubmit">
-        <div class="space-y-2">
-          <Label for="name">Full Name</Label>
-          <Input id="name" v-model="form.name" type="text" autocomplete="name" placeholder="John Doe" />
-        </div>
-        <div class="space-y-2">
-          <Label for="email">Email</Label>
-          <Input id="email" v-model="form.email" type="email" autocomplete="email" placeholder="you@company.com" />
-        </div>
-        <div class="space-y-2">
-          <Label for="password">Password</Label>
-          <Input id="password" v-model="form.password" type="password" autocomplete="new-password" placeholder="Minimal 8 karakter" />
-        </div>
-
-        <Button class="w-full" type="submit" :disabled="auth.processing">
-          <Spinner v-if="auth.processing" class="mr-2" />
-          {{ auth.processing ? 'Creating...' : 'Create Account' }}
-        </Button>
-      </form>
-
-      <p class="text-muted-foreground text-center text-sm">
-        Sudah punya akun?
-        <RouterLink to="/login" class="text-primary font-medium hover:underline">Sign in</RouterLink>
+  <section class="app-auth-card-grid">
+    <div class="app-auth-copy">
+      <p class="app-auth-kicker">Workspace Enrollment</p>
+      <h1 class="app-auth-title">Buat akun baru untuk mulai mengelola toko, transaksi, dan saldo secara terpusat.</h1>
+      <p class="app-auth-description">
+        Gunakan akun ini untuk masuk ke dashboard operasional, mengelola integrasi merchant, dan memantau aliran
+        transaksi secara real-time.
       </p>
-    </CardContent>
-  </Card>
+
+      <div class="app-auth-points">
+        <div class="app-auth-point">
+          <strong>Merchant Ready</strong>
+          <span>Dokumentasi API, token toko, callback readiness, dan testing tersedia dalam satu workspace.</span>
+        </div>
+        <div class="app-auth-point">
+          <strong>Finance Aware</strong>
+          <span>Pending, settle, withdraw, dan platform fee mengikuti aturan yang konsisten dan terukur.</span>
+        </div>
+      </div>
+    </div>
+
+    <Card class="app-auth-card">
+      <CardHeader class="space-y-2">
+        <CardTitle class="text-2xl tracking-tight">Create Account</CardTitle>
+        <CardDescription>Daftar untuk mulai menggunakan API gateway workspace.</CardDescription>
+      </CardHeader>
+
+      <CardContent class="space-y-5">
+        <Alert v-if="errorMessage" variant="destructive">
+          <TriangleAlert class="h-4 w-4" />
+          <AlertTitle>Registration Error</AlertTitle>
+          <AlertDescription>{{ errorMessage }}</AlertDescription>
+        </Alert>
+
+        <form class="app-auth-form" @submit.prevent="onSubmit">
+          <div class="space-y-2">
+            <Label for="name">Full Name</Label>
+            <Input id="name" v-model="form.name" type="text" autocomplete="name" placeholder="John Doe" />
+          </div>
+          <div class="space-y-2">
+            <Label for="email">Email</Label>
+            <Input id="email" v-model="form.email" type="email" autocomplete="email" placeholder="you@company.com" />
+          </div>
+          <div class="space-y-2">
+            <Label for="password">Password</Label>
+            <Input id="password" v-model="form.password" type="password" autocomplete="new-password" placeholder="Minimal 8 karakter" />
+          </div>
+
+          <Button class="w-full" type="submit" :disabled="auth.processing">
+            <Spinner v-if="auth.processing" class="mr-2" />
+            {{ auth.processing ? 'Creating...' : 'Create Account' }}
+          </Button>
+        </form>
+
+        <p class="text-muted-foreground text-center text-sm">
+          Sudah punya akun?
+          <RouterLink to="/login" class="app-auth-link">Sign in</RouterLink>
+        </p>
+      </CardContent>
+    </Card>
+  </section>
 </template>
