@@ -33,7 +33,7 @@ import {
 import { useFormatters } from '@/composables/useFormatters'
 import { getApiErrorMessage } from '@/services/http'
 import * as bankApi from '@/services/bank'
-import type { BankItem, BankListPage, BankPaymentOption } from '@/services/types'
+import type { BankInquiryResult, BankItem, BankListPage, BankPaymentOption } from '@/services/types'
 import { useUserStore } from '@/stores/user'
 
 const userStore = useUserStore()
@@ -46,7 +46,10 @@ const lastUpdated = ref('')
 
 const createDialogOpen = ref(false)
 const createLoading = ref(false)
+const inquiryLoading = ref(false)
 const createErrorMessage = ref('')
+const inquiryConfirmOpen = ref(false)
+const inquiryResult = ref<BankInquiryResult | null>(null)
 
 const deleteDialogOpen = ref(false)
 const deleteLoading = ref(false)
@@ -66,7 +69,6 @@ const pagination = reactive({
 const createForm = reactive({
   paymentID: null as number | null,
   paymentName: '',
-  accountName: '',
   accountNumber: '',
 })
 
@@ -141,9 +143,10 @@ const prevPage = async () => {
 const resetCreateForm = () => {
   createForm.paymentID = null
   createForm.paymentName = ''
-  createForm.accountName = ''
   createForm.accountNumber = ''
   createErrorMessage.value = ''
+  inquiryResult.value = null
+  inquiryConfirmOpen.value = false
 }
 
 const handlePaymentSelect = (option: BankPaymentOption) => {
@@ -151,7 +154,7 @@ const handlePaymentSelect = (option: BankPaymentOption) => {
   createForm.paymentName = option.bank_name
 }
 
-const createBank = async () => {
+const confirmBankInquiry = async () => {
   if (!canManageBanks.value) {
     createErrorMessage.value = 'Role user tidak memiliki izin mengelola bank.'
     return
@@ -160,16 +163,46 @@ const createBank = async () => {
     createErrorMessage.value = 'Pilih bank terlebih dahulu dari payment catalog.'
     return
   }
+  if (createForm.accountNumber.trim() === '') {
+    createErrorMessage.value = 'Masukkan nomor rekening terlebih dahulu.'
+    return
+  }
+
+  inquiryLoading.value = true
+  createErrorMessage.value = ''
+  try {
+    inquiryResult.value = await bankApi.inquiry({
+      payment_id: createForm.paymentID,
+      account_number: createForm.accountNumber.trim(),
+    })
+    createForm.accountNumber = inquiryResult.value.account_number
+    inquiryConfirmOpen.value = true
+  } catch (error) {
+    const message = getApiErrorMessage(error)
+    createErrorMessage.value = message
+    toast.error(message)
+  } finally {
+    inquiryLoading.value = false
+  }
+}
+
+const createBank = async () => {
+  if (!inquiryResult.value || !createForm.paymentID) {
+    createErrorMessage.value = 'Lakukan inquiry terlebih dahulu sebelum menyimpan bank.'
+    return
+  }
 
   createLoading.value = true
   createErrorMessage.value = ''
   try {
     await bankApi.create({
       payment_id: createForm.paymentID,
-      account_name: createForm.accountName.trim(),
-      account_number: createForm.accountNumber.trim(),
+      account_name: inquiryResult.value.account_name,
+      account_number: inquiryResult.value.account_number,
+      inquiry_id: inquiryResult.value.inquiry_id,
     })
     toast.success('Bank berhasil disimpan')
+    inquiryConfirmOpen.value = false
     createDialogOpen.value = false
     resetCreateForm()
     pagination.offset = 0
@@ -250,7 +283,7 @@ void loadBanks()
             <DialogHeader>
               <DialogTitle>Add Bank</DialogTitle>
               <DialogDescription>
-                Bank name dipilih dari payment catalog. Backend akan memvalidasi bank_code dan bank_name berdasarkan data payments.
+                Bank name dipilih dari payment catalog. Saat disimpan, backend akan melakukan inquiry terlebih dahulu untuk memastikan nama rekening valid berdasarkan payment gateway.
               </DialogDescription>
             </DialogHeader>
 
@@ -261,15 +294,6 @@ void loadBanks()
                   v-model="createForm.paymentID"
                   :selected-label="createForm.paymentName"
                   @select="handlePaymentSelect"
-                />
-              </div>
-
-              <div class="space-y-2">
-                <Label for="bank-account-name">Account Name</Label>
-                <Input
-                  id="bank-account-name"
-                  v-model="createForm.accountName"
-                  placeholder="Nama pemilik rekening"
                 />
               </div>
 
@@ -291,10 +315,10 @@ void loadBanks()
             </Alert>
 
             <DialogFooter>
-              <Button variant="outline" :disabled="createLoading" @click="createDialogOpen = false">Cancel</Button>
-              <Button :disabled="createLoading" @click="createBank">
-                <Spinner v-if="createLoading" class="mr-2" />
-                {{ createLoading ? 'Saving...' : 'Save Bank' }}
+              <Button variant="outline" :disabled="createLoading || inquiryLoading" @click="createDialogOpen = false">Cancel</Button>
+              <Button :disabled="createLoading || inquiryLoading" @click="confirmBankInquiry">
+                <Spinner v-if="inquiryLoading" class="mr-2" />
+                {{ inquiryLoading ? 'Checking...' : 'Save Bank' }}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -450,6 +474,44 @@ void loadBanks()
           <Button :disabled="deleteLoading" class="bg-destructive text-destructive-foreground hover:bg-destructive/90" @click="confirmDeleteBank">
             <Spinner v-if="deleteLoading" class="mr-2" />
             {{ deleteLoading ? 'Deleting...' : 'Delete Bank' }}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog v-model:open="inquiryConfirmOpen">
+      <DialogContent class="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Konfirmasi Nama Rekening</DialogTitle>
+          <DialogDescription>
+            Backend inquiry berhasil. Pastikan nama penerima berikut sudah benar sebelum rekening disimpan.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div class="rounded-xl border bg-(--background-elevated) p-4">
+          <p class="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Inquiry Result</p>
+          <div class="mt-3 space-y-2 text-sm">
+            <p>
+              Apakah benar nama bank anda adalah
+              <span class="font-semibold text-foreground">"{{ inquiryResult?.account_name }}"</span>?
+            </p>
+            <p class="text-muted-foreground">
+              {{ inquiryResult?.bank_name }} • {{ inquiryResult?.account_number }}
+            </p>
+          </div>
+        </div>
+
+        <Alert v-if="createErrorMessage" variant="destructive">
+          <TriangleAlert class="h-4 w-4" />
+          <AlertTitle>Failed to Save Bank</AlertTitle>
+          <AlertDescription>{{ createErrorMessage }}</AlertDescription>
+        </Alert>
+
+        <DialogFooter>
+          <Button variant="outline" :disabled="createLoading" @click="inquiryConfirmOpen = false">No</Button>
+          <Button :disabled="createLoading" @click="createBank">
+            <Spinner v-if="createLoading" class="mr-2" />
+            {{ createLoading ? 'Saving...' : 'Yes, Save Bank' }}
           </Button>
         </DialogFooter>
       </DialogContent>

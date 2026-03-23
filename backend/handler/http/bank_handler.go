@@ -68,6 +68,31 @@ func (h *BankHandler) PaymentOptions(c *gin.Context) {
 	})
 }
 
+func (h *BankHandler) Inquiry(c *gin.Context) {
+	userID, actorRole, err := readUserContext(c)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+
+	var req service.BankInquiryInput
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, apperror.New(http.StatusBadRequest, "invalid request payload", err.Error()))
+		return
+	}
+
+	result, err := h.bank.Inquiry(c.Request.Context(), userID, actorRole, req)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"data":   result,
+	})
+}
+
 func (h *BankHandler) Create(c *gin.Context) {
 	userID, actorRole, err := readUserContext(c)
 	if err != nil {

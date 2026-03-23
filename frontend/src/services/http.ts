@@ -93,8 +93,10 @@ api.interceptors.request.use((config) => {
 
 export function getApiErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
-    const serverMessage = (error.response?.data as { message?: string } | undefined)?.message
-    return serverMessage ?? error.message
+    const serverPayload = error.response?.data as { message?: string; details?: unknown } | undefined
+    const detailMessage = typeof serverPayload?.details === 'string' ? serverPayload.details : ''
+    const serverMessage = serverPayload?.message
+    return detailMessage || serverMessage || error.message
   }
   if (error instanceof Error) {
     return error.message

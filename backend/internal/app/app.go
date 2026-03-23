@@ -76,7 +76,18 @@ func NewHTTPApp(cfg config.Config, logger *slog.Logger) (*HTTPApp, error) {
 	authSvc := service.NewAuthService(userRepo, refreshStore, tokenManager, producer, logger)
 	userSvc := service.NewUserService(userRepo, queryCache, cfg.Cache.QueryCacheOn, cfg.Cache.UserMeTTL, cfg.Cache.DefaultTTL, producer, logger)
 	tokoSvc := service.NewTokoService(tokoRepo, balanceRepo, queryCache, cfg.Cache.QueryCacheOn, cfg.Cache.DefaultTTL, 3, 3, logger)
-	bankSvc := service.NewBankService(bankRepo, paymentRepo, queryCache, cfg.Cache.QueryCacheOn, cfg.Cache.DefaultTTL, logger)
+	bankSvc := service.NewBankService(
+		bankRepo,
+		paymentRepo,
+		gatewayClient,
+		queryCache,
+		cfg.Cache.QueryCacheOn,
+		cfg.Cache.DefaultTTL,
+		cfg.PaymentGateway.DefaultClient,
+		cfg.PaymentGateway.DefaultKey,
+		cfg.PaymentGateway.MerchantUUID,
+		logger,
+	)
 	dashboardSvc := service.NewDashboardService(
 		transactionRepo,
 		gatewayClient,

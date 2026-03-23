@@ -122,6 +122,16 @@ Authorization: Bearer {{accessToken}}
 GET {{baseUrl}}/api/v1/banks/payment-options?limit=20&q=mandiri
 Authorization: Bearer {{accessToken}}
 
+### Inquiry Bank Account for Current User
+POST {{baseUrl}}/api/v1/banks/inquiry
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "payment_id": 1,
+  "account_number": "100009689749"
+}
+
 ### Create Bank for Current User
 POST {{baseUrl}}/api/v1/banks
 Authorization: Bearer {{accessToken}}
@@ -129,8 +139,9 @@ Content-Type: application/json
 
 {
   "payment_id": 1,
-  "account_name": "PT GUE CONTROL",
-  "account_number": "1234567890"
+  "account_name": "SISKA DAMAYANTI",
+  "account_number": "100009689749",
+  "inquiry_id": 2949850
 }
 
 ### Delete Bank for Current User

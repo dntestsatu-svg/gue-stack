@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/example/gue/backend/model"
+	"github.com/example/gue/backend/pkg/paymentgateway"
 	"github.com/example/gue/backend/repository"
 	"github.com/stretchr/testify/require"
 	"log/slog"
@@ -89,6 +90,10 @@ type fakePaymentRepo struct {
 	searchCalls int
 }
 
+type fakeBankInquiryGateway struct {
+	inquiryFn func(ctx context.Context, req paymentgateway.InquiryTransferRequest) (*paymentgateway.InquiryTransferResponse, error)
+}
+
 func (f *fakePaymentRepo) GetByID(_ context.Context, id uint64) (*model.Payment, error) {
 	item, ok := f.items[id]
 	if !ok {
@@ -113,8 +118,15 @@ func (f *fakePaymentRepo) SearchOptions(_ context.Context, filter repository.Pay
 	return result, nil
 }
 
+func (f *fakeBankInquiryGateway) InquiryTransfer(ctx context.Context, req paymentgateway.InquiryTransferRequest) (*paymentgateway.InquiryTransferResponse, error) {
+	if f.inquiryFn == nil {
+		return nil, nil
+	}
+	return f.inquiryFn(ctx, req)
+}
+
 func TestBankService_ListForbiddenForUserRole(t *testing.T) {
-	svc := NewBankService(&fakeBankRepo{items: map[uint64][]model.Bank{}}, &fakePaymentRepo{}, nil, false, time.Minute, slog.Default())
+	svc := NewBankService(&fakeBankRepo{items: map[uint64][]model.Bank{}}, &fakePaymentRepo{}, nil, nil, false, time.Minute, "client", "key", "merchant", slog.Default())
 
 	_, err := svc.List(context.Background(), 10, model.UserRoleUser, BankListQuery{Limit: 10})
 
@@ -133,12 +145,13 @@ func TestBankService_CreateUsesPaymentCatalogValidation(t *testing.T) {
 			},
 		},
 	}
-	svc := NewBankService(bankRepo, paymentRepo, nil, false, time.Minute, slog.Default())
+	svc := NewBankService(bankRepo, paymentRepo, nil, nil, false, time.Minute, "client", "key", "merchant", slog.Default())
 
 	created, err := svc.Create(context.Background(), 99, model.UserRoleAdmin, CreateBankInput{
 		PaymentID:     8,
 		AccountName:   "PT GUE CONTROL",
 		AccountNumber: "1234567890",
+		InquiryID:     88,
 	})
 
 	require.NoError(t, err)
@@ -169,7 +182,7 @@ func TestBankService_ListUsesPerUserCacheNamespace(t *testing.T) {
 		},
 	}
 	cacheStore := newFakeCacheStore()
-	svc := NewBankService(bankRepo, paymentRepo, cacheStore, true, time.Minute, slog.Default())
+	svc := NewBankService(bankRepo, paymentRepo, nil, cacheStore, true, time.Minute, "client", "key", "merchant", slog.Default())
 	query := BankListQuery{Limit: 10, Offset: 0}
 
 	_, err := svc.List(context.Background(), 10, model.UserRoleAdmin, query)
@@ -188,6 +201,7 @@ func TestBankService_ListUsesPerUserCacheNamespace(t *testing.T) {
 		PaymentID:     3,
 		AccountName:   "New Alpha",
 		AccountNumber: "33333",
+		InquiryID:     99,
 	})
 	require.NoError(t, err)
 
@@ -212,8 +226,12 @@ func TestBankService_PaymentOptionsUsesSearch(t *testing.T) {
 			},
 		},
 		nil,
+		nil,
 		false,
 		time.Minute,
+		"client",
+		"key",
+		"merchant",
 		slog.Default(),
 	)
 
@@ -225,4 +243,54 @@ func TestBankService_PaymentOptionsUsesSearch(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, items, 1)
 	require.Equal(t, "PT. BANK CENTRAL ASIA, TBK.", items[0].BankName)
+}
+
+func TestBankService_InquiryUsesPaymentCatalogAndReturnsAccountName(t *testing.T) {
+	svc := NewBankService(
+		&fakeBankRepo{items: map[uint64][]model.Bank{}},
+		&fakePaymentRepo{
+			items: map[uint64]model.Payment{
+				8: {ID: 8, BankCode: "542", BankName: "PT. BANK ARTOS INDONESIA (Bank Jago)"},
+			},
+		},
+		&fakeBankInquiryGateway{
+			inquiryFn: func(_ context.Context, req paymentgateway.InquiryTransferRequest) (*paymentgateway.InquiryTransferResponse, error) {
+				require.Equal(t, "gue-client", req.Client)
+				require.Equal(t, "gue-key", req.ClientKey)
+				require.Equal(t, "gue-merchant", req.UUID)
+				require.Equal(t, uint64(10000), req.Amount)
+				require.Equal(t, "542", req.BankCode)
+				require.Equal(t, "100009689749", req.AccountNumber)
+				require.Equal(t, bankInquiryTransferType, req.Type)
+				return &paymentgateway.InquiryTransferResponse{
+					AccountNumber: "100009689749",
+					AccountName:   "SISKA DAMAYANTI",
+					BankCode:      "542",
+					BankName:      "PT. BANK ARTOS INDONESIA (Bank Jago)",
+					PartnerRefNo:  "partner-ref",
+					VendorRefNo:   "",
+					Amount:        700000,
+					Fee:           1800,
+					InquiryID:     2949850,
+				}, nil
+			},
+		},
+		newFakeCacheStore(),
+		true,
+		time.Minute,
+		"gue-client",
+		"gue-key",
+		"gue-merchant",
+		slog.Default(),
+	)
+
+	result, err := svc.Inquiry(context.Background(), 55, model.UserRoleAdmin, BankInquiryInput{
+		PaymentID:     8,
+		AccountNumber: "100009689749",
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, uint64(8), result.PaymentID)
+	require.Equal(t, "SISKA DAMAYANTI", result.AccountName)
+	require.Equal(t, uint64(2949850), result.InquiryID)
 }

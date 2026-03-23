@@ -127,6 +127,7 @@ func NewRouter(
 	{
 		banks.GET("", bankHandler.List)
 		banks.GET("/payment-options", bankHandler.PaymentOptions)
+		banks.POST("/inquiry", csrfMiddleware, bankHandler.Inquiry)
 		banks.POST("", csrfMiddleware, bankHandler.Create)
 		banks.DELETE("/:id", csrfMiddleware, bankHandler.Delete)
 	}

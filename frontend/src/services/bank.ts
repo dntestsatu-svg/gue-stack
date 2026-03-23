@@ -1,10 +1,16 @@
 import api from './http'
-import type { ApiResponse, BankItem, BankListPage, BankListQuery, BankPaymentOption } from './types'
+import type { ApiResponse, BankInquiryResult, BankItem, BankListPage, BankListQuery, BankPaymentOption } from './types'
+
+export interface InquiryBankPayload {
+  payment_id: number
+  account_number: string
+}
 
 export interface CreateBankPayload {
   payment_id: number
   account_name: string
   account_number: string
+  inquiry_id: number
 }
 
 export async function list(query: BankListQuery = {}) {
@@ -18,6 +24,11 @@ export async function paymentOptions(query: { q?: string; limit?: number } = {})
   const { data } = await api.get<ApiResponse<BankPaymentOption[]>>('/api/v1/banks/payment-options', {
     params: query,
   })
+  return data.data
+}
+
+export async function inquiry(payload: InquiryBankPayload) {
+  const { data } = await api.post<ApiResponse<BankInquiryResult>>('/api/v1/banks/inquiry', payload)
   return data.data
 }
 

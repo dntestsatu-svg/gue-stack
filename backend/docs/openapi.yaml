@@ -214,7 +214,7 @@ paths:
         "200":
           description: OK
     post:
-      summary: Create user bank account from payment catalog selection
+      summary: Create user bank account after confirming backend inquiry result
       security:
         - bearerAuth: []
       requestBody:
@@ -223,7 +223,7 @@ paths:
           application/json:
             schema:
               type: object
-              required: [payment_id, account_name, account_number]
+              required: [payment_id, account_name, account_number, inquiry_id]
               properties:
                 payment_id:
                   type: integer
@@ -232,9 +232,33 @@ paths:
                   type: string
                 account_number:
                   type: string
+                inquiry_id:
+                  type: integer
+                  format: int64
       responses:
         "201":
           description: Created
+  /api/v1/banks/inquiry:
+    post:
+      summary: Verify bank account and resolve account_name via payment gateway inquiry before saving
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [payment_id, account_number]
+              properties:
+                payment_id:
+                  type: integer
+                  format: int64
+                account_number:
+                  type: string
+      responses:
+        "200":
+          description: Inquiry result resolved successfully
   /api/v1/banks/payment-options:
     get:
       summary: Searchable payment catalog options for bank picker

@@ -176,6 +176,19 @@ export interface BankPaymentOption {
   bank_name: string
 }
 
+export interface BankInquiryResult {
+  payment_id: number
+  account_number: string
+  account_name: string
+  bank_code: string
+  bank_name: string
+  partner_ref_no: string
+  vendor_ref_no: string
+  amount: number
+  fee: number
+  inquiry_id: number
+}
+
 export interface TestingGenerateQrisResult {
   toko_id: number
   toko_name: string

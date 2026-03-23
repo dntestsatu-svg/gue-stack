@@ -31,6 +31,7 @@ const {
   generateTestingQrisMock,
   checkCallbackReadinessMock,
   listBanksMock,
+  inquiryBankMock,
   createBankMock,
   removeBankMock,
   listUsersMock,
@@ -56,6 +57,7 @@ const {
   generateTestingQrisMock: vi.fn(),
   checkCallbackReadinessMock: vi.fn(),
   listBanksMock: vi.fn(),
+  inquiryBankMock: vi.fn(),
   createBankMock: vi.fn(),
   removeBankMock: vi.fn(),
   listUsersMock: vi.fn(),
@@ -95,6 +97,7 @@ vi.mock('@/services/testing', () => ({
 
 vi.mock('@/services/bank', () => ({
   list: listBanksMock,
+  inquiry: inquiryBankMock,
   create: createBankMock,
   remove: removeBankMock,
   paymentOptions: vi.fn(),
@@ -276,6 +279,18 @@ describe('App SPA routing', () => {
       limit: 10,
       offset: 0,
       has_more: false,
+    })
+    inquiryBankMock.mockResolvedValue({
+      payment_id: 1,
+      account_number: '1234567890',
+      account_name: 'PT GUE CONTROL',
+      bank_code: '014',
+      bank_name: 'PT. BANK CENTRAL ASIA, TBK.',
+      partner_ref_no: 'partner-ref',
+      vendor_ref_no: '',
+      amount: 10000,
+      fee: 1500,
+      inquiry_id: 88,
     })
   })
 

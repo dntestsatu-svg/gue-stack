@@ -18,6 +18,7 @@ import (
 
 type mockBankUseCase struct {
 	listFn           func(ctx context.Context, userID uint64, actorRole model.UserRole, query service.BankListQuery) (*service.BankListPage, error)
+	inquiryFn        func(ctx context.Context, userID uint64, actorRole model.UserRole, input service.BankInquiryInput) (*service.BankInquiryResult, error)
 	createFn         func(ctx context.Context, userID uint64, actorRole model.UserRole, input service.CreateBankInput) (*service.BankDTO, error)
 	deleteFn         func(ctx context.Context, userID uint64, actorRole model.UserRole, bankID uint64) error
 	paymentOptionsFn func(ctx context.Context, actorRole model.UserRole, query service.PaymentOptionQuery) ([]service.PaymentOptionDTO, error)
@@ -28,6 +29,13 @@ func (m *mockBankUseCase) List(ctx context.Context, userID uint64, actorRole mod
 		return nil, nil
 	}
 	return m.listFn(ctx, userID, actorRole, query)
+}
+
+func (m *mockBankUseCase) Inquiry(ctx context.Context, userID uint64, actorRole model.UserRole, input service.BankInquiryInput) (*service.BankInquiryResult, error) {
+	if m.inquiryFn == nil {
+		return nil, nil
+	}
+	return m.inquiryFn(ctx, userID, actorRole, input)
 }
 
 func (m *mockBankUseCase) Create(ctx context.Context, userID uint64, actorRole model.UserRole, input service.CreateBankInput) (*service.BankDTO, error) {
@@ -111,12 +119,27 @@ func TestBankHandlerCreateAndDelete(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	mockUC := &mockBankUseCase{
+		inquiryFn: func(_ context.Context, userID uint64, actorRole model.UserRole, input service.BankInquiryInput) (*service.BankInquiryResult, error) {
+			require.Equal(t, uint64(9), userID)
+			require.Equal(t, model.UserRoleSuperAdmin, actorRole)
+			require.Equal(t, uint64(8), input.PaymentID)
+			require.Equal(t, "1234567890", input.AccountNumber)
+			return &service.BankInquiryResult{
+				PaymentID:     8,
+				AccountNumber: "1234567890",
+				AccountName:   "PT GUE CONTROL",
+				BankCode:      "014",
+				BankName:      "PT. BANK CENTRAL ASIA, TBK.",
+				InquiryID:     88,
+			}, nil
+		},
 		createFn: func(_ context.Context, userID uint64, actorRole model.UserRole, input service.CreateBankInput) (*service.BankDTO, error) {
 			require.Equal(t, uint64(9), userID)
 			require.Equal(t, model.UserRoleSuperAdmin, actorRole)
 			require.Equal(t, uint64(8), input.PaymentID)
 			require.Equal(t, "PT GUE CONTROL", input.AccountName)
 			require.Equal(t, "1234567890", input.AccountNumber)
+			require.Equal(t, uint64(88), input.InquiryID)
 			return &service.BankDTO{
 				ID:            5,
 				PaymentID:     8,
@@ -135,13 +158,26 @@ func TestBankHandlerCreateAndDelete(t *testing.T) {
 
 	h := NewBankHandler(mockUC)
 	r := gin.New()
+	r.POST("/banks/inquiry", withBankAuthContext(9, model.UserRoleSuperAdmin), h.Inquiry)
 	r.POST("/banks", withBankAuthContext(9, model.UserRoleSuperAdmin), h.Create)
 	r.DELETE("/banks/:id", withBankAuthContext(9, model.UserRoleSuperAdmin), h.Delete)
+
+	inquiryPayload := map[string]any{
+		"payment_id":     8,
+		"account_number": "1234567890",
+	}
+	inquiryBody, _ := json.Marshal(inquiryPayload)
+	inquiryReq := httptest.NewRequest(http.MethodPost, "/banks/inquiry", bytes.NewReader(inquiryBody))
+	inquiryReq.Header.Set("Content-Type", "application/json")
+	inquiryRes := httptest.NewRecorder()
+	r.ServeHTTP(inquiryRes, inquiryReq)
+	require.Equal(t, http.StatusOK, inquiryRes.Code)
 
 	payload := map[string]any{
 		"payment_id":     8,
 		"account_name":   "PT GUE CONTROL",
 		"account_number": "1234567890",
+		"inquiry_id":     88,
 	}
 	body, _ := json.Marshal(payload)
 	createReq := httptest.NewRequest(http.MethodPost, "/banks", bytes.NewReader(body))
