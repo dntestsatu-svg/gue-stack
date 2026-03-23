@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { useHead, useSeoMeta } from '@unhead/vue'
+import { ensureGtmLoaded, trackNavigationWithGtm } from '@/lib/gtm'
 import { siteConfig, withSiteURL } from '@/lib/site'
 
 const title = 'APIGOQR | Gateway QRIS untuk Merchant'
@@ -9,15 +10,23 @@ const canonicalURL = withSiteURL('/')
 const ogImageURL = withSiteURL(siteConfig.ogImage)
 const heroImage = siteConfig.heroImage
 const operationsImage = '/images/landing-ops.svg'
-const gtmId = (import.meta.env.VITE_GTM_ID ?? '').trim()
 
-const gtmLoaderScript = gtmId
-  ? `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-})(window,document,'script','dataLayer','${gtmId}');`
-  : ''
+const onTrackedNavigation = (
+  destination: string,
+  ctaName: 'login' | 'register' | 'dashboard',
+  ctaLocation: 'nav' | 'hero' | 'panel',
+) => {
+  trackNavigationWithGtm(
+    {
+      event: 'landing_cta_click',
+      cta_name: ctaName,
+      cta_location: ctaLocation,
+      destination_path: destination,
+      page_type: 'landing',
+    },
+    destination,
+  )
+}
 
 useSeoMeta({
   title,
@@ -70,14 +79,7 @@ useHead({
 })
 
 onMounted(() => {
-  if (!gtmId || document.getElementById('landing-gtm-script')) {
-    return
-  }
-
-  const bootstrap = document.createElement('script')
-  bootstrap.id = 'landing-gtm-script'
-  bootstrap.text = gtmLoaderScript
-  document.head.appendChild(bootstrap)
+  ensureGtmLoaded()
 })
 </script>
 
@@ -101,10 +103,10 @@ onMounted(() => {
         </div>
 
         <div class="landing-nav-actions">
-          <a class="landing-link-button" href="/login">
+          <a class="landing-link-button" href="/login" @click.prevent="onTrackedNavigation('/login', 'login', 'nav')">
             Masuk
           </a>
-          <a class="landing-primary-button" href="/dashboard">
+          <a class="landing-primary-button" href="/dashboard" @click.prevent="onTrackedNavigation('/dashboard', 'dashboard', 'nav')">
             Buka Dashboard
           </a>
         </div>
@@ -127,10 +129,10 @@ onMounted(() => {
           </p>
 
           <div class="landing-cta-group">
-            <a class="landing-primary-button" href="/login">
+            <a class="landing-primary-button" href="/login" @click.prevent="onTrackedNavigation('/login', 'login', 'hero')">
               Masuk untuk mulai integrasi
             </a>
-            <a class="landing-secondary-button" href="/register">
+            <a class="landing-secondary-button" href="/register" @click.prevent="onTrackedNavigation('/register', 'register', 'hero')">
               Buat akun merchant
             </a>
           </div>
@@ -269,10 +271,10 @@ onMounted(() => {
             </p>
           </div>
           <div class="landing-cta-panel-actions">
-            <a class="landing-primary-button" href="/login">
+            <a class="landing-primary-button" href="/login" @click.prevent="onTrackedNavigation('/login', 'login', 'panel')">
               Masuk sekarang
             </a>
-            <a class="landing-secondary-button" href="/register">
+            <a class="landing-secondary-button" href="/register" @click.prevent="onTrackedNavigation('/register', 'register', 'panel')">
               Buat akun baru
             </a>
           </div>

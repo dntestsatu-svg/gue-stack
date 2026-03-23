@@ -50,6 +50,39 @@ func (h *AuthHandler) CSRF(c *gin.Context) {
 	})
 }
 
+func (h *AuthHandler) Session(c *gin.Context) {
+	refreshToken, err := h.cookieManager.ReadRefreshToken(c)
+	if err != nil || strings.TrimSpace(refreshToken) == "" {
+		h.cookieManager.ClearAuthCookies(c)
+		h.cookieManager.ClearCSRFCookie(c)
+		c.JSON(http.StatusOK, gin.H{
+			"status": "success",
+			"data": service.SessionStatusResult{
+				Authenticated: false,
+			},
+		})
+		return
+	}
+
+	result, statusErr := h.auth.SessionStatus(c.Request.Context(), refreshToken)
+	if statusErr != nil {
+		handleError(c, statusErr)
+		return
+	}
+	if result == nil {
+		result = &service.SessionStatusResult{Authenticated: false}
+	}
+	if !result.Authenticated {
+		h.cookieManager.ClearAuthCookies(c)
+		h.cookieManager.ClearCSRFCookie(c)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"data":   result,
+	})
+}
+
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req service.RegisterInput
 	if err := c.ShouldBindJSON(&req); err != nil {

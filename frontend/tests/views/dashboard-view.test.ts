@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import DashboardView from '@/views/DashboardView.vue'
+import { useAuthStore } from '@/stores/auth'
 import { useUserStore } from '@/stores/user'
 
 const { pushMock, fetchOverviewMock, toastSuccessMock } = vi.hoisted(() => ({
@@ -83,7 +84,9 @@ describe('DashboardView', () => {
       updated_at: '2026-03-21T06:20:00Z',
     })
 
+    const authStore = useAuthStore()
     const userStore = useUserStore()
+    authStore.authenticated = true
     userStore.setProfile({
       id: 1,
       name: 'Developer',
@@ -140,7 +143,9 @@ describe('DashboardView', () => {
       updated_at: '2026-03-21T06:20:00Z',
     })
 
+    const authStore = useAuthStore()
     const userStore = useUserStore()
+    authStore.authenticated = true
     userStore.setProfile({
       id: 5,
       name: 'Admin',
@@ -244,7 +249,9 @@ describe('DashboardView', () => {
         updated_at: '2026-03-21T06:26:00Z',
       })
 
+    const authStore = useAuthStore()
     const userStore = useUserStore()
+    authStore.authenticated = true
     userStore.setProfile({
       id: 1,
       name: 'Developer',

@@ -83,6 +83,7 @@ func NewRouter(
 	auth := v1.Group("/auth")
 	{
 		auth.GET("/csrf", authHandler.CSRF)
+		auth.GET("/session", authHandler.Session)
 		auth.POST("/register", authRegisterLimiter, csrfMiddleware, authHandler.Register)
 		auth.POST("/login", authLoginLimiter, csrfMiddleware, authHandler.Login)
 		auth.POST("/refresh", csrfMiddleware, authHandler.Refresh)

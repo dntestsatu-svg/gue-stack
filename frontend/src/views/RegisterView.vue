@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { TriangleAlert } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Spinner } from '@/components/ui/spinner'
+import { ensureGtmLoaded, pushGtmEvent } from '@/lib/gtm'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -20,6 +21,10 @@ const form = reactive({
   password: '',
 })
 
+const redirectToDashboard = () => {
+  window.location.assign('/dashboard')
+}
+
 const onSubmit = async () => {
   errorMessage.value = ''
   try {
@@ -28,11 +33,30 @@ const onSubmit = async () => {
       email: form.email.trim(),
       password: form.password,
     })
+
+    const gtmTracked = pushGtmEvent({
+      event: 'sign_up',
+      method: 'email',
+      account_role: 'admin',
+      page_type: 'register',
+      eventCallback: redirectToDashboard,
+      eventTimeout: 800,
+    })
+
+    if (gtmTracked) {
+      window.setTimeout(redirectToDashboard, 900)
+      return
+    }
+
     await router.push('/dashboard')
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Registrasi gagal'
   }
 }
+
+onMounted(() => {
+  ensureGtmLoaded()
+})
 </script>
 
 <template>

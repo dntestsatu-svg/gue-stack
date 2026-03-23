@@ -1,5 +1,5 @@
 import api, { hasCookie, setCSRFToken } from './http'
-import type { ApiResponse, AuthResponseData } from './types'
+import type { ApiResponse, AuthResponseData, SessionStatusData } from './types'
 
 export interface LoginPayload {
   email: string
@@ -59,6 +59,11 @@ export async function refresh() {
   const session = requireEnvelopeData(data, 'Refresh failed')
   setCSRFToken(requireCsrfToken(session, 'Refresh failed'))
   return session
+}
+
+export async function sessionStatus() {
+  const { data } = await api.get<ApiResponse<SessionStatusData>>('/api/v1/auth/session')
+  return requireEnvelopeData(data, 'Session probe failed')
 }
 
 export async function logout() {

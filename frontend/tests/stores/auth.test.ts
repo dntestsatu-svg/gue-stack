@@ -8,6 +8,7 @@ vi.mock('@/services/auth', () => ({
   hasSessionHint: vi.fn(() => true),
   login: vi.fn(),
   refresh: vi.fn(),
+  sessionStatus: vi.fn(),
   logout: vi.fn(),
 }))
 
@@ -94,5 +95,29 @@ describe('auth store', () => {
     expect(auth.isAuthenticated).toBe(false)
     expect(userApi.me).not.toHaveBeenCalled()
     expect(authApi.refresh).not.toHaveBeenCalled()
+  })
+
+  it('restores guest session from public session probe without calling /user/me', async () => {
+    const userApi = await import('@/services/user')
+    const authApi = await import('@/services/auth')
+    vi.mocked(authApi.hasSessionHint).mockReturnValue(true)
+    vi.mocked(authApi.sessionStatus).mockResolvedValue({
+      authenticated: true,
+      user: {
+        id: 3,
+        name: 'Guest Session',
+        email: 'guest-session@example.com',
+        role: 'admin',
+        is_active: true,
+      },
+    })
+
+    const auth = useAuthStore()
+    const result = await auth.restoreGuestSession()
+
+    expect(result).toBe(true)
+    expect(auth.isAuthenticated).toBe(true)
+    expect(useUserStore().profile?.email).toBe('guest-session@example.com')
+    expect(userApi.me).not.toHaveBeenCalled()
   })
 })

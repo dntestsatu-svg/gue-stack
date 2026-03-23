@@ -77,6 +77,35 @@ export const useAuthStore = defineStore('auth', {
         return false
       }
     },
+    async restoreGuestSession() {
+      if (this.ready && this.authenticated) {
+        return true
+      }
+
+      if (!authApi.hasSessionHint()) {
+        this.clearSession()
+        this.ready = true
+        return false
+      }
+
+      try {
+        const session = await authApi.sessionStatus()
+        if (!session.authenticated || !session.user) {
+          this.clearSession()
+          this.ready = true
+          return false
+        }
+
+        this.authenticated = true
+        this.ready = true
+        useUserStore().setProfile(session.user)
+        return true
+      } catch {
+        this.clearSession()
+        this.ready = true
+        return false
+      }
+    },
     async restoreSession() {
       if (this.ready) {
         return this.authenticated

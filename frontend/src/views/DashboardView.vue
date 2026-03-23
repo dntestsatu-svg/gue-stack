@@ -23,9 +23,11 @@ import {
 import * as dashboardApi from '@/services/dashboard'
 import { getApiErrorMessage } from '@/services/http'
 import type { DashboardOverview, UserRole } from '@/services/types'
+import { useAuthStore } from '@/stores/auth'
 import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
+const authStore = useAuthStore()
 const userStore = useUserStore()
 
 const overview = ref<DashboardOverview | null>(null)
@@ -49,6 +51,10 @@ type DashboardMetricCard = {
 }
 
 const loadDashboardData = async () => {
+  if (!authStore.isAuthenticated || !userStore.profile) {
+    return
+  }
+
   loading.value = true
   errorMessage.value = ''
   try {

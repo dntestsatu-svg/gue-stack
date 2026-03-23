@@ -22,6 +22,7 @@ const {
   loginMock,
   refreshMock,
   logoutMock,
+  sessionStatusMock,
   hasSessionHintMock,
   fetchOverviewMock,
   fetchHistoryMock,
@@ -52,6 +53,7 @@ const {
   loginMock: vi.fn(),
   refreshMock: vi.fn(),
   logoutMock: vi.fn(),
+  sessionStatusMock: vi.fn(),
   hasSessionHintMock: vi.fn(() => false),
   fetchOverviewMock: vi.fn(),
   fetchHistoryMock: vi.fn(),
@@ -84,6 +86,7 @@ vi.mock('@/services/auth', () => ({
   login: loginMock,
   refresh: refreshMock,
   logout: logoutMock,
+  sessionStatus: sessionStatusMock,
   hasSessionHint: hasSessionHintMock,
 }))
 

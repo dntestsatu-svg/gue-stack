@@ -102,15 +102,17 @@ export function installRouterGuards(router: Router) {
   router.beforeEach(async (to) => {
     const auth = useAuthStore()
     const userStore = useUserStore()
+    const isGuestOnlyPath = guestOnlyPaths.has(to.path)
 
     const needsAuthResolution = Boolean(
       to.meta.requiresAuth
       || to.meta.requiresActive
       || Array.isArray(to.meta.allowedRoles)
-      || guestOnlyPaths.has(to.path),
     )
 
-    if (needsAuthResolution) {
+    if (isGuestOnlyPath) {
+      await auth.restoreGuestSession()
+    } else if (needsAuthResolution) {
       await auth.restoreSession()
     }
 

@@ -19,6 +19,8 @@ import (
 type mockAuthService struct {
 	registerResp *service.AuthResult
 	registerErr  error
+	sessionResp  *service.SessionStatusResult
+	sessionErr   error
 }
 
 func (m *mockAuthService) Register(_ context.Context, _ service.RegisterInput) (*service.AuthResult, error) {
@@ -29,6 +31,9 @@ func (m *mockAuthService) Login(_ context.Context, _ service.LoginInput) (*servi
 }
 func (m *mockAuthService) Refresh(_ context.Context, _ string) (*service.AuthResult, error) {
 	return nil, nil
+}
+func (m *mockAuthService) SessionStatus(_ context.Context, _ string) (*service.SessionStatusResult, error) {
+	return m.sessionResp, m.sessionErr
 }
 func (m *mockAuthService) Logout(_ context.Context, _ string) error { return nil }
 
@@ -100,4 +105,49 @@ func TestAuthHandler_RefreshMissingTokenReturnsUnauthorized(t *testing.T) {
 
 	require.Equal(t, http.StatusUnauthorized, w.Code)
 	require.Contains(t, w.Body.String(), "missing refresh token")
+}
+
+func TestAuthHandler_SessionReturnsUnauthenticatedWithoutRefreshCookie(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	h := NewAuthHandler(&mockAuthService{}, testCookieManager())
+
+	r := gin.New()
+	r.GET("/session", h.Session)
+
+	req := httptest.NewRequest(http.MethodGet, "/session", nil)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Contains(t, w.Body.String(), `"authenticated":false`)
+}
+
+func TestAuthHandler_SessionReturnsAuthenticatedUser(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	h := NewAuthHandler(&mockAuthService{
+		sessionResp: &service.SessionStatusResult{
+			Authenticated: true,
+			User: &service.UserDTO{
+				ID:       7,
+				Name:     "Admin",
+				Email:    "admin@example.com",
+				Role:     "admin",
+				IsActive: true,
+			},
+		},
+	}, testCookieManager())
+
+	r := gin.New()
+	r.GET("/session", h.Session)
+
+	req := httptest.NewRequest(http.MethodGet, "/session", nil)
+	req.AddCookie(&http.Cookie{Name: "refresh_token", Value: "valid-refresh"})
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Contains(t, w.Body.String(), `"authenticated":true`)
+	require.Contains(t, w.Body.String(), `admin@example.com`)
 }

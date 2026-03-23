@@ -35,6 +35,11 @@ export interface AuthResponseData {
   csrf_token: string
 }
 
+export interface SessionStatusData {
+  authenticated: boolean
+  user?: User
+}
+
 export interface DashboardMetrics {
   total_transactions: number
   success_transactions: number

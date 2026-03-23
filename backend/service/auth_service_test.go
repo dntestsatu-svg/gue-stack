@@ -288,3 +288,48 @@ func TestAuthService_LoginInactiveUserForbidden(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "inactive")
 }
+
+func TestAuthService_SessionStatusAuthenticatedWithValidRefreshToken(t *testing.T) {
+	refreshStore := &fakeRefreshStore{}
+	userRepo := &fakeUserRepo{
+		byEmail: map[string]*model.User{},
+		byID: map[uint64]*model.User{
+			42: {
+				ID:       42,
+				Name:     "Active Admin",
+				Email:    "active@example.com",
+				Role:     model.UserRoleAdmin,
+				IsActive: true,
+			},
+		},
+	}
+
+	tm := jwtpkg.NewManager("access-secret", "refresh-secret", 15*time.Minute, 24*time.Hour, "issuer", "aud")
+	tokenPair, err := tm.GenerateTokenPair(42, "active@example.com", time.Now().UTC())
+	require.NoError(t, err)
+	require.NoError(t, refreshStore.Store(context.Background(), tokenPair.RefreshID, 42, tm.RefreshTTL()))
+
+	svc := NewAuthService(userRepo, refreshStore, tm, nil, slog.Default())
+
+	status, err := svc.SessionStatus(context.Background(), tokenPair.RefreshToken)
+
+	require.NoError(t, err)
+	require.True(t, status.Authenticated)
+	require.NotNil(t, status.User)
+	require.Equal(t, uint64(42), status.User.ID)
+	require.Equal(t, model.UserRoleAdmin, status.User.Role)
+}
+
+func TestAuthService_SessionStatusReturnsUnauthenticatedForRevokedToken(t *testing.T) {
+	tm := jwtpkg.NewManager("access-secret", "refresh-secret", 15*time.Minute, 24*time.Hour, "issuer", "aud")
+	tokenPair, err := tm.GenerateTokenPair(7, "stale@example.com", time.Now().UTC())
+	require.NoError(t, err)
+
+	svc := NewAuthService(&fakeUserRepo{}, &fakeRefreshStore{}, tm, nil, slog.Default())
+
+	status, err := svc.SessionStatus(context.Background(), tokenPair.RefreshToken)
+
+	require.NoError(t, err)
+	require.False(t, status.Authenticated)
+	require.Nil(t, status.User)
+}

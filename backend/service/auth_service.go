@@ -21,6 +21,7 @@ type AuthUseCase interface {
 	Register(ctx context.Context, input RegisterInput) (*AuthResult, error)
 	Login(ctx context.Context, input LoginInput) (*AuthResult, error)
 	Refresh(ctx context.Context, refreshToken string) (*AuthResult, error)
+	SessionStatus(ctx context.Context, refreshToken string) (*SessionStatusResult, error)
 	Logout(ctx context.Context, refreshToken string) error
 }
 
@@ -49,6 +50,11 @@ type AuthResult struct {
 	AccessToken  string  `json:"access_token"`
 	RefreshToken string  `json:"refresh_token"`
 	ExpiresIn    int64   `json:"expires_in"`
+}
+
+type SessionStatusResult struct {
+	Authenticated bool     `json:"authenticated"`
+	User          *UserDTO `json:"user,omitempty"`
 }
 
 type UserDTO struct {
@@ -207,6 +213,48 @@ func (s *AuthService) Refresh(ctx context.Context, refreshToken string) (*AuthRe
 		AccessToken:  newTokens.AccessToken,
 		RefreshToken: newTokens.RefreshToken,
 		ExpiresIn:    newTokens.ExpiresIn,
+	}, nil
+}
+
+func (s *AuthService) SessionStatus(ctx context.Context, refreshToken string) (*SessionStatusResult, error) {
+	claims, err := s.tokenManager.ParseRefreshToken(refreshToken)
+	if err != nil {
+		return &SessionStatusResult{Authenticated: false}, nil
+	}
+
+	storedUserID, err := s.refreshStore.GetUserID(ctx, claims.TokenID)
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return &SessionStatusResult{Authenticated: false}, nil
+		}
+		return nil, apperror.New(http.StatusInternalServerError, "failed to inspect session token", err.Error())
+	}
+	if storedUserID != claims.UserID {
+		return &SessionStatusResult{Authenticated: false}, nil
+	}
+
+	user, err := s.userRepo.GetByID(ctx, claims.UserID)
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return &SessionStatusResult{Authenticated: false}, nil
+		}
+		return nil, apperror.New(http.StatusInternalServerError, "failed to fetch session user", err.Error())
+	}
+	if !user.IsActive {
+		return &SessionStatusResult{Authenticated: false}, nil
+	}
+
+	userDTO := &UserDTO{
+		ID:       user.ID,
+		Name:     user.Name,
+		Email:    user.Email,
+		Role:     user.Role,
+		IsActive: user.IsActive,
+	}
+
+	return &SessionStatusResult{
+		Authenticated: true,
+		User:          userDTO,
 	}, nil
 }
 
