@@ -75,7 +75,7 @@ const endpointInsights: InsightDoc[] = [
   },
   {
     title: 'Auth Contract',
-    description: 'Semua request merchant memakai Bearer token toko. Secret external API tidak pernah diekspos.',
+    description: 'Semua request merchant memakai Bearer token toko. Dan methodnya POST.',
   },
   {
     title: 'Final Status',
