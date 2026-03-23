@@ -4,9 +4,10 @@ import { createPinia, setActivePinia } from 'pinia'
 import DashboardView from '@/views/DashboardView.vue'
 import { useUserStore } from '@/stores/user'
 
-const { pushMock, fetchOverviewMock } = vi.hoisted(() => ({
+const { pushMock, fetchOverviewMock, toastSuccessMock } = vi.hoisted(() => ({
   pushMock: vi.fn(),
   fetchOverviewMock: vi.fn(),
+  toastSuccessMock: vi.fn(),
 }))
 
 vi.mock('vue-router', async () => {
@@ -21,6 +22,12 @@ vi.mock('@/services/dashboard', () => ({
   fetchOverview: fetchOverviewMock,
 }))
 
+vi.mock('vue-sonner', () => ({
+  toast: {
+    success: toastSuccessMock,
+  },
+}))
+
 vi.mock('@/composables/usePolling', () => ({
   usePolling: (task: () => Promise<void>) => {
     void task()
@@ -33,6 +40,7 @@ describe('DashboardView', () => {
     setActivePinia(createPinia())
     fetchOverviewMock.mockReset()
     pushMock.mockReset()
+    toastSuccessMock.mockReset()
   })
 
   it('renders dashboard cards and transaction table', async () => {
@@ -159,5 +167,118 @@ describe('DashboardView', () => {
     expect(wrapper.text()).not.toContain('Pending Balance (External)')
     expect(wrapper.text()).not.toContain('Available Balance (External)')
     expect(wrapper.text()).not.toContain('Total Keuntungan Project')
+  })
+
+  it('shows toast when a new success order appears on subsequent refresh', async () => {
+    fetchOverviewMock
+      .mockResolvedValueOnce({
+        window_hours: 12,
+        can_view_project_profit: true,
+        can_view_external_balance: true,
+        metrics: {
+          total_transactions: 1,
+          success_transactions: 1,
+          pending_transactions: 0,
+          failed_transactions: 0,
+          success_rate: 100,
+          success_deposit: 100000,
+          success_withdraw: 0,
+          net_flow: 100000,
+          project_profit: 3000,
+        },
+        status_series: [],
+        latest_success_orders: [
+          {
+            id: 1,
+            toko_id: 99,
+            toko_name: 'Toko Alpha',
+            status: 'success',
+            type: 'deposit',
+            reference: 'REF-1',
+            amount: 50000,
+            netto: 48500,
+            created_at: '2026-03-21T06:10:00Z',
+          },
+        ],
+        external_balance: {
+          pending_balance: 2000,
+          available_balance: 9000,
+        },
+        external_balance_error: '',
+        updated_at: '2026-03-21T06:20:00Z',
+      })
+      .mockResolvedValueOnce({
+        window_hours: 12,
+        can_view_project_profit: true,
+        can_view_external_balance: true,
+        metrics: {
+          total_transactions: 2,
+          success_transactions: 2,
+          pending_transactions: 0,
+          failed_transactions: 0,
+          success_rate: 100,
+          success_deposit: 160000,
+          success_withdraw: 0,
+          net_flow: 160000,
+          project_profit: 4800,
+        },
+        status_series: [],
+        latest_success_orders: [
+          {
+            id: 2,
+            toko_id: 100,
+            toko_name: 'Toko Beta',
+            status: 'success',
+            type: 'deposit',
+            reference: 'REF-2',
+            amount: 60000,
+            netto: 58200,
+            created_at: '2026-03-21T06:25:00Z',
+          },
+        ],
+        external_balance: {
+          pending_balance: 2000,
+          available_balance: 9000,
+        },
+        external_balance_error: '',
+        updated_at: '2026-03-21T06:26:00Z',
+      })
+
+    const userStore = useUserStore()
+    userStore.setProfile({
+      id: 1,
+      name: 'Developer',
+      email: 'dev@gue.local',
+      role: 'dev',
+      is_active: true,
+    })
+
+    const wrapper = mount(DashboardView, {
+      global: {
+        stubs: {
+          DashboardStatusAreaChart: {
+            template: '<div data-testid="dashboard-status-chart-stub">Status Chart</div>',
+          },
+        },
+      },
+    })
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(toastSuccessMock).not.toHaveBeenCalled()
+
+    const refreshButton = wrapper.findAll('button').find((node) => node.text().includes('Refresh'))
+    expect(refreshButton).toBeDefined()
+
+    await refreshButton!.trigger('click')
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(toastSuccessMock).toHaveBeenCalledWith(
+      'Pembayaran sukses baru diterima',
+      expect.objectContaining({
+        description: expect.stringContaining('Toko Beta • REF-2 • Rp'),
+      }),
+    )
   })
 })

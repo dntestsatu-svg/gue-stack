@@ -66,7 +66,7 @@ func TestWithdrawHandlerOptionsInquiryTransfer(t *testing.T) {
 			require.Equal(t, uint64(99), userID)
 			require.Equal(t, model.UserRoleAdmin, actorRole)
 			return &service.WithdrawOptionsResult{
-				Tokos: []service.WithdrawTokoOption{{ID: 7, Name: "Toko Alpha", SettlementBalance: 500000}},
+				Tokos: []service.WithdrawTokoOption{{ID: 7, Name: "Toko Alpha", SettleBalance: 500000}},
 				Banks: []service.WithdrawBankOption{{ID: 9, BankName: "PT. BANK CENTRAL ASIA, TBK.", AccountName: "PT GUE CONTROL", AccountNumber: "1234567890"}},
 			}, nil
 		},
@@ -111,8 +111,8 @@ func TestWithdrawHandlerOptionsInquiryTransfer(t *testing.T) {
 				Fee:                 1500,
 				InquiryID:           77,
 				PartnerRefNo:        "partner-ref-1",
-				SettlementBalance:   500000,
-				RemainingSettlement: 400000,
+				SettleBalance:   500000,
+				RemainingSettle: 400000,
 			}, nil
 		},
 		transferFn: func(_ context.Context, userID uint64, actorRole model.UserRole, input service.WithdrawTransferInput) (*service.WithdrawTransferResult, error) {
@@ -129,7 +129,7 @@ func TestWithdrawHandlerOptionsInquiryTransfer(t *testing.T) {
 				AccountName:         "PT GUE CONTROL",
 				AccountNumber:       "1234567890",
 				Amount:              100000,
-				RemainingSettlement: 400000,
+				RemainingSettle: 400000,
 			}, nil
 		},
 	}

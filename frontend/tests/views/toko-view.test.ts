@@ -63,15 +63,15 @@ describe('TokoView', () => {
           token: 'tok_alpha',
           charge: 3,
           callback_url: 'https://example.com/callback',
-          settlement_balance: 120000,
-          available_balance: 450000,
+          pending_balance: 120000,
+          settle_balance: 450000,
           updated_at: '2026-03-21T10:00:00Z',
         },
       ],
       summary: {
         total_tokos: 1,
-        total_settlement_balance: 120000,
-        total_available_balance: 450000,
+        total_pending_balance: 120000,
+        total_settle_balance: 450000,
       },
       total: 1,
       limit: 10,
@@ -115,7 +115,7 @@ describe('TokoView', () => {
 
     expect(wrapper.text()).toContain('Manage Toko & Settlement')
     expect(wrapper.text()).toContain('Toko Management')
-    expect(wrapper.text()).toContain('Settlement Balances')
+    expect(wrapper.text()).toContain('Pending & Settle Balances')
     expect(wrapper.text()).toContain('Toko Alpha')
     expect(wrapper.text()).toContain('Showing 1-1 of 1')
     expect(fetchWorkspaceMock).toHaveBeenCalled()

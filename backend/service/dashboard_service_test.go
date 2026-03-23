@@ -48,6 +48,26 @@ func (f *fakeDashboardTransactionRepo) UpdateSettlementByID(_ context.Context, _
 	return nil
 }
 
+func (f *fakeDashboardTransactionRepo) UpdateSettlementIfPending(_ context.Context, _ uint64, _ model.TransactionStatus, _ uint64, _ uint64) (bool, error) {
+	return false, nil
+}
+
+func (f *fakeDashboardTransactionRepo) FinalizeDepositSuccessByID(_ context.Context, _ uint64, _ uint64, _ uint64, _ uint64) (bool, error) {
+	return false, nil
+}
+
+func (f *fakeDashboardTransactionRepo) CreatePendingWithdrawAndReserveSettlement(_ context.Context, _ *model.Transaction) error {
+	return nil
+}
+
+func (f *fakeDashboardTransactionRepo) FinalizeWithdrawIfPending(_ context.Context, _ uint64, _ model.TransactionStatus) (bool, error) {
+	return false, nil
+}
+
+func (f *fakeDashboardTransactionRepo) ListPendingExpiryCandidates(_ context.Context, _ time.Time, _ int) ([]repository.PendingExpiryCandidate, error) {
+	return nil, nil
+}
+
 func (f *fakeDashboardTransactionRepo) GetDashboardMetricsByUser(_ context.Context, _ uint64, _ time.Time) (*repository.DashboardMetrics, error) {
 	f.metricsHit++
 	value := f.metrics

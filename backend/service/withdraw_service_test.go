@@ -52,7 +52,7 @@ func TestWithdrawServiceOptionsReturnsScopedTokosAndBanks(t *testing.T) {
 	svc := NewWithdrawService(
 		&fakeTokoDomainRepo{},
 		&fakeBalanceRepo{byTokoID: map[uint64]repository.TokoBalanceRecord{
-			7: {TokoID: 7, TokoName: "Toko Alpha", SettlementBalance: 500000, AvailableBalance: 900000, LastSettlementTime: time.Now().UTC()},
+			7: {TokoID: 7, TokoName: "Toko Alpha", PendingBalance: 900000, SettleBalance: 500000, LastSettlementTime: time.Now().UTC()},
 		}},
 		&fakeBankRepo{items: map[uint64][]model.Bank{
 			11: {
@@ -85,7 +85,7 @@ func TestWithdrawServiceInquiryReturnsAccountConfirmationData(t *testing.T) {
 		},
 	}
 	balanceRepo := &fakeBalanceRepo{byTokoID: map[uint64]repository.TokoBalanceRecord{
-		5: {TokoID: 5, TokoName: "Toko Alpha", SettlementBalance: 500000, AvailableBalance: 1000000, LastSettlementTime: time.Now().UTC()},
+		5: {TokoID: 5, TokoName: "Toko Alpha", PendingBalance: 1000000, SettleBalance: 500000, LastSettlementTime: time.Now().UTC()},
 	}}
 	bankRepo := &fakeBankRepo{items: map[uint64][]model.Bank{
 		11: {
@@ -105,7 +105,7 @@ func TestWithdrawServiceInquiryReturnsAccountConfirmationData(t *testing.T) {
 			InquiryID:     77,
 		},
 	}
-	svc := NewWithdrawService(tokoRepo, balanceRepo, bankRepo, &fakeTransactionRepo{}, gateway, newFakeCacheStore(), true, "gue-client", "gue-key", "merchant-uuid", slog.Default())
+	svc := NewWithdrawService(tokoRepo, balanceRepo, bankRepo, &fakeTransactionRepo{balanceRepo: balanceRepo}, gateway, newFakeCacheStore(), true, "gue-client", "gue-key", "merchant-uuid", slog.Default())
 
 	result, err := svc.Inquiry(context.Background(), 11, model.UserRoleAdmin, WithdrawInquiryInput{
 		TokoID: 5,
@@ -115,7 +115,7 @@ func TestWithdrawServiceInquiryReturnsAccountConfirmationData(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, "PT GUE CONTROL", result.AccountName)
-	require.Equal(t, uint64(400000), result.RemainingSettlement)
+	require.Equal(t, uint64(398500), result.RemainingSettle)
 	require.Equal(t, "gue-client", gateway.inquiryReq.Client)
 	require.Equal(t, "gue-key", gateway.inquiryReq.ClientKey)
 	require.Equal(t, "merchant-uuid", gateway.inquiryReq.UUID)
@@ -176,7 +176,7 @@ func TestWithdrawServiceTransferCreatesPendingWithdrawAndDeductsSettlement(t *te
 		},
 	}
 	balanceRepo := &fakeBalanceRepo{byTokoID: map[uint64]repository.TokoBalanceRecord{
-		5: {TokoID: 5, TokoName: "Toko Alpha", SettlementBalance: 500000, AvailableBalance: 1000000, LastSettlementTime: time.Now().UTC()},
+		5: {TokoID: 5, TokoName: "Toko Alpha", PendingBalance: 1000000, SettleBalance: 500000, LastSettlementTime: time.Now().UTC()},
 	}}
 	bankRepo := &fakeBankRepo{items: map[uint64][]model.Bank{
 		11: {
@@ -187,7 +187,7 @@ func TestWithdrawServiceTransferCreatesPendingWithdrawAndDeductsSettlement(t *te
 	gateway := &fakeWithdrawGatewayClient{
 		transferResp: &paymentgateway.TransferFundResponse{Status: true},
 	}
-	svc := NewWithdrawService(tokoRepo, balanceRepo, bankRepo, &fakeTransactionRepo{}, gateway, cacheStore, true, "gue-client", "gue-key", "merchant-uuid", slog.Default())
+	svc := NewWithdrawService(tokoRepo, balanceRepo, bankRepo, &fakeTransactionRepo{balanceRepo: balanceRepo, byReference: map[string]*model.Transaction{}}, gateway, cacheStore, true, "gue-client", "gue-key", "merchant-uuid", slog.Default())
 
 	setCachedJSON(context.Background(), cacheStore, true, svc.inquiryCacheKey(11, 5, 9, 100000), &cachedWithdrawInquiry{
 		TokoID:        5,
@@ -212,7 +212,7 @@ func TestWithdrawServiceTransferCreatesPendingWithdrawAndDeductsSettlement(t *te
 
 	require.NoError(t, err)
 	require.True(t, result.Status)
-	require.Equal(t, uint64(400000), result.RemainingSettlement)
+	require.Equal(t, uint64(398500), result.RemainingSettle)
 	require.Equal(t, uint64(100000), result.Amount)
 	require.Equal(t, uint64(100000), gateway.transferReq.Amount)
 	require.Equal(t, uint64(77), gateway.transferReq.InquiryID)
@@ -220,7 +220,7 @@ func TestWithdrawServiceTransferCreatesPendingWithdrawAndDeductsSettlement(t *te
 
 	updatedBalance, err := balanceRepo.GetByTokoID(context.Background(), 5)
 	require.NoError(t, err)
-	require.Equal(t, 400000.0, updatedBalance.SettlementBalance)
+	require.Equal(t, 398500.0, updatedBalance.SettleBalance)
 }
 
 func TestWithdrawServiceTransferRefundsSettlementWhenGatewayFails(t *testing.T) {
@@ -230,7 +230,7 @@ func TestWithdrawServiceTransferRefundsSettlementWhenGatewayFails(t *testing.T) 
 		},
 	}
 	balanceRepo := &fakeBalanceRepo{byTokoID: map[uint64]repository.TokoBalanceRecord{
-		5: {TokoID: 5, TokoName: "Toko Alpha", SettlementBalance: 500000, AvailableBalance: 1000000, LastSettlementTime: time.Now().UTC()},
+		5: {TokoID: 5, TokoName: "Toko Alpha", PendingBalance: 1000000, SettleBalance: 500000, LastSettlementTime: time.Now().UTC()},
 	}}
 	bankRepo := &fakeBankRepo{items: map[uint64][]model.Bank{
 		11: {
@@ -241,7 +241,7 @@ func TestWithdrawServiceTransferRefundsSettlementWhenGatewayFails(t *testing.T) 
 	gateway := &fakeWithdrawGatewayClient{
 		transferErr: &paymentgateway.APIError{Message: "Invalid client", StatusCode: 400},
 	}
-	trxRepo := &fakeTransactionRepo{}
+	trxRepo := &fakeTransactionRepo{balanceRepo: balanceRepo, byReference: map[string]*model.Transaction{}}
 	svc := NewWithdrawService(tokoRepo, balanceRepo, bankRepo, trxRepo, gateway, cacheStore, true, "gue-client", "gue-key", "merchant-uuid", slog.Default())
 
 	setCachedJSON(context.Background(), cacheStore, true, svc.inquiryCacheKey(11, 5, 9, 100000), &cachedWithdrawInquiry{
@@ -268,9 +268,9 @@ func TestWithdrawServiceTransferRefundsSettlementWhenGatewayFails(t *testing.T) 
 	require.Error(t, err)
 	updatedBalance, balanceErr := balanceRepo.GetByTokoID(context.Background(), 5)
 	require.NoError(t, balanceErr)
-	require.Equal(t, 500000.0, updatedBalance.SettlementBalance)
-	require.Len(t, trxRepo.statuses, 1)
-	require.Equal(t, model.TransactionStatusFailed, trxRepo.statuses[0].status)
+	require.Equal(t, 500000.0, updatedBalance.SettleBalance)
+	require.Len(t, trxRepo.withdrawFinalized, 1)
+	require.Equal(t, model.TransactionStatusFailed, trxRepo.withdrawFinalized[0].status)
 }
 
 func pointerToString(value string) *string {

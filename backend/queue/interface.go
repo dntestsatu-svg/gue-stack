@@ -1,6 +1,9 @@
 package queue
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 type Producer interface {
 	EnqueueWelcomeEmail(ctx context.Context, email, name string) error
@@ -11,4 +14,8 @@ type Producer interface {
 type CallbackProcessor interface {
 	ProcessQrisCallback(ctx context.Context, payload QrisCallbackTaskPayload) error
 	ProcessTransferCallback(ctx context.Context, payload TransferCallbackTaskPayload) error
+}
+
+type PendingExpiryProcessor interface {
+	ExpirePendingTransactions(ctx context.Context, olderThan time.Time, limit int) (int, error)
 }

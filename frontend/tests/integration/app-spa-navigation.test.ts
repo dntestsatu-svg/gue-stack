@@ -271,8 +271,8 @@ describe('App SPA routing', () => {
       items: [],
       summary: {
         total_tokos: 0,
-        total_settlement_balance: 0,
-        total_available_balance: 0,
+        total_pending_balance: 0,
+        total_settle_balance: 0,
       },
       total: 0,
       limit: 10,
@@ -319,8 +319,8 @@ describe('App SPA routing', () => {
         {
           id: 1,
           name: 'Toko Alpha',
-          settlement_balance: 500000,
-          available_balance: 900000,
+          pending_balance: 900000,
+          settle_balance: 500000,
         },
       ],
       banks: [
@@ -361,8 +361,8 @@ describe('App SPA routing', () => {
       fee: 1500,
       inquiry_id: 77,
       partner_ref_no: 'partner-ref-1',
-      settlement_balance: 500000,
-      remaining_settlement_balance: 400000,
+      settle_balance: 500000,
+      remaining_settle_balance: 400000,
     })
     transferWithdrawMock.mockResolvedValue({
       status: true,
@@ -374,7 +374,7 @@ describe('App SPA routing', () => {
       account_name: 'PT GUE CONTROL',
       account_number: '1234567890',
       amount: 100000,
-      remaining_settlement_balance: 400000,
+      remaining_settle_balance: 400000,
     })
   })
 

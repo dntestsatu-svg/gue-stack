@@ -15,13 +15,13 @@ type WelcomeEmailPayload struct {
 
 type QrisCallbackTaskPayload struct {
 	Amount     uint64 `json:"amount" validate:"required,gt=0"`
-	TerminalID string `json:"terminal_id" validate:"required,max=255"`
+	TerminalID string `json:"terminal_id" validate:"omitempty,max=255"`
 	MerchantID string `json:"merchant_id" validate:"required,max=255"`
 	TrxID      string `json:"trx_id" validate:"required,max=255"`
-	RRN        string `json:"rrn" validate:"required,max=255"`
+	RRN        string `json:"rrn" validate:"omitempty,max=255"`
 	CustomRef  string `json:"custom_ref,omitempty" validate:"omitempty,max=36"`
 	Vendor     string `json:"vendor" validate:"required,max=255"`
-	Status     string `json:"status" validate:"required,oneof=success failed pending"`
+	Status     string `json:"status" validate:"required,oneof=success failed pending expired"`
 	CreatedAt  string `json:"created_at" validate:"required"`
 	FinishAt   string `json:"finish_at" validate:"required"`
 }

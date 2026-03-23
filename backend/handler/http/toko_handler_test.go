@@ -94,11 +94,11 @@ func TestTokoHandlerEndpoints_TableDriven(t *testing.T) {
 			require.Equal(t, 20, query.Offset)
 			require.Equal(t, "alpha", query.SearchTerm)
 			return &service.TokoWorkspacePage{
-				Items: []service.TokoWorkspaceItemDTO{{ID: 1, Name: "Toko A", Token: "abc", Charge: 3, SettlementBalance: 1000, AvailableBalance: 2000}},
+				Items: []service.TokoWorkspaceItemDTO{{ID: 1, Name: "Toko A", Token: "abc", Charge: 3, PendingBalance: 1000, SettleBalance: 2000}},
 				Summary: service.TokoWorkspaceSummaryDTO{
-					TotalTokos:            1,
-					TotalSettlementAmount: 1000,
-					TotalAvailableAmount:  2000,
+					TotalTokos:         1,
+					TotalPendingAmount: 1000,
+					TotalSettleAmount:  2000,
 				},
 				Total:   1,
 				Limit:   10,
@@ -133,17 +133,17 @@ func TestTokoHandlerEndpoints_TableDriven(t *testing.T) {
 		listBalancesFn: func(_ context.Context, userID uint64, actorRole model.UserRole) ([]service.TokoBalanceDTO, error) {
 			require.Equal(t, uint64(5), userID)
 			require.Equal(t, model.UserRoleAdmin, actorRole)
-			return []service.TokoBalanceDTO{{TokoID: 1, TokoName: "Toko A", SettlementBalance: 1000, AvailableBalance: 1200}}, nil
+			return []service.TokoBalanceDTO{{TokoID: 1, TokoName: "Toko A", PendingBalance: 1000, SettleBalance: 1200}}, nil
 		},
 		manualSettlementFn: func(_ context.Context, actorRole model.UserRole, tokoID uint64, input service.ManualSettlementInput) (*service.TokoBalanceDTO, error) {
 			require.Equal(t, model.UserRoleDev, actorRole)
 			require.Equal(t, uint64(1), tokoID)
 			require.Equal(t, 100.0, input.SettlementBalance)
 			return &service.TokoBalanceDTO{
-				TokoID:            1,
-				TokoName:          "Toko A",
-				SettlementBalance: 100,
-				AvailableBalance:  90,
+				TokoID:         1,
+				TokoName:       "Toko A",
+				PendingBalance: 900,
+				SettleBalance:  100,
 			}, nil
 		},
 	}

@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowDownRight, ArrowUpRight, UserPlus, Users } from 'lucide-vue-next'
+import { toast } from 'vue-sonner'
 import AppIcon from '@/components/AppIcon.vue'
 import DashboardStatusAreaChart from '@/components/dashboard/DashboardStatusAreaChart.vue'
 import EmptyState from '@/components/EmptyState.vue'
@@ -30,6 +31,8 @@ const userStore = useUserStore()
 const overview = ref<DashboardOverview | null>(null)
 const errorMessage = ref('')
 const loading = ref(false)
+const latestSuccessMarker = ref('')
+const successToastReady = ref(false)
 
 const { formatCurrency, formatDateShort, formatNumber, formatPercent } = useFormatters()
 
@@ -49,7 +52,21 @@ const loadDashboardData = async () => {
   loading.value = true
   errorMessage.value = ''
   try {
-    overview.value = await dashboardApi.fetchOverview()
+    const nextOverview = await dashboardApi.fetchOverview()
+    const latestOrder = nextOverview.latest_success_orders[0]
+    const nextMarker = latestOrder
+      ? `${latestOrder.reference ?? latestOrder.id}:${latestOrder.created_at}`
+      : ''
+
+    if (successToastReady.value && nextMarker !== '' && nextMarker !== latestSuccessMarker.value) {
+      toast.success('Pembayaran sukses baru diterima', {
+        description: `${latestOrder?.toko_name ?? 'Toko'} • ${latestOrder?.reference ?? 'No reference'} • ${formatCurrency(latestOrder?.amount ?? 0)}`,
+      })
+    }
+
+    overview.value = nextOverview
+    latestSuccessMarker.value = nextMarker
+    successToastReady.value = true
   } catch (error) {
     errorMessage.value = getApiErrorMessage(error)
   } finally {

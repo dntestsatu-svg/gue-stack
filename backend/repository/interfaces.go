@@ -39,7 +39,10 @@ type TokoRepository interface {
 type BalanceRepository interface {
 	ListByUser(ctx context.Context, userID uint64, actorRole model.UserRole) ([]TokoBalanceRecord, error)
 	GetByTokoID(ctx context.Context, tokoID uint64) (*TokoBalanceRecord, error)
-	UpsertByTokoID(ctx context.Context, tokoID uint64, settlementBalance float64, availableBalance float64) error
+	UpsertByTokoID(ctx context.Context, tokoID uint64, pendingBalance float64, settleBalance float64) error
+	ApplySettlementByTokoID(ctx context.Context, tokoID uint64, amount float64) error
+	IncreasePendingByTokoID(ctx context.Context, tokoID uint64, amount float64) error
+	DecreasePendingByTokoID(ctx context.Context, tokoID uint64, amount float64) error
 	DecreaseSettlementByTokoID(ctx context.Context, tokoID uint64, amount float64) error
 	IncreaseSettlementByTokoID(ctx context.Context, tokoID uint64, amount float64) error
 }
@@ -64,6 +67,11 @@ type TransactionRepository interface {
 	UpdateStatusByReference(ctx context.Context, reference string, status model.TransactionStatus) error
 	UpdateStatusByReferenceAndToko(ctx context.Context, reference string, tokoID uint64, status model.TransactionStatus) error
 	UpdateSettlementByID(ctx context.Context, id uint64, status model.TransactionStatus, platformFee uint64, netto uint64) error
+	UpdateSettlementIfPending(ctx context.Context, id uint64, status model.TransactionStatus, platformFee uint64, netto uint64) (bool, error)
+	FinalizeDepositSuccessByID(ctx context.Context, id uint64, tokoID uint64, platformFee uint64, netto uint64) (bool, error)
+	CreatePendingWithdrawAndReserveSettlement(ctx context.Context, trx *model.Transaction) error
+	FinalizeWithdrawIfPending(ctx context.Context, id uint64, status model.TransactionStatus) (bool, error)
+	ListPendingExpiryCandidates(ctx context.Context, olderThan time.Time, limit int) ([]PendingExpiryCandidate, error)
 	GetDashboardMetricsByUser(ctx context.Context, userID uint64, from time.Time) (*DashboardMetrics, error)
 	GetHourlyStatusCountsByUser(ctx context.Context, userID uint64, from time.Time) ([]DashboardStatusSeriesPoint, error)
 	ListRecentByUser(ctx context.Context, userID uint64, filter TransactionHistoryFilter) ([]TransactionHistoryRecord, error)
@@ -79,6 +87,19 @@ type DashboardMetrics struct {
 	SuccessDepositAmount  uint64
 	SuccessWithdrawAmount uint64
 	TotalPlatformFee      uint64
+}
+
+type PendingExpiryCandidate struct {
+	TransactionID uint64
+	TokoID        uint64
+	TokoToken     string
+	CallbackURL   *string
+	Amount        uint64
+	TrxID         string
+	RRN           string
+	CustomRef     string
+	Vendor        string
+	CreatedAt     time.Time
 }
 
 type UserListFilter struct {
@@ -97,8 +118,8 @@ type DashboardStatusSeriesPoint struct {
 type TokoBalanceRecord struct {
 	TokoID             uint64
 	TokoName           string
-	SettlementBalance  float64
-	AvailableBalance   float64
+	PendingBalance     float64
+	SettleBalance      float64
 	LastSettlementTime time.Time
 }
 
@@ -114,15 +135,15 @@ type TokoWorkspaceRecord struct {
 	Token              string
 	Charge             int
 	CallbackURL        *string
-	SettlementBalance  float64
-	AvailableBalance   float64
+	PendingBalance     float64
+	SettleBalance      float64
 	LastSettlementTime time.Time
 }
 
 type TokoWorkspaceSummary struct {
-	TotalTokos            uint64
-	TotalSettlementAmount float64
-	TotalAvailableAmount  float64
+	TotalTokos         uint64
+	TotalPendingAmount float64
+	TotalSettleAmount  float64
 }
 
 type TransactionHistoryRecord struct {

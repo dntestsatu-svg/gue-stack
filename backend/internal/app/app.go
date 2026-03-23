@@ -120,6 +120,9 @@ func NewHTTPApp(cfg config.Config, logger *slog.Logger) (*HTTPApp, error) {
 		cfg.PaymentGateway.WebhookSecret,
 		cfg.PaymentGateway.PlatformFeePercent,
 		logger,
+		queryCache,
+		cfg.Cache.Driver == "memcached",
+		nil,
 	)
 	testingSvc := service.NewTestingService(
 		tokoRepo,
@@ -201,18 +204,29 @@ func NewWorker(cfg config.Config, logger *slog.Logger) (*queue.Worker, *sql.DB, 
 
 	tokoRepo := mysql.NewTokoRepository(database)
 	transactionRepo := mysql.NewTransactionRepository(database)
+	var queryCache cache.Cache
+	switch cfg.Cache.Driver {
+	case "none":
+		queryCache = cache.NewNoopCache()
+	default:
+		queryCache = cache.NewMemcachedCache(cfg.Memcached.Addr)
+	}
 	gatewayClient := paymentgateway.NewClient(cfg.PaymentGateway.BaseURL, cfg.PaymentGateway.Timeout)
+	producer := queue.NewAsynqProducer(cfg.Redis.Addr, cfg.Redis.Password, cfg.Redis.DB, logger)
 	callbackProcessor := service.NewPaymentGatewayService(
 		gatewayClient,
 		tokoRepo,
 		transactionRepo,
-		nil,
+		producer,
 		cfg.PaymentGateway.DefaultClient,
 		cfg.PaymentGateway.DefaultKey,
 		cfg.PaymentGateway.MerchantUUID,
 		cfg.PaymentGateway.WebhookSecret,
 		cfg.PaymentGateway.PlatformFeePercent,
 		logger,
+		queryCache,
+		cfg.Cache.Driver == "memcached",
+		nil,
 	)
 
 	worker := queue.NewWorker(
@@ -221,6 +235,7 @@ func NewWorker(cfg config.Config, logger *slog.Logger) (*queue.Worker, *sql.DB, 
 		cfg.Redis.DB,
 		cfg.Asynq.Concurrency,
 		callbackProcessor,
+		producer,
 		logger,
 	)
 	return worker, database, nil

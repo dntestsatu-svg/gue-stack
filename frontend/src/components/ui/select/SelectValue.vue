@@ -8,6 +8,7 @@ const props = defineProps<SelectValueProps>()
 <template>
   <SelectValue
     data-slot="select-value"
+    class="min-w-0 flex-1 truncate"
     v-bind="props"
   >
     <slot />

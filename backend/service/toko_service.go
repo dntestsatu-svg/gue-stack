@@ -16,7 +16,6 @@ import (
 	"github.com/example/gue/backend/pkg/apperror"
 	"github.com/example/gue/backend/repository"
 	"github.com/go-playground/validator/v10"
-	"github.com/shopspring/decimal"
 )
 
 type TokoUseCase interface {
@@ -39,7 +38,6 @@ type TokoService struct {
 	validate      *validator.Validate
 	maxTokos      int
 	defaultCharge int
-	settlementFee decimal.Decimal
 }
 
 type CreateTokoInput struct {
@@ -71,28 +69,28 @@ type TokoDTO struct {
 }
 
 type TokoBalanceDTO struct {
-	TokoID            uint64  `json:"toko_id"`
-	TokoName          string  `json:"toko_name"`
-	SettlementBalance float64 `json:"settlement_balance"`
-	AvailableBalance  float64 `json:"available_balance"`
-	UpdatedAt         string  `json:"updated_at"`
+	TokoID         uint64  `json:"toko_id"`
+	TokoName       string  `json:"toko_name"`
+	PendingBalance float64 `json:"pending_balance"`
+	SettleBalance  float64 `json:"settle_balance"`
+	UpdatedAt      string  `json:"updated_at"`
 }
 
 type TokoWorkspaceItemDTO struct {
-	ID                uint64  `json:"id"`
-	Name              string  `json:"name"`
-	Token             string  `json:"token"`
-	Charge            int     `json:"charge"`
-	CallbackURL       *string `json:"callback_url,omitempty"`
-	SettlementBalance float64 `json:"settlement_balance"`
-	AvailableBalance  float64 `json:"available_balance"`
-	UpdatedAt         string  `json:"updated_at"`
+	ID             uint64  `json:"id"`
+	Name           string  `json:"name"`
+	Token          string  `json:"token"`
+	Charge         int     `json:"charge"`
+	CallbackURL    *string `json:"callback_url,omitempty"`
+	PendingBalance float64 `json:"pending_balance"`
+	SettleBalance  float64 `json:"settle_balance"`
+	UpdatedAt      string  `json:"updated_at"`
 }
 
 type TokoWorkspaceSummaryDTO struct {
-	TotalTokos            uint64  `json:"total_tokos"`
-	TotalSettlementAmount float64 `json:"total_settlement_balance"`
-	TotalAvailableAmount  float64 `json:"total_available_balance"`
+	TotalTokos         uint64  `json:"total_tokos"`
+	TotalPendingAmount float64 `json:"total_pending_balance"`
+	TotalSettleAmount  float64 `json:"total_settle_balance"`
 }
 
 type TokoWorkspacePage struct {
@@ -136,7 +134,6 @@ func NewTokoService(
 		validate:      validator.New(validator.WithRequiredStructEnabled()),
 		maxTokos:      maxTokos,
 		defaultCharge: defaultCharge,
-		settlementFee: decimal.NewFromInt(3000),
 	}
 }
 
@@ -185,23 +182,23 @@ func (s *TokoService) Workspace(ctx context.Context, userID uint64, actorRole mo
 	result := make([]TokoWorkspaceItemDTO, 0, len(items))
 	for _, item := range items {
 		result = append(result, TokoWorkspaceItemDTO{
-			ID:                item.ID,
-			Name:              item.Name,
-			Token:             item.Token,
-			Charge:            item.Charge,
-			CallbackURL:       item.CallbackURL,
-			SettlementBalance: item.SettlementBalance,
-			AvailableBalance:  item.AvailableBalance,
-			UpdatedAt:         item.LastSettlementTime.UTC().Format(time.RFC3339),
+			ID:             item.ID,
+			Name:           item.Name,
+			Token:          item.Token,
+			Charge:         item.Charge,
+			CallbackURL:    item.CallbackURL,
+			PendingBalance: item.PendingBalance,
+			SettleBalance:  item.SettleBalance,
+			UpdatedAt:      item.LastSettlementTime.UTC().Format(time.RFC3339),
 		})
 	}
 
 	page := &TokoWorkspacePage{
 		Items: result,
 		Summary: TokoWorkspaceSummaryDTO{
-			TotalTokos:            summary.TotalTokos,
-			TotalSettlementAmount: summary.TotalSettlementAmount,
-			TotalAvailableAmount:  summary.TotalAvailableAmount,
+			TotalTokos:         summary.TotalTokos,
+			TotalPendingAmount: summary.TotalPendingAmount,
+			TotalSettleAmount:  summary.TotalSettleAmount,
 		},
 		Total:   summary.TotalTokos,
 		Limit:   filter.Limit,
@@ -355,11 +352,11 @@ func (s *TokoService) ListBalancesByUser(ctx context.Context, userID uint64, act
 	result := make([]TokoBalanceDTO, 0, len(items))
 	for _, item := range items {
 		result = append(result, TokoBalanceDTO{
-			TokoID:            item.TokoID,
-			TokoName:          item.TokoName,
-			SettlementBalance: item.SettlementBalance,
-			AvailableBalance:  item.AvailableBalance,
-			UpdatedAt:         item.LastSettlementTime.UTC().Format(time.RFC3339),
+			TokoID:         item.TokoID,
+			TokoName:       item.TokoName,
+			PendingBalance: item.PendingBalance,
+			SettleBalance:  item.SettleBalance,
+			UpdatedAt:      item.LastSettlementTime.UTC().Format(time.RFC3339),
 		})
 	}
 	return result, nil
@@ -380,24 +377,13 @@ func (s *TokoService) ManualSettlement(ctx context.Context, actorRole model.User
 		return nil, apperror.New(http.StatusInternalServerError, "failed to validate toko", err.Error())
 	}
 
-	currentBalance, err := s.balanceRepo.GetByTokoID(ctx, tokoID)
-	if err != nil {
+	if err := s.balanceRepo.ApplySettlementByTokoID(ctx, tokoID, input.SettlementBalance); err != nil {
+		if errors.Is(err, repository.ErrInsufficientBalance) {
+			return nil, apperror.New(http.StatusBadRequest, "insufficient pending balance", "pending balance toko tidak mencukupi untuk settlement ini")
+		}
 		if errors.Is(err, repository.ErrNotFound) {
 			return nil, apperror.New(http.StatusNotFound, "toko balance not found", nil)
 		}
-		return nil, apperror.New(http.StatusInternalServerError, "failed to fetch current toko balance", err.Error())
-	}
-
-	settlementAmount := decimal.NewFromFloat(input.SettlementBalance)
-	currentSettlement := decimal.NewFromFloat(currentBalance.SettlementBalance)
-	currentAvailable := decimal.NewFromFloat(currentBalance.AvailableBalance)
-	nextAvailable := currentAvailable.Sub(settlementAmount).Sub(s.settlementFee)
-	if nextAvailable.IsNegative() {
-		return nil, apperror.New(http.StatusBadRequest, "insufficient available balance", "available balance cannot be negative after settlement and admin fee")
-	}
-	nextSettlement := currentSettlement.Add(settlementAmount)
-
-	if err := s.balanceRepo.UpsertByTokoID(ctx, tokoID, nextSettlement.InexactFloat64(), nextAvailable.InexactFloat64()); err != nil {
 		return nil, apperror.New(http.StatusInternalServerError, "failed to apply settlement", err.Error())
 	}
 	s.invalidateWorkspaceCache(ctx)
@@ -411,11 +397,11 @@ func (s *TokoService) ManualSettlement(ctx context.Context, actorRole model.User
 	}
 
 	return &TokoBalanceDTO{
-		TokoID:            record.TokoID,
-		TokoName:          record.TokoName,
-		SettlementBalance: record.SettlementBalance,
-		AvailableBalance:  record.AvailableBalance,
-		UpdatedAt:         record.LastSettlementTime.UTC().Format(time.RFC3339),
+		TokoID:         record.TokoID,
+		TokoName:       record.TokoName,
+		PendingBalance: record.PendingBalance,
+		SettleBalance:  record.SettleBalance,
+		UpdatedAt:      record.LastSettlementTime.UTC().Format(time.RFC3339),
 	}, nil
 }
 

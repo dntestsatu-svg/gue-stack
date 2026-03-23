@@ -201,16 +201,16 @@ func (r *TokoRepository) ListWorkspaceByUser(ctx context.Context, userID uint64,
 	for rows.Next() {
 		var item repository.TokoWorkspaceRecord
 		var callbackURL sql.NullString
-		var settlementRaw string
-		var availableRaw string
+		var pendingRaw string
+		var settleRaw string
 		if err := rows.Scan(
 			&item.ID,
 			&item.Name,
 			&item.Token,
 			&item.Charge,
 			&callbackURL,
-			&settlementRaw,
-			&availableRaw,
+			&pendingRaw,
+			&settleRaw,
 			&item.LastSettlementTime,
 		); err != nil {
 			return nil, fmt.Errorf("scan toko workspace row: %w", err)
@@ -219,16 +219,16 @@ func (r *TokoRepository) ListWorkspaceByUser(ctx context.Context, userID uint64,
 			item.CallbackURL = &callbackURL.String
 		}
 
-		settlement, err := decimal.NewFromString(settlementRaw)
+		pending, err := decimal.NewFromString(pendingRaw)
 		if err != nil {
-			return nil, fmt.Errorf("parse settlement balance: %w", err)
+			return nil, fmt.Errorf("parse pending balance: %w", err)
 		}
-		available, err := decimal.NewFromString(availableRaw)
+		settle, err := decimal.NewFromString(settleRaw)
 		if err != nil {
-			return nil, fmt.Errorf("parse available balance: %w", err)
+			return nil, fmt.Errorf("parse settle balance: %w", err)
 		}
-		item.SettlementBalance = settlement.InexactFloat64()
-		item.AvailableBalance = available.InexactFloat64()
+		item.PendingBalance = pending.InexactFloat64()
+		item.SettleBalance = settle.InexactFloat64()
 		result = append(result, item)
 	}
 	if err := rows.Err(); err != nil {
@@ -241,27 +241,27 @@ func (r *TokoRepository) SummarizeWorkspaceByUser(ctx context.Context, userID ui
 	query, args := buildTokoWorkspaceSummaryQuery(userID, actorRole, filter)
 
 	var summary repository.TokoWorkspaceSummary
-	var settlementRaw string
-	var availableRaw string
+	var pendingRaw string
+	var settleRaw string
 	if err := r.db.QueryRowContext(ctx, query, args...).Scan(
 		&summary.TotalTokos,
-		&settlementRaw,
-		&availableRaw,
+		&pendingRaw,
+		&settleRaw,
 	); err != nil {
 		return nil, fmt.Errorf("summarize toko workspace by user: %w", err)
 	}
 
-	settlement, err := decimal.NewFromString(settlementRaw)
+	pending, err := decimal.NewFromString(pendingRaw)
 	if err != nil {
-		return nil, fmt.Errorf("parse total settlement balance: %w", err)
+		return nil, fmt.Errorf("parse total pending balance: %w", err)
 	}
-	available, err := decimal.NewFromString(availableRaw)
+	settle, err := decimal.NewFromString(settleRaw)
 	if err != nil {
-		return nil, fmt.Errorf("parse total available balance: %w", err)
+		return nil, fmt.Errorf("parse total settle balance: %w", err)
 	}
 
-	summary.TotalSettlementAmount = settlement.InexactFloat64()
-	summary.TotalAvailableAmount = available.InexactFloat64()
+	summary.TotalPendingAmount = pending.InexactFloat64()
+	summary.TotalSettleAmount = settle.InexactFloat64()
 	return &summary, nil
 }
 
@@ -364,8 +364,8 @@ SELECT
   t.token,
   t.charge,
   t.callback_url,
-  COALESCE(b.pending, 0.00) AS settlement_balance,
-  COALESCE(b.available, 0.00) AS available_balance,
+  COALESCE(b.pending, 0.00) AS pending_balance,
+  COALESCE(b.available, 0.00) AS settle_balance,
   COALESCE(b.updated_at, t.updated_at) AS last_settlement_time
 FROM tokos t
 LEFT JOIN balances b ON b.toko_id = t.id
@@ -382,8 +382,8 @@ func buildTokoWorkspaceSummaryQuery(userID uint64, actorRole model.UserRole, fil
 	query := base + `
 SELECT
   COUNT(*) AS total_tokos,
-  COALESCE(CAST(SUM(COALESCE(b.pending, 0.00)) AS CHAR), '0.00') AS total_settlement_balance,
-  COALESCE(CAST(SUM(COALESCE(b.available, 0.00)) AS CHAR), '0.00') AS total_available_balance
+  COALESCE(CAST(SUM(COALESCE(b.pending, 0.00)) AS CHAR), '0.00') AS total_pending_balance,
+  COALESCE(CAST(SUM(COALESCE(b.available, 0.00)) AS CHAR), '0.00') AS total_settle_balance
 FROM tokos t
 LEFT JOIN balances b ON b.toko_id = t.id
 ` + buildTokoWorkspaceJoinAndWhere(actorRole, filter)

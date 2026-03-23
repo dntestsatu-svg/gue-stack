@@ -9,7 +9,9 @@ import (
 	"time"
 
 	"github.com/example/gue/backend/model"
+	"github.com/example/gue/backend/pkg/money"
 	"github.com/example/gue/backend/repository"
+	"github.com/shopspring/decimal"
 )
 
 type TransactionRepository struct {
@@ -157,13 +159,345 @@ func (r *TransactionRepository) UpdateSettlementByID(ctx context.Context, id uin
 	return nil
 }
 
+func (r *TransactionRepository) UpdateSettlementIfPending(ctx context.Context, id uint64, status model.TransactionStatus, platformFee uint64, netto uint64) (bool, error) {
+	query := `UPDATE transactions
+SET status = ?, platform_fee = ?, netto = ?, updated_at = CURRENT_TIMESTAMP
+WHERE id = ? AND status = ?`
+	result, err := r.db.ExecContext(ctx, query, status, platformFee, netto, id, model.TransactionStatusPending)
+	if err != nil {
+		return false, fmt.Errorf("update transaction settlement if pending: %w", err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("read affected rows: %w", err)
+	}
+	return affected > 0, nil
+}
+
+func (r *TransactionRepository) FinalizeDepositSuccessByID(ctx context.Context, id uint64, tokoID uint64, platformFee uint64, netto uint64) (bool, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return false, fmt.Errorf("begin finalize deposit success transaction: %w", err)
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
+	updateQuery := `UPDATE transactions
+SET status = ?, platform_fee = ?, netto = ?, updated_at = CURRENT_TIMESTAMP
+WHERE id = ? AND status = ? AND type = ?`
+	result, err := tx.ExecContext(
+		ctx,
+		updateQuery,
+		model.TransactionStatusSuccess,
+		platformFee,
+		netto,
+		id,
+		model.TransactionStatusPending,
+		model.TransactionTypeDeposit,
+	)
+	if err != nil {
+		return false, fmt.Errorf("update deposit transaction status: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("read affected rows for deposit finalize: %w", err)
+	}
+	if rowsAffected == 0 {
+		return false, nil
+	}
+
+	transactionID := id
+	if err := insertFinancialLedgerEntryTx(ctx, tx, &tokoID, &transactionID, model.FinancialLedgerEntryDepositPendingCredit, netto, nil); err != nil {
+		return false, err
+	}
+	if err := insertFinancialLedgerEntryTx(ctx, tx, &tokoID, &transactionID, model.FinancialLedgerEntryProjectPlatformFeeCredit, platformFee, nil); err != nil {
+		return false, err
+	}
+
+	balanceQuery := `UPDATE balances
+SET pending = pending + ?, updated_at = CURRENT_TIMESTAMP
+WHERE toko_id = ?`
+	nettoValue := decimal.NewFromInt(int64(netto)).StringFixed(2)
+	result, err = tx.ExecContext(ctx, balanceQuery, nettoValue, tokoID)
+	if err != nil {
+		return false, fmt.Errorf("increase pending balance on deposit finalize: %w", err)
+	}
+	rowsAffected, err = result.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("read affected rows for balance finalize: %w", err)
+	}
+	if rowsAffected == 0 {
+		return false, repository.ErrNotFound
+	}
+
+	if err := tx.Commit(); err != nil {
+		return false, fmt.Errorf("commit finalize deposit success transaction: %w", err)
+	}
+	committed = true
+	return true, nil
+}
+
+func (r *TransactionRepository) CreatePendingWithdrawAndReserveSettlement(ctx context.Context, trx *model.Transaction) error {
+	if trx == nil {
+		return fmt.Errorf("create pending withdraw and reserve settlement: nil transaction")
+	}
+	if trx.Type != model.TransactionTypeWithdraw {
+		return fmt.Errorf("create pending withdraw and reserve settlement: invalid transaction type %s", trx.Type)
+	}
+
+	fee := uint64(0)
+	if trx.FeeWithdrawal != nil {
+		fee = *trx.FeeWithdrawal
+	}
+	totalDebit, err := money.AddUint64(trx.Amount, fee)
+	if err != nil {
+		return fmt.Errorf("calculate withdraw total debit: %w", err)
+	}
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin create pending withdraw transaction: %w", err)
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
+	delta := decimal.NewFromInt(int64(totalDebit)).StringFixed(2)
+	reserveQuery := `UPDATE balances
+SET available = available - ?, updated_at = CURRENT_TIMESTAMP
+WHERE toko_id = ? AND available >= ?`
+	result, err := tx.ExecContext(ctx, reserveQuery, delta, trx.TokoID, delta)
+	if err != nil {
+		return fmt.Errorf("reserve withdraw settlement balance: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("read affected rows for reserve withdraw settlement balance: %w", err)
+	}
+	if rowsAffected == 0 {
+		return repository.ErrInsufficientBalance
+	}
+
+	insertQuery := "INSERT INTO transactions (" +
+		"toko_id, player, code, `type`, status, barcode, reference, amount, fee_withdrawal, platform_fee, netto" +
+		") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+	result, err = tx.ExecContext(
+		ctx,
+		insertQuery,
+		trx.TokoID,
+		nullableString(trx.Player),
+		nullableString(trx.Code),
+		trx.Type,
+		trx.Status,
+		nullableString(trx.Barcode),
+		nullableString(trx.Reference),
+		trx.Amount,
+		nullableUint64(trx.FeeWithdrawal),
+		trx.PlatformFee,
+		trx.Netto,
+	)
+	if err != nil {
+		return fmt.Errorf("create pending withdraw transaction: %w", err)
+	}
+	insertedID, err := result.LastInsertId()
+	if err != nil {
+		return fmt.Errorf("read pending withdraw transaction id: %w", err)
+	}
+	trx.ID = uint64(insertedID)
+	transactionID := trx.ID
+
+	if err := insertFinancialLedgerEntryTx(ctx, tx, &trx.TokoID, &transactionID, model.FinancialLedgerEntryWithdrawSettleDebit, trx.Amount, trx.Reference); err != nil {
+		return err
+	}
+	if err := insertFinancialLedgerEntryTx(ctx, tx, &trx.TokoID, &transactionID, model.FinancialLedgerEntryWithdrawFeeDebit, fee, trx.Reference); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit create pending withdraw transaction: %w", err)
+	}
+	committed = true
+	return nil
+}
+
+func (r *TransactionRepository) FinalizeWithdrawIfPending(ctx context.Context, id uint64, status model.TransactionStatus) (bool, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return false, fmt.Errorf("begin finalize withdraw transaction: %w", err)
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
+	query := `SELECT toko_id, amount, fee_withdrawal, reference, status, type
+FROM transactions
+WHERE id = ?
+FOR UPDATE`
+	var tokoID uint64
+	var amount uint64
+	var fee sql.NullInt64
+	var reference sql.NullString
+	var currentStatus model.TransactionStatus
+	var trxType model.TransactionType
+	if err := tx.QueryRowContext(ctx, query, id).Scan(&tokoID, &amount, &fee, &reference, &currentStatus, &trxType); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, repository.ErrNotFound
+		}
+		return false, fmt.Errorf("load pending withdraw transaction: %w", err)
+	}
+	if trxType != model.TransactionTypeWithdraw {
+		return false, repository.ErrNotFound
+	}
+	if currentStatus != model.TransactionStatusPending {
+		return false, nil
+	}
+
+	updateQuery := `UPDATE transactions
+SET status = ?, updated_at = CURRENT_TIMESTAMP
+WHERE id = ? AND status = ?`
+	result, err := tx.ExecContext(ctx, updateQuery, status, id, model.TransactionStatusPending)
+	if err != nil {
+		return false, fmt.Errorf("update withdraw transaction status: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("read affected rows for withdraw finalize: %w", err)
+	}
+	if rowsAffected == 0 {
+		return false, nil
+	}
+
+	if status == model.TransactionStatusFailed || status == model.TransactionStatusExpired {
+		feeValue := uint64(0)
+		if fee.Valid && fee.Int64 > 0 {
+			feeValue = uint64(fee.Int64)
+		}
+		totalRefund, addErr := money.AddUint64(amount, feeValue)
+		if addErr != nil {
+			return false, fmt.Errorf("calculate withdraw refund total: %w", addErr)
+		}
+		delta := decimal.NewFromInt(int64(totalRefund)).StringFixed(2)
+		refundQuery := `UPDATE balances
+SET available = available + ?, updated_at = CURRENT_TIMESTAMP
+WHERE toko_id = ?`
+		result, err = tx.ExecContext(ctx, refundQuery, delta, tokoID)
+		if err != nil {
+			return false, fmt.Errorf("refund withdraw settlement balance: %w", err)
+		}
+		rowsAffected, err = result.RowsAffected()
+		if err != nil {
+			return false, fmt.Errorf("read affected rows for withdraw refund: %w", err)
+		}
+		if rowsAffected == 0 {
+			return false, repository.ErrNotFound
+		}
+
+		transactionID := id
+		var referencePtr *string
+		if reference.Valid {
+			referencePtr = &reference.String
+		}
+		if err := insertFinancialLedgerEntryTx(ctx, tx, &tokoID, &transactionID, model.FinancialLedgerEntryWithdrawSettleRefund, amount, referencePtr); err != nil {
+			return false, err
+		}
+		if err := insertFinancialLedgerEntryTx(ctx, tx, &tokoID, &transactionID, model.FinancialLedgerEntryWithdrawFeeRefund, feeValue, referencePtr); err != nil {
+			return false, err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return false, fmt.Errorf("commit finalize withdraw transaction: %w", err)
+	}
+	committed = true
+	return true, nil
+}
+
+func (r *TransactionRepository) ListPendingExpiryCandidates(ctx context.Context, olderThan time.Time, limit int) ([]repository.PendingExpiryCandidate, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	if limit > 1000 {
+		limit = 1000
+	}
+
+	query := `
+SELECT
+  t.id,
+  t.toko_id,
+  tk.token,
+  tk.callback_url,
+  t.amount,
+  COALESCE(t.reference, '') AS trx_id,
+  '' AS rrn,
+  COALESCE(t.code, '') AS custom_ref,
+  'qris' AS vendor,
+  t.created_at
+FROM transactions t
+INNER JOIN tokos tk ON tk.id = t.toko_id
+WHERE t.status = ? AND t.type = ? AND t.created_at < ?
+ORDER BY t.created_at ASC
+LIMIT ?`
+
+	rows, err := r.db.QueryContext(
+		ctx,
+		query,
+		model.TransactionStatusPending,
+		model.TransactionTypeDeposit,
+		olderThan.UTC(),
+		limit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query pending expiry candidates: %w", err)
+	}
+	defer rows.Close()
+
+	items := make([]repository.PendingExpiryCandidate, 0, limit)
+	for rows.Next() {
+		var item repository.PendingExpiryCandidate
+		var callbackURL sql.NullString
+		if err := rows.Scan(
+			&item.TransactionID,
+			&item.TokoID,
+			&item.TokoToken,
+			&callbackURL,
+			&item.Amount,
+			&item.TrxID,
+			&item.RRN,
+			&item.CustomRef,
+			&item.Vendor,
+			&item.CreatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan pending expiry candidate: %w", err)
+		}
+		if callbackURL.Valid {
+			item.CallbackURL = &callbackURL.String
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate pending expiry candidates: %w", err)
+	}
+
+	return items, nil
+}
+
 func (r *TransactionRepository) GetDashboardMetricsByUser(ctx context.Context, userID uint64, from time.Time) (*repository.DashboardMetrics, error) {
 	query := transactionVisibilityCTE() + `
 SELECT
   COUNT(*) AS total_count,
   COALESCE(SUM(CASE WHEN t.status = 'success' THEN 1 ELSE 0 END), 0) AS success_count,
   COALESCE(SUM(CASE WHEN t.status = 'pending' THEN 1 ELSE 0 END), 0) AS pending_count,
-  COALESCE(SUM(CASE WHEN t.status = 'failed' THEN 1 ELSE 0 END), 0) AS failed_count,
+  COALESCE(SUM(CASE WHEN t.status IN ('failed', 'expired') THEN 1 ELSE 0 END), 0) AS failed_count,
   COALESCE(SUM(CASE WHEN t.status = 'success' AND t.type = 'deposit' THEN t.amount ELSE 0 END), 0) AS success_deposit_amount,
   COALESCE(SUM(CASE WHEN t.status = 'success' AND t.type = 'withdraw' THEN t.amount ELSE 0 END), 0) AS success_withdraw_amount,
   COALESCE(SUM(CASE WHEN t.status = 'success' THEN t.platform_fee ELSE 0 END), 0) AS total_platform_fee
@@ -193,7 +527,7 @@ func (r *TransactionRepository) GetHourlyStatusCountsByUser(ctx context.Context,
 SELECT
   DATE_FORMAT(t.created_at, '%Y-%m-%d %H:00:00') AS hour_bucket,
   COALESCE(SUM(CASE WHEN t.status = 'success' THEN 1 ELSE 0 END), 0) AS success_count,
-  COALESCE(SUM(CASE WHEN t.status = 'failed' THEN 1 ELSE 0 END), 0) AS failed_count
+  COALESCE(SUM(CASE WHEN t.status IN ('failed', 'expired') THEN 1 ELSE 0 END), 0) AS failed_count
 FROM transactions t
 INNER JOIN accessible_tokos at ON at.toko_id = t.toko_id
 WHERE t.created_at >= ?

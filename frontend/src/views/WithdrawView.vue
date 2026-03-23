@@ -281,13 +281,13 @@ void loadPageData()
             </CardHeader>
             <CardContent class="space-y-4">
               <div class="grid gap-4 md:grid-cols-2">
-                <div class="space-y-2">
+                <div class="min-w-0 space-y-2">
                   <Label for="withdraw-toko">Toko</Label>
                   <Select v-model="selectedTokoID">
-                    <SelectTrigger id="withdraw-toko">
+                    <SelectTrigger id="withdraw-toko" class="w-full">
                       <SelectValue placeholder="Pilih toko" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent class="w-[var(--reka-select-trigger-width)] max-w-[var(--reka-select-trigger-width)]">
                       <SelectItem v-for="item in tokos" :key="item.id" :value="String(item.id)">
                         {{ item.name }}
                       </SelectItem>
@@ -295,13 +295,13 @@ void loadPageData()
                   </Select>
                 </div>
 
-                <div class="space-y-2">
+                <div class="min-w-0 space-y-2">
                   <Label for="withdraw-bank">Bank Tujuan</Label>
                   <Select v-model="selectedBankID">
-                    <SelectTrigger id="withdraw-bank">
+                    <SelectTrigger id="withdraw-bank" class="w-full">
                       <SelectValue placeholder="Pilih bank" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent class="w-[var(--reka-select-trigger-width)] max-w-[var(--reka-select-trigger-width)]">
                       <SelectItem v-for="item in banks" :key="item.id" :value="String(item.id)">
                         {{ item.bank_name }} • {{ item.account_name }}
                       </SelectItem>
@@ -321,9 +321,9 @@ void loadPageData()
                     <Store class="mt-0.5 h-4 w-4 text-primary" />
                     <div class="space-y-1">
                       <p class="text-sm font-medium text-foreground">{{ selectedToko?.name || '-' }}</p>
-                      <p class="text-xs text-muted-foreground">Settlement Balance</p>
+                      <p class="text-xs text-muted-foreground">Settle Balance</p>
                       <p class="text-lg font-semibold text-foreground">
-                        {{ formatCurrency(selectedToko?.settlement_balance ?? 0) }}
+                        {{ formatCurrency(selectedToko?.settle_balance ?? 0) }}
                       </p>
                     </div>
                   </div>
@@ -354,8 +354,8 @@ void loadPageData()
           <div class="space-y-4">
             <Card class="dashboard-kpi-card">
               <CardHeader class="pb-2">
-                <CardDescription>Selected Settlement Balance</CardDescription>
-                <CardTitle class="text-2xl">{{ formatCurrency(selectedToko?.settlement_balance ?? 0) }}</CardTitle>
+                <CardDescription>Selected Settle Balance</CardDescription>
+                <CardTitle class="text-2xl">{{ formatCurrency(selectedToko?.settle_balance ?? 0) }}</CardTitle>
               </CardHeader>
             </Card>
 

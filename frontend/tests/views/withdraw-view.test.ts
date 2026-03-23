@@ -46,8 +46,8 @@ describe('WithdrawView', () => {
         {
           id: 1,
           name: 'Toko Alpha',
-          settlement_balance: 500000,
-          available_balance: 900000,
+          pending_balance: 900000,
+          settle_balance: 500000,
         },
       ],
       banks: [
@@ -91,8 +91,8 @@ describe('WithdrawView', () => {
       fee: 1500,
       inquiry_id: 77,
       partner_ref_no: 'partner-ref-1',
-      settlement_balance: 500000,
-      remaining_settlement_balance: 400000,
+      settle_balance: 500000,
+      remaining_settle_balance: 400000,
     })
     transferWithdrawMock.mockResolvedValue({
       status: true,
@@ -104,7 +104,7 @@ describe('WithdrawView', () => {
       account_name: 'PT GUE CONTROL',
       account_number: '1234567890',
       amount: 100000,
-      remaining_settlement_balance: 400000,
+      remaining_settle_balance: 400000,
     })
 
     const wrapper = mount(WithdrawView)

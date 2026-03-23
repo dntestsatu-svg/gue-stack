@@ -12,6 +12,7 @@ import (
 	"github.com/example/gue/backend/cache"
 	"github.com/example/gue/backend/model"
 	"github.com/example/gue/backend/pkg/apperror"
+	"github.com/example/gue/backend/pkg/money"
 	"github.com/example/gue/backend/pkg/paymentgateway"
 	"github.com/example/gue/backend/repository"
 	"github.com/go-playground/validator/v10"
@@ -53,10 +54,10 @@ type WithdrawOptionsResult struct {
 }
 
 type WithdrawTokoOption struct {
-	ID                uint64  `json:"id"`
-	Name              string  `json:"name"`
-	SettlementBalance float64 `json:"settlement_balance"`
-	AvailableBalance  float64 `json:"available_balance"`
+	ID             uint64  `json:"id"`
+	Name           string  `json:"name"`
+	PendingBalance float64 `json:"pending_balance"`
+	SettleBalance  float64 `json:"settle_balance"`
 }
 
 type WithdrawBankOption struct {
@@ -80,31 +81,31 @@ type WithdrawTransferInput struct {
 }
 
 type WithdrawInquiryResult struct {
-	TokoID              uint64 `json:"toko_id"`
-	TokoName            string `json:"toko_name"`
-	BankID              uint64 `json:"bank_id"`
-	BankName            string `json:"bank_name"`
-	AccountName         string `json:"account_name"`
-	AccountNumber       string `json:"account_number"`
-	Amount              uint64 `json:"amount"`
-	Fee                 uint64 `json:"fee"`
-	InquiryID           uint64 `json:"inquiry_id"`
-	PartnerRefNo        string `json:"partner_ref_no"`
-	SettlementBalance   uint64 `json:"settlement_balance"`
-	RemainingSettlement uint64 `json:"remaining_settlement_balance"`
+	TokoID          uint64 `json:"toko_id"`
+	TokoName        string `json:"toko_name"`
+	BankID          uint64 `json:"bank_id"`
+	BankName        string `json:"bank_name"`
+	AccountName     string `json:"account_name"`
+	AccountNumber   string `json:"account_number"`
+	Amount          uint64 `json:"amount"`
+	Fee             uint64 `json:"fee"`
+	InquiryID       uint64 `json:"inquiry_id"`
+	PartnerRefNo    string `json:"partner_ref_no"`
+	SettleBalance   uint64 `json:"settle_balance"`
+	RemainingSettle uint64 `json:"remaining_settle_balance"`
 }
 
 type WithdrawTransferResult struct {
-	Status              bool   `json:"status"`
-	Message             string `json:"message"`
-	TokoID              uint64 `json:"toko_id"`
-	TokoName            string `json:"toko_name"`
-	BankID              uint64 `json:"bank_id"`
-	BankName            string `json:"bank_name"`
-	AccountName         string `json:"account_name"`
-	AccountNumber       string `json:"account_number"`
-	Amount              uint64 `json:"amount"`
-	RemainingSettlement uint64 `json:"remaining_settlement_balance"`
+	Status          bool   `json:"status"`
+	Message         string `json:"message"`
+	TokoID          uint64 `json:"toko_id"`
+	TokoName        string `json:"toko_name"`
+	BankID          uint64 `json:"bank_id"`
+	BankName        string `json:"bank_name"`
+	AccountName     string `json:"account_name"`
+	AccountNumber   string `json:"account_number"`
+	Amount          uint64 `json:"amount"`
+	RemainingSettle uint64 `json:"remaining_settle_balance"`
 }
 
 type WithdrawHistoryQuery struct {
@@ -205,10 +206,10 @@ func (s *WithdrawService) Options(ctx context.Context, userID uint64, actorRole 
 	}
 	for _, item := range balances {
 		result.Tokos = append(result.Tokos, WithdrawTokoOption{
-			ID:                item.TokoID,
-			Name:              item.TokoName,
-			SettlementBalance: item.SettlementBalance,
-			AvailableBalance:  item.AvailableBalance,
+			ID:             item.TokoID,
+			Name:           item.TokoName,
+			PendingBalance: item.PendingBalance,
+			SettleBalance:  item.SettleBalance,
 		})
 	}
 	for _, item := range banks {
@@ -266,7 +267,7 @@ func (s *WithdrawService) Inquiry(ctx context.Context, userID uint64, actorRole 
 	if err != nil {
 		return nil, err
 	}
-	if err := ensureSettlementSufficient(balance.SettlementBalance, input.Amount); err != nil {
+	if err := ensureSettlementSufficient(balance.SettleBalance, input.Amount, 0); err != nil {
 		return nil, err
 	}
 
@@ -285,6 +286,9 @@ func (s *WithdrawService) Inquiry(ctx context.Context, userID uint64, actorRole 
 	if !strings.EqualFold(strings.TrimSpace(resp.BankCode), strings.TrimSpace(bank.BankCode)) {
 		return nil, apperror.New(http.StatusBadRequest, "bank inquiry mismatch", "bank inquiry response does not match selected bank")
 	}
+	if err := ensureSettlementSufficient(balance.SettleBalance, resp.Amount, resp.Fee); err != nil {
+		return nil, err
+	}
 
 	cached := &cachedWithdrawInquiry{
 		TokoID:        toko.ID,
@@ -301,25 +305,29 @@ func (s *WithdrawService) Inquiry(ctx context.Context, userID uint64, actorRole 
 	}
 	setCachedJSON(ctx, s.cache, s.cacheEnabled, s.inquiryCacheKey(userID, input.TokoID, input.BankID, input.Amount), cached, withdrawInquiryCacheTTL, s.logger)
 
-	currentSettlement := uint64(decimal.NewFromFloat(balance.SettlementBalance).IntPart())
-	remaining := currentSettlement
-	if currentSettlement >= input.Amount {
-		remaining = currentSettlement - input.Amount
+	currentSettle := uint64(decimal.NewFromFloat(balance.SettleBalance).IntPart())
+	totalDebit, debitErr := money.AddUint64(resp.Amount, resp.Fee)
+	if debitErr != nil {
+		return nil, apperror.New(http.StatusInternalServerError, "failed to compute withdraw total debit", debitErr.Error())
+	}
+	remaining := currentSettle
+	if currentSettle >= totalDebit {
+		remaining = currentSettle - totalDebit
 	}
 
 	return &WithdrawInquiryResult{
-		TokoID:              toko.ID,
-		TokoName:            toko.Name,
-		BankID:              bank.ID,
-		BankName:            bank.BankName,
-		AccountName:         resp.AccountName,
-		AccountNumber:       resp.AccountNumber,
-		Amount:              resp.Amount,
-		Fee:                 resp.Fee,
-		InquiryID:           resp.InquiryID,
-		PartnerRefNo:        resp.PartnerRefNo,
-		SettlementBalance:   currentSettlement,
-		RemainingSettlement: remaining,
+		TokoID:          toko.ID,
+		TokoName:        toko.Name,
+		BankID:          bank.ID,
+		BankName:        bank.BankName,
+		AccountName:     resp.AccountName,
+		AccountNumber:   resp.AccountNumber,
+		Amount:          resp.Amount,
+		Fee:             resp.Fee,
+		InquiryID:       resp.InquiryID,
+		PartnerRefNo:    resp.PartnerRefNo,
+		SettleBalance:   currentSettle,
+		RemainingSettle: remaining,
 	}, nil
 }
 
@@ -359,13 +367,6 @@ func (s *WithdrawService) Transfer(ctx context.Context, userID uint64, actorRole
 		return nil, apperror.New(http.StatusInternalServerError, "failed to verify existing withdraw transaction", err.Error())
 	}
 
-	if err := s.balanceRepo.DecreaseSettlementByTokoID(ctx, toko.ID, float64(cached.Amount)); err != nil {
-		if errors.Is(err, repository.ErrInsufficientBalance) {
-			return nil, apperror.New(http.StatusBadRequest, "insufficient settlement balance", "saldo settlement toko tidak mencukupi untuk withdraw ini")
-		}
-		return nil, apperror.New(http.StatusInternalServerError, "failed to reserve settlement balance", err.Error())
-	}
-
 	reference := cached.PartnerRefNo
 	fee := cached.Fee
 	trx := &model.Transaction{
@@ -376,11 +377,16 @@ func (s *WithdrawService) Transfer(ctx context.Context, userID uint64, actorRole
 		Amount:        cached.Amount,
 		FeeWithdrawal: &fee,
 		PlatformFee:   0,
-		Netto:         computePendingNetto(cached.Amount, &fee),
+		Netto:         cached.Amount,
 	}
-	if err := s.transactionRepo.Create(ctx, trx); err != nil {
-		_ = s.balanceRepo.IncreaseSettlementByTokoID(ctx, toko.ID, float64(cached.Amount))
-		return nil, apperror.New(http.StatusInternalServerError, "failed to persist withdraw transaction", err.Error())
+	if err := s.transactionRepo.CreatePendingWithdrawAndReserveSettlement(ctx, trx); err != nil {
+		if errors.Is(err, repository.ErrInsufficientBalance) {
+			return nil, apperror.New(http.StatusBadRequest, "insufficient settlement balance", "saldo settlement toko tidak mencukupi untuk withdraw ini")
+		}
+		if errors.Is(err, repository.ErrNotFound) {
+			return nil, apperror.New(http.StatusNotFound, "toko balance not found", nil)
+		}
+		return nil, apperror.New(http.StatusInternalServerError, "failed to reserve settlement balance", err.Error())
 	}
 
 	resp, err := s.gatewayClient.TransferFund(ctx, paymentgateway.TransferFundRequest{
@@ -394,14 +400,12 @@ func (s *WithdrawService) Transfer(ctx context.Context, userID uint64, actorRole
 		InquiryID:     cached.InquiryID,
 	})
 	if err != nil {
-		_ = s.transactionRepo.UpdateStatusByReferenceAndToko(ctx, cached.PartnerRefNo, toko.ID, model.TransactionStatusFailed)
-		_ = s.balanceRepo.IncreaseSettlementByTokoID(ctx, toko.ID, float64(cached.Amount))
+		_, _ = s.transactionRepo.FinalizeWithdrawIfPending(ctx, trx.ID, model.TransactionStatusFailed)
 		return nil, s.mapGatewayError("failed to request withdraw transfer", err)
 	}
 
 	if !resp.Status {
-		_ = s.transactionRepo.UpdateStatusByReferenceAndToko(ctx, cached.PartnerRefNo, toko.ID, model.TransactionStatusFailed)
-		_ = s.balanceRepo.IncreaseSettlementByTokoID(ctx, toko.ID, float64(cached.Amount))
+		_, _ = s.transactionRepo.FinalizeWithdrawIfPending(ctx, trx.ID, model.TransactionStatusFailed)
 		return nil, apperror.New(http.StatusBadGateway, "withdraw transfer rejected", "error")
 	}
 
@@ -416,20 +420,20 @@ func (s *WithdrawService) Transfer(ctx context.Context, userID uint64, actorRole
 	}
 	remaining := uint64(0)
 	if remainingBalance != nil {
-		remaining = uint64(decimal.NewFromFloat(remainingBalance.SettlementBalance).IntPart())
+		remaining = uint64(decimal.NewFromFloat(remainingBalance.SettleBalance).IntPart())
 	}
 
 	return &WithdrawTransferResult{
-		Status:              true,
-		Message:             "Uangnya akan segera sampai ke bank anda.",
-		TokoID:              toko.ID,
-		TokoName:            toko.Name,
-		BankID:              bank.ID,
-		BankName:            bank.BankName,
-		AccountName:         cached.AccountName,
-		AccountNumber:       bank.AccountNumber,
-		Amount:              cached.Amount,
-		RemainingSettlement: remaining,
+		Status:          true,
+		Message:         "Uangnya akan segera sampai ke bank anda.",
+		TokoID:          toko.ID,
+		TokoName:        toko.Name,
+		BankID:          bank.ID,
+		BankName:        bank.BankName,
+		AccountName:     cached.AccountName,
+		AccountNumber:   bank.AccountNumber,
+		Amount:          cached.Amount,
+		RemainingSettle: remaining,
 	}, nil
 }
 
@@ -501,9 +505,13 @@ func canRequestWithdraw(role model.UserRole) bool {
 	return role == model.UserRoleDev || role == model.UserRoleSuperAdmin || role == model.UserRoleAdmin
 }
 
-func ensureSettlementSufficient(currentBalance float64, amount uint64) error {
+func ensureSettlementSufficient(currentBalance float64, amount uint64, fee uint64) error {
 	current := decimal.NewFromFloat(currentBalance)
-	requested := decimal.NewFromInt(int64(amount))
+	totalDebit, err := money.AddUint64(amount, fee)
+	if err != nil {
+		return apperror.New(http.StatusInternalServerError, "failed to compute withdraw total debit", err.Error())
+	}
+	requested := decimal.NewFromInt(int64(totalDebit))
 	if current.LessThan(requested) {
 		return apperror.New(http.StatusBadRequest, "insufficient settlement balance", "saldo settlement toko tidak mencukupi untuk withdraw ini")
 	}

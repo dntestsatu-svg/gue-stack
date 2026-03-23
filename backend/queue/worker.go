@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/hibiken/asynq"
 )
@@ -13,9 +14,12 @@ type Worker struct {
 	logger            *slog.Logger
 	server            *asynq.Server
 	callbackProcessor CallbackProcessor
+	expiryProcessor   PendingExpiryProcessor
+	expiryStopCh      chan struct{}
+	producerCloser    interface{ Close() error }
 }
 
-func NewWorker(redisAddr, redisPassword string, redisDB, concurrency int, callbackProcessor CallbackProcessor, logger *slog.Logger) *Worker {
+func NewWorker(redisAddr, redisPassword string, redisDB, concurrency int, callbackProcessor CallbackProcessor, producerCloser interface{ Close() error }, logger *slog.Logger) *Worker {
 	server := asynq.NewServer(asynq.RedisClientOpt{
 		Addr:     redisAddr,
 		Password: redisPassword,
@@ -27,7 +31,16 @@ func NewWorker(redisAddr, redisPassword string, redisDB, concurrency int, callba
 			"callbacks": 7,
 		},
 	})
-	return &Worker{logger: logger, server: server, callbackProcessor: callbackProcessor}
+	worker := &Worker{
+		logger:            logger,
+		server:            server,
+		callbackProcessor: callbackProcessor,
+		producerCloser:    producerCloser,
+	}
+	if processor, ok := callbackProcessor.(PendingExpiryProcessor); ok {
+		worker.expiryProcessor = processor
+	}
+	return worker
 }
 
 func (w *Worker) Start() error {
@@ -40,13 +53,26 @@ func (w *Worker) Start() error {
 	if err := w.server.Start(mux); err != nil {
 		return fmt.Errorf("start asynq worker: %w", err)
 	}
+	if w.expiryProcessor != nil {
+		w.expiryStopCh = make(chan struct{})
+		go w.runPendingExpiryLoop()
+	}
 	w.logger.Info("asynq worker started")
 	return nil
 }
 
 func (w *Worker) Shutdown(ctx context.Context) {
 	w.logger.Info("shutting down asynq worker")
+	if w.expiryStopCh != nil {
+		close(w.expiryStopCh)
+		w.expiryStopCh = nil
+	}
 	w.server.Shutdown()
+	if w.producerCloser != nil {
+		if err := w.producerCloser.Close(); err != nil {
+			w.logger.Error("close asynq producer failed", "error", err.Error())
+		}
+	}
 	select {
 	case <-ctx.Done():
 		return
@@ -95,4 +121,38 @@ func (w *Worker) handleTransferCallback(ctx context.Context, t *asynq.Task) erro
 	}
 	w.logger.Info("processed transfer callback job", "partner_ref_no", payload.PartnerRefNo, "status", payload.Status)
 	return nil
+}
+
+func (w *Worker) runPendingExpiryLoop() {
+	w.processPendingExpiryBatch()
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			w.processPendingExpiryBatch()
+		case <-w.expiryStopCh:
+			return
+		}
+	}
+}
+
+func (w *Worker) processPendingExpiryBatch() {
+	if w.expiryProcessor == nil {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	expiredBefore := time.Now().UTC().Add(-20 * time.Minute)
+	count, err := w.expiryProcessor.ExpirePendingTransactions(ctx, expiredBefore, 250)
+	if err != nil {
+		w.logger.Error("expire pending transactions failed", "error", err.Error(), "older_than", expiredBefore.Format(time.RFC3339))
+		return
+	}
+	if count > 0 {
+		w.logger.Info("enqueued expired pending transactions", "count", count, "older_than", expiredBefore.Format(time.RFC3339))
+	}
 }

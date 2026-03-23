@@ -156,14 +156,54 @@ func (f *fakeBalanceRepo) GetByTokoID(_ context.Context, tokoID uint64) (*reposi
 	return &copy, nil
 }
 
-func (f *fakeBalanceRepo) UpsertByTokoID(_ context.Context, tokoID uint64, settlementBalance float64, availableBalance float64) error {
+func (f *fakeBalanceRepo) UpsertByTokoID(_ context.Context, tokoID uint64, pendingBalance float64, settleBalance float64) error {
 	if f.byTokoID == nil {
 		f.byTokoID = map[uint64]repository.TokoBalanceRecord{}
 	}
 	item := f.byTokoID[tokoID]
 	item.TokoID = tokoID
-	item.SettlementBalance = settlementBalance
-	item.AvailableBalance = availableBalance
+	item.PendingBalance = pendingBalance
+	item.SettleBalance = settleBalance
+	item.LastSettlementTime = time.Now().UTC()
+	f.byTokoID[tokoID] = item
+	return nil
+}
+
+func (f *fakeBalanceRepo) ApplySettlementByTokoID(_ context.Context, tokoID uint64, amount float64) error {
+	item, ok := f.byTokoID[tokoID]
+	if !ok {
+		return repository.ErrNotFound
+	}
+	if item.PendingBalance < amount {
+		return repository.ErrInsufficientBalance
+	}
+	item.PendingBalance -= amount
+	item.SettleBalance += amount
+	item.LastSettlementTime = time.Now().UTC()
+	f.byTokoID[tokoID] = item
+	return nil
+}
+
+func (f *fakeBalanceRepo) IncreasePendingByTokoID(_ context.Context, tokoID uint64, amount float64) error {
+	item, ok := f.byTokoID[tokoID]
+	if !ok {
+		return repository.ErrNotFound
+	}
+	item.PendingBalance += amount
+	item.LastSettlementTime = time.Now().UTC()
+	f.byTokoID[tokoID] = item
+	return nil
+}
+
+func (f *fakeBalanceRepo) DecreasePendingByTokoID(_ context.Context, tokoID uint64, amount float64) error {
+	item, ok := f.byTokoID[tokoID]
+	if !ok {
+		return repository.ErrNotFound
+	}
+	if item.PendingBalance < amount {
+		return repository.ErrInsufficientBalance
+	}
+	item.PendingBalance -= amount
 	item.LastSettlementTime = time.Now().UTC()
 	f.byTokoID[tokoID] = item
 	return nil
@@ -174,10 +214,10 @@ func (f *fakeBalanceRepo) DecreaseSettlementByTokoID(_ context.Context, tokoID u
 	if !ok {
 		return repository.ErrNotFound
 	}
-	if item.SettlementBalance < amount {
+	if item.SettleBalance < amount {
 		return repository.ErrInsufficientBalance
 	}
-	item.SettlementBalance -= amount
+	item.SettleBalance -= amount
 	item.LastSettlementTime = time.Now().UTC()
 	f.byTokoID[tokoID] = item
 	return nil
@@ -188,7 +228,7 @@ func (f *fakeBalanceRepo) IncreaseSettlementByTokoID(_ context.Context, tokoID u
 	if !ok {
 		return repository.ErrNotFound
 	}
-	item.SettlementBalance += amount
+	item.SettleBalance += amount
 	item.LastSettlementTime = time.Now().UTC()
 	f.byTokoID[tokoID] = item
 	return nil
@@ -247,8 +287,8 @@ func TestTokoServiceManualSettlementSuccess(t *testing.T) {
 			12: {
 				TokoID:             12,
 				TokoName:           "Toko Delta",
-				SettlementBalance:  0,
-				AvailableBalance:   500000,
+				PendingBalance:     500000,
+				SettleBalance:      0,
 				LastSettlementTime: time.Now().UTC(),
 			},
 		},
@@ -261,11 +301,11 @@ func TestTokoServiceManualSettlementSuccess(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, uint64(12), result.TokoID)
-	require.Equal(t, 250000.0, result.SettlementBalance)
-	require.Equal(t, 247000.0, result.AvailableBalance)
+	require.Equal(t, 250000.0, result.PendingBalance)
+	require.Equal(t, 250000.0, result.SettleBalance)
 }
 
-func TestTokoServiceManualSettlementAccumulatesSettlementAndDeductsFee(t *testing.T) {
+func TestTokoServiceManualSettlementMovesPendingToSettleBalance(t *testing.T) {
 	tokoRepo := &fakeTokoDomainRepo{
 		byID: map[uint64]*model.Toko{
 			99: {ID: 99, Name: "Toko Omega"},
@@ -276,8 +316,8 @@ func TestTokoServiceManualSettlementAccumulatesSettlementAndDeductsFee(t *testin
 			99: {
 				TokoID:             99,
 				TokoName:           "Toko Omega",
-				SettlementBalance:  10000,
-				AvailableBalance:   50000,
+				PendingBalance:     50000,
+				SettleBalance:      10000,
 				LastSettlementTime: time.Now().UTC(),
 			},
 		},
@@ -289,8 +329,8 @@ func TestTokoServiceManualSettlementAccumulatesSettlementAndDeductsFee(t *testin
 	})
 
 	require.NoError(t, err)
-	require.Equal(t, 22000.0, result.SettlementBalance)
-	require.Equal(t, 35000.0, result.AvailableBalance)
+	require.Equal(t, 38000.0, result.PendingBalance)
+	require.Equal(t, 22000.0, result.SettleBalance)
 }
 
 func TestTokoServiceManualSettlementForbiddenForSuperAdmin(t *testing.T) {
@@ -309,7 +349,7 @@ func TestTokoServiceManualSettlementForbiddenForSuperAdmin(t *testing.T) {
 	require.Contains(t, err.Error(), "manual settlement only allowed for dev")
 }
 
-func TestTokoServiceManualSettlementRejectsNegativeAvailable(t *testing.T) {
+func TestTokoServiceManualSettlementRejectsInsufficientPendingBalance(t *testing.T) {
 	tokoRepo := &fakeTokoDomainRepo{
 		byID: map[uint64]*model.Toko{
 			50: {ID: 50, Name: "Toko Sigma"},
@@ -320,8 +360,8 @@ func TestTokoServiceManualSettlementRejectsNegativeAvailable(t *testing.T) {
 			50: {
 				TokoID:             50,
 				TokoName:           "Toko Sigma",
-				SettlementBalance:  0,
-				AvailableBalance:   5000,
+				PendingBalance:     5000,
+				SettleBalance:      0,
 				LastSettlementTime: time.Now().UTC(),
 			},
 		},
@@ -329,11 +369,11 @@ func TestTokoServiceManualSettlementRejectsNegativeAvailable(t *testing.T) {
 	svc := NewTokoService(tokoRepo, balanceRepo, cache.NewNoopCache(), false, time.Minute, 3, 3, slog.Default())
 
 	_, err := svc.ManualSettlement(context.Background(), model.UserRoleDev, 50, ManualSettlementInput{
-		SettlementBalance: 4000,
+		SettlementBalance: 6000,
 	})
 
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "insufficient available balance")
+	require.Contains(t, err.Error(), "insufficient pending balance")
 }
 
 func TestTokoServiceWorkspaceReturnsPaginatedRows(t *testing.T) {
@@ -344,8 +384,8 @@ func TestTokoServiceWorkspaceReturnsPaginatedRows(t *testing.T) {
 				Name:               "Toko Alpha",
 				Token:              "tok_alpha",
 				Charge:             3,
-				SettlementBalance:  120000,
-				AvailableBalance:   450000,
+				PendingBalance:     120000,
+				SettleBalance:      450000,
 				LastSettlementTime: time.Date(2026, 3, 21, 10, 0, 0, 0, time.UTC),
 			},
 			{
@@ -353,15 +393,15 @@ func TestTokoServiceWorkspaceReturnsPaginatedRows(t *testing.T) {
 				Name:               "Toko Beta",
 				Token:              "tok_beta",
 				Charge:             3,
-				SettlementBalance:  80000,
-				AvailableBalance:   250000,
+				PendingBalance:     80000,
+				SettleBalance:      250000,
 				LastSettlementTime: time.Date(2026, 3, 20, 9, 0, 0, 0, time.UTC),
 			},
 		},
 		workspaceSummary: repository.TokoWorkspaceSummary{
 			TotalTokos:            2,
-			TotalSettlementAmount: 200000,
-			TotalAvailableAmount:  700000,
+			TotalPendingAmount: 200000,
+			TotalSettleAmount:  700000,
 		},
 	}
 	svc := NewTokoService(repo, &fakeBalanceRepo{}, cache.NewNoopCache(), false, time.Minute, 3, 3, slog.Default())
@@ -375,8 +415,8 @@ func TestTokoServiceWorkspaceReturnsPaginatedRows(t *testing.T) {
 	require.Len(t, page.Items, 1)
 	require.Equal(t, uint64(2), page.Total)
 	require.Equal(t, uint64(2), page.Summary.TotalTokos)
-	require.Equal(t, 200000.0, page.Summary.TotalSettlementAmount)
-	require.Equal(t, 700000.0, page.Summary.TotalAvailableAmount)
+	require.Equal(t, 200000.0, page.Summary.TotalPendingAmount)
+	require.Equal(t, 700000.0, page.Summary.TotalSettleAmount)
 	require.True(t, page.HasMore)
 }
 
@@ -388,15 +428,15 @@ func TestTokoServiceWorkspaceUsesCacheForPaginatedResult(t *testing.T) {
 				Name:               "Toko Alpha",
 				Token:              "tok_alpha",
 				Charge:             3,
-				SettlementBalance:  120000,
-				AvailableBalance:   450000,
+				PendingBalance:     120000,
+				SettleBalance:      450000,
 				LastSettlementTime: time.Date(2026, 3, 21, 10, 0, 0, 0, time.UTC),
 			},
 		},
 		workspaceSummary: repository.TokoWorkspaceSummary{
 			TotalTokos:            1,
-			TotalSettlementAmount: 120000,
-			TotalAvailableAmount:  450000,
+			TotalPendingAmount: 120000,
+			TotalSettleAmount:  450000,
 		},
 	}
 	cacheStore := newFakeCacheStore()
@@ -425,15 +465,15 @@ func TestTokoServiceCreateInvalidatesWorkspaceNamespace(t *testing.T) {
 				Name:               "Toko Alpha",
 				Token:              "tok_alpha",
 				Charge:             3,
-				SettlementBalance:  120000,
-				AvailableBalance:   450000,
+				PendingBalance:     120000,
+				SettleBalance:      450000,
 				LastSettlementTime: time.Date(2026, 3, 21, 10, 0, 0, 0, time.UTC),
 			},
 		},
 		workspaceSummary: repository.TokoWorkspaceSummary{
 			TotalTokos:            1,
-			TotalSettlementAmount: 120000,
-			TotalAvailableAmount:  450000,
+			TotalPendingAmount: 120000,
+			TotalSettleAmount:  450000,
 		},
 	}
 	cacheStore := newFakeCacheStore()
@@ -453,14 +493,14 @@ func TestTokoServiceCreateInvalidatesWorkspaceNamespace(t *testing.T) {
 		Name:               "Toko Baru",
 		Token:              "tok_baru",
 		Charge:             3,
-		SettlementBalance:  0,
-		AvailableBalance:   0,
+		PendingBalance:     0,
+		SettleBalance:      0,
 		LastSettlementTime: time.Date(2026, 3, 22, 10, 0, 0, 0, time.UTC),
 	})
 	repo.workspaceSummary = repository.TokoWorkspaceSummary{
 		TotalTokos:            2,
-		TotalSettlementAmount: 120000,
-		TotalAvailableAmount:  450000,
+		TotalPendingAmount: 120000,
+		TotalSettleAmount:  450000,
 	}
 
 	page, err := svc.Workspace(context.Background(), 10, model.UserRoleAdmin, query)

@@ -90,8 +90,8 @@ const canCreateTokoRole = computed(() => {
 const items = computed(() => workspace.value?.items ?? [])
 const summary = computed(() => workspace.value?.summary ?? {
   total_tokos: 0,
-  total_settlement_balance: 0,
-  total_available_balance: 0,
+  total_pending_balance: 0,
+  total_settle_balance: 0,
 })
 
 const ensureFormState = (item: TokoWorkspaceItem) => {
@@ -486,14 +486,14 @@ void loadWorkspace()
     <div class="grid gap-4 md:grid-cols-3">
       <Card class="dashboard-kpi-card">
         <CardHeader class="pb-2">
-          <CardDescription>Total Settlement Balance</CardDescription>
-          <CardTitle class="text-2xl">{{ formatCurrencyWithDecimals(summary.total_settlement_balance) }}</CardTitle>
+          <CardDescription>Total Pending Balance</CardDescription>
+          <CardTitle class="text-2xl">{{ formatCurrencyWithDecimals(summary.total_pending_balance) }}</CardTitle>
         </CardHeader>
       </Card>
       <Card class="dashboard-kpi-card">
         <CardHeader class="pb-2">
-          <CardDescription>Total Available Balance</CardDescription>
-          <CardTitle class="text-2xl">{{ formatCurrencyWithDecimals(summary.total_available_balance) }}</CardTitle>
+          <CardDescription>Total Settle Balance</CardDescription>
+          <CardTitle class="text-2xl">{{ formatCurrencyWithDecimals(summary.total_settle_balance) }}</CardTitle>
         </CardHeader>
       </Card>
       <Card class="dashboard-kpi-card">
@@ -610,16 +610,16 @@ void loadWorkspace()
 
       <Card class="app-panel">
         <CardHeader>
-          <CardTitle>Settlement Balances</CardTitle>
-          <CardDescription>Manual settlement hanya untuk role dev. Role lain tetap melihat data secara read-only.</CardDescription>
+          <CardTitle>Pending & Settle Balances</CardTitle>
+          <CardDescription>Pending bertambah dari transaksi sukses. Settlement manual developer memindahkan pending ke settle balance.</CardDescription>
         </CardHeader>
         <CardContent class="app-table-shell">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Toko</TableHead>
-                <TableHead class="text-right">Settlement Balance</TableHead>
-                <TableHead class="text-right">Available Balance</TableHead>
+                <TableHead class="text-right">Pending Balance</TableHead>
+                <TableHead class="text-right">Settle Balance</TableHead>
                 <TableHead>Updated</TableHead>
                 <TableHead class="text-right">Settlement Action</TableHead>
               </TableRow>
@@ -628,8 +628,8 @@ void loadWorkspace()
               <template v-if="items.length > 0">
                 <TableRow v-for="item in items" :key="`balance-${item.id}`">
                   <TableCell class="font-medium">{{ item.name }}</TableCell>
-                  <TableCell class="text-right">{{ formatCurrencyWithDecimals(item.settlement_balance) }}</TableCell>
-                  <TableCell class="text-right">{{ formatCurrencyWithDecimals(item.available_balance) }}</TableCell>
+                  <TableCell class="text-right">{{ formatCurrencyWithDecimals(item.pending_balance) }}</TableCell>
+                  <TableCell class="text-right">{{ formatCurrencyWithDecimals(item.settle_balance) }}</TableCell>
                   <TableCell>{{ formatDate(item.updated_at) }}</TableCell>
                   <TableCell class="text-right">
                     <form

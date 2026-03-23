@@ -103,8 +103,8 @@ export interface TransactionHistoryQuery {
 export interface TokoBalanceItem {
   toko_id: number
   toko_name: string
-  settlement_balance: number
-  available_balance: number
+  pending_balance: number
+  settle_balance: number
   updated_at: string
 }
 
@@ -122,15 +122,15 @@ export interface TokoWorkspaceItem {
   token: string
   charge: number
   callback_url?: string
-  settlement_balance: number
-  available_balance: number
+  pending_balance: number
+  settle_balance: number
   updated_at: string
 }
 
 export interface TokoWorkspaceSummary {
   total_tokos: number
-  total_settlement_balance: number
-  total_available_balance: number
+  total_pending_balance: number
+  total_settle_balance: number
 }
 
 export interface TokoWorkspacePage {
@@ -192,8 +192,8 @@ export interface BankInquiryResult {
 export interface WithdrawTokoOption {
   id: number
   name: string
-  settlement_balance: number
-  available_balance: number
+  pending_balance: number
+  settle_balance: number
 }
 
 export interface WithdrawBankOption {
@@ -219,8 +219,8 @@ export interface WithdrawInquiryResult {
   fee: number
   inquiry_id: number
   partner_ref_no: string
-  settlement_balance: number
-  remaining_settlement_balance: number
+  settle_balance: number
+  remaining_settle_balance: number
 }
 
 export interface WithdrawTransferResult {
@@ -233,7 +233,7 @@ export interface WithdrawTransferResult {
   account_name: string
   account_number: string
   amount: number
-  remaining_settlement_balance: number
+  remaining_settle_balance: number
 }
 
 export interface WithdrawHistoryItem {

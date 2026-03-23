@@ -24,8 +24,8 @@ func (r *BalanceRepository) ListByUser(ctx context.Context, userID uint64, actor
 SELECT
   t.id,
   t.name,
-  COALESCE(b.pending, 0.00) AS settlement_balance,
-  COALESCE(b.available, 0.00) AS available_balance,
+  COALESCE(b.pending, 0.00) AS pending_balance,
+  COALESCE(b.available, 0.00) AS settle_balance,
   COALESCE(b.updated_at, t.updated_at) AS last_settlement_time
 FROM tokos t
 LEFT JOIN balances b ON b.toko_id = t.id
@@ -37,8 +37,8 @@ ORDER BY t.created_at DESC
 SELECT
   t.id,
   t.name,
-  COALESCE(b.pending, 0.00) AS settlement_balance,
-  COALESCE(b.available, 0.00) AS available_balance,
+  COALESCE(b.pending, 0.00) AS pending_balance,
+  COALESCE(b.available, 0.00) AS settle_balance,
   COALESCE(b.updated_at, t.updated_at) AS last_settlement_time
 FROM tokos t
 INNER JOIN accessible_tokos at ON at.toko_id = t.id
@@ -77,8 +77,8 @@ ORDER BY t.created_at DESC
 		if err != nil {
 			return nil, fmt.Errorf("parse available balance: %w", err)
 		}
-		item.SettlementBalance = settlement.InexactFloat64()
-		item.AvailableBalance = available.InexactFloat64()
+		item.PendingBalance = settlement.InexactFloat64()
+		item.SettleBalance = available.InexactFloat64()
 		result = append(result, item)
 	}
 	if err := rows.Err(); err != nil {
@@ -92,8 +92,8 @@ func (r *BalanceRepository) GetByTokoID(ctx context.Context, tokoID uint64) (*re
 SELECT
   t.id,
   t.name,
-  COALESCE(b.pending, 0.00) AS settlement_balance,
-  COALESCE(b.available, 0.00) AS available_balance,
+  COALESCE(b.pending, 0.00) AS pending_balance,
+  COALESCE(b.available, 0.00) AS settle_balance,
   COALESCE(b.updated_at, t.updated_at) AS last_settlement_time
 FROM tokos t
 LEFT JOIN balances b ON b.toko_id = t.id
@@ -125,12 +125,12 @@ LIMIT 1
 	if err != nil {
 		return nil, fmt.Errorf("parse available balance: %w", err)
 	}
-	item.SettlementBalance = settlement.InexactFloat64()
-	item.AvailableBalance = available.InexactFloat64()
+	item.PendingBalance = settlement.InexactFloat64()
+	item.SettleBalance = available.InexactFloat64()
 	return item, nil
 }
 
-func (r *BalanceRepository) UpsertByTokoID(ctx context.Context, tokoID uint64, settlementBalance float64, availableBalance float64) error {
+func (r *BalanceRepository) UpsertByTokoID(ctx context.Context, tokoID uint64, pendingBalance float64, settleBalance float64) error {
 	query := `
 INSERT INTO balances (toko_id, pending, available)
 VALUES (?, ?, ?)
@@ -139,10 +139,101 @@ ON DUPLICATE KEY UPDATE
   available = VALUES(available),
   updated_at = CURRENT_TIMESTAMP
 `
-	settlement := decimal.NewFromFloat(settlementBalance).StringFixed(2)
-	available := decimal.NewFromFloat(availableBalance).StringFixed(2)
-	if _, err := r.db.ExecContext(ctx, query, tokoID, settlement, available); err != nil {
+	pending := decimal.NewFromFloat(pendingBalance).StringFixed(2)
+	settle := decimal.NewFromFloat(settleBalance).StringFixed(2)
+	if _, err := r.db.ExecContext(ctx, query, tokoID, pending, settle); err != nil {
 		return fmt.Errorf("upsert toko balance: %w", err)
+	}
+	return nil
+}
+
+func (r *BalanceRepository) ApplySettlementByTokoID(ctx context.Context, tokoID uint64, amount float64) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin apply settlement transaction: %w", err)
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
+	query := `
+UPDATE balances
+SET pending = pending - ?, available = available + ?, updated_at = CURRENT_TIMESTAMP
+WHERE toko_id = ? AND pending >= ?
+`
+	delta := decimal.NewFromFloat(amount).StringFixed(2)
+	result, err := tx.ExecContext(ctx, query, delta, delta, tokoID, delta)
+	if err != nil {
+		return fmt.Errorf("apply settlement by toko id: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("read affected rows for apply settlement: %w", err)
+	}
+	if rowsAffected == 0 {
+		return repository.ErrInsufficientBalance
+	}
+
+	settlementAmount := decimal.NewFromFloat(amount).Round(0).BigInt()
+	if !settlementAmount.IsUint64() {
+		return fmt.Errorf("apply settlement amount exceeds uint64 range")
+	}
+	amountUint := settlementAmount.Uint64()
+	if err := insertFinancialLedgerEntryTx(ctx, tx, &tokoID, nil, model.FinancialLedgerEntryManualSettlementPendingDeb, amountUint, nil); err != nil {
+		return err
+	}
+	if err := insertFinancialLedgerEntryTx(ctx, tx, &tokoID, nil, model.FinancialLedgerEntryManualSettlementSettleCred, amountUint, nil); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit apply settlement transaction: %w", err)
+	}
+	committed = true
+	return nil
+}
+
+func (r *BalanceRepository) IncreasePendingByTokoID(ctx context.Context, tokoID uint64, amount float64) error {
+	query := `
+UPDATE balances
+SET pending = pending + ?, updated_at = CURRENT_TIMESTAMP
+WHERE toko_id = ?
+`
+	delta := decimal.NewFromFloat(amount).StringFixed(2)
+	result, err := r.db.ExecContext(ctx, query, delta, tokoID)
+	if err != nil {
+		return fmt.Errorf("increase pending balance: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("read affected rows for increase pending: %w", err)
+	}
+	if rowsAffected == 0 {
+		return repository.ErrNotFound
+	}
+	return nil
+}
+
+func (r *BalanceRepository) DecreasePendingByTokoID(ctx context.Context, tokoID uint64, amount float64) error {
+	query := `
+UPDATE balances
+SET pending = pending - ?, updated_at = CURRENT_TIMESTAMP
+WHERE toko_id = ? AND pending >= ?
+`
+	delta := decimal.NewFromFloat(amount).StringFixed(2)
+	result, err := r.db.ExecContext(ctx, query, delta, tokoID, delta)
+	if err != nil {
+		return fmt.Errorf("decrease pending balance: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("read affected rows for decrease pending: %w", err)
+	}
+	if rowsAffected == 0 {
+		return repository.ErrInsufficientBalance
 	}
 	return nil
 }
@@ -150,8 +241,8 @@ ON DUPLICATE KEY UPDATE
 func (r *BalanceRepository) DecreaseSettlementByTokoID(ctx context.Context, tokoID uint64, amount float64) error {
 	query := `
 UPDATE balances
-SET pending = pending - ?, updated_at = CURRENT_TIMESTAMP
-WHERE toko_id = ? AND pending >= ?
+SET available = available - ?, updated_at = CURRENT_TIMESTAMP
+WHERE toko_id = ? AND available >= ?
 `
 	delta := decimal.NewFromFloat(amount).StringFixed(2)
 	result, err := r.db.ExecContext(ctx, query, delta, tokoID, delta)
@@ -171,7 +262,7 @@ WHERE toko_id = ? AND pending >= ?
 func (r *BalanceRepository) IncreaseSettlementByTokoID(ctx context.Context, tokoID uint64, amount float64) error {
 	query := `
 UPDATE balances
-SET pending = pending + ?, updated_at = CURRENT_TIMESTAMP
+SET available = available + ?, updated_at = CURRENT_TIMESTAMP
 WHERE toko_id = ?
 `
 	delta := decimal.NewFromFloat(amount).StringFixed(2)
