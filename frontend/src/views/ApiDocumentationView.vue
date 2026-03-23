@@ -210,7 +210,7 @@ const copyText = async (value: string, label: string) => {
         <CardHeader>
           <CardTitle>Merchant Endpoint Catalog</CardTitle>
           <CardDescription>
-            Endpoint di bawah ini adalah endpoint yang umumnya dipakai merchant website. Semua request memakai bearer token toko.
+		<strong class="mt-5">Prefix: </strong><code>/api/v1</code>
           </CardDescription>
         </CardHeader>
         <CardContent class="app-table-shell">
