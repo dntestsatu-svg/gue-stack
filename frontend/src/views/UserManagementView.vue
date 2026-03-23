@@ -461,7 +461,7 @@ void loadUsers()
                     v-if="canEditRole && user.role !== 'dev'"
                     v-model="roleDraftByUser[user.id]"
                   >
-                    <SelectTrigger class="w-[150px]">
+                    <SelectTrigger class="w-37.5">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>

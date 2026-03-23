@@ -89,9 +89,9 @@
                   <span
                     class="status-pill"
                     :class="{
-                      'bg-[color-mix(in_oklab,var(--success)_20%,transparent)] text-[var(--success)]': item.status === 'success',
-                      'bg-[color-mix(in_oklab,var(--warning)_20%,transparent)] text-[var(--warning)]': item.status === 'pending',
-                      'bg-[color-mix(in_oklab,var(--danger)_20%,transparent)] text-[var(--danger)]': item.status !== 'success' && item.status !== 'pending',
+                      'bg-[color-mix(in_oklab,var(--success)_20%,transparent)] text-(--success)': item.status === 'success',
+                      'bg-[color-mix(in_oklab,var(--warning)_20%,transparent)] text-(--warning)': item.status === 'pending',
+                      'bg-[color-mix(in_oklab,var(--danger)_20%,transparent)] text-(--danger)': item.status !== 'success' && item.status !== 'pending',
                     }"
                   >
                     {{ item.status }}

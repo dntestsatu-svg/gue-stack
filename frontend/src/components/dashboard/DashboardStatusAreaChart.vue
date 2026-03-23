@@ -65,7 +65,7 @@ function yTickLabel(value: number) {
   <ChartContainer
     :config="chartConfig"
     cursor
-    class="min-h-[320px] w-full rounded-xl border border-border/70 bg-(--background-muted)/35 p-4"
+    class="min-h-80 w-full rounded-xl border border-border/70 bg-(--background-muted)/35 p-4"
     data-testid="dashboard-status-chart"
   >
     <ChartLegendContent class="justify-start pt-0 pb-4" />

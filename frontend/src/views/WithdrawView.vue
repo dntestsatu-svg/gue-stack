@@ -287,7 +287,7 @@ void loadPageData()
                     <SelectTrigger id="withdraw-toko" class="w-full">
                       <SelectValue placeholder="Pilih toko" />
                     </SelectTrigger>
-                    <SelectContent class="w-[var(--reka-select-trigger-width)] max-w-[var(--reka-select-trigger-width)]">
+                    <SelectContent class="w-(--reka-select-trigger-width) max-w-(--reka-select-trigger-width)">
                       <SelectItem v-for="item in tokos" :key="item.id" :value="String(item.id)">
                         {{ item.name }}
                       </SelectItem>
@@ -301,7 +301,7 @@ void loadPageData()
                     <SelectTrigger id="withdraw-bank" class="w-full">
                       <SelectValue placeholder="Pilih bank" />
                     </SelectTrigger>
-                    <SelectContent class="w-[var(--reka-select-trigger-width)] max-w-[var(--reka-select-trigger-width)]">
+                    <SelectContent class="w-(--reka-select-trigger-width) max-w-(--reka-select-trigger-width)">
                       <SelectItem v-for="item in banks" :key="item.id" :value="String(item.id)">
                         {{ item.bank_name }} • {{ item.account_name }}
                       </SelectItem>

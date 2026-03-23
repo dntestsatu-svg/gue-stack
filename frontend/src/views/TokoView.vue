@@ -383,7 +383,7 @@ void loadWorkspace()
             <div v-if="createdToko" class="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
               <p class="text-sm font-semibold text-emerald-300">Toko berhasil dibuat: {{ createdToko.name }}</p>
               <p class="mt-1 text-xs text-muted-foreground">Gunakan token ini sebagai Bearer token untuk internal payment endpoint.</p>
-              <div class="mt-3 flex items-center gap-2 rounded-lg border bg-[var(--background-muted)] px-3 py-2">
+              <div class="mt-3 flex items-center gap-2 rounded-lg border bg-(--background-muted) px-3 py-2">
                 <code class="min-w-0 flex-1 truncate text-xs">{{ createdToko.token }}</code>
                 <Button size="sm" variant="outline" type="button" @click="copyToClipboard(createdToko.token, 'Token toko baru')">
                   <Copy class="mr-2 h-4 w-4" />
@@ -437,7 +437,7 @@ void loadWorkspace()
                   </Button>
                 </div>
 
-                <div class="mt-3 flex items-center gap-2 rounded-lg border bg-(--background) px-3 py-2">
+                <div class="mt-3 flex items-center gap-2 rounded-lg border bg-background px-3 py-2">
                   <code class="min-w-0 flex-1 truncate text-xs">{{ managedToken || managedToko?.token || '-' }}</code>
                   <Button
                     size="sm"
@@ -569,11 +569,11 @@ void loadWorkspace()
                   <TableCell>
                     <Badge variant="outline">{{ item.charge }}%</Badge>
                   </TableCell>
-                  <TableCell class="max-w-[280px] truncate text-muted-foreground">
+                  <TableCell class="max-w-70 truncate text-muted-foreground">
                     {{ item.callback_url || '-' }}
                   </TableCell>
-                  <TableCell class="max-w-[240px]">
-                    <code class="block truncate rounded-md bg-[var(--background-muted)] px-2 py-1 text-xs">{{ item.token }}</code>
+                  <TableCell class="max-w-60">
+                    <code class="block truncate rounded-md bg-(--background-muted) px-2 py-1 text-xs">{{ item.token }}</code>
                   </TableCell>
                   <TableCell class="text-right">
                     <div class="flex justify-end gap-2">
@@ -639,7 +639,7 @@ void loadWorkspace()
                     >
                       <Input
                         v-model="formByToko[item.id].settlementBalance"
-                        class="w-full md:w-[190px]"
+                        class="w-full md:w-47.5"
                         type="number"
                         step="0.01"
                         min="0"

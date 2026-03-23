@@ -15,7 +15,7 @@
             <Label for="password">Password</Label>
             <Input id="password" v-model="form.password" type="password" placeholder="********" />
           </div>
-          <p v-if="errorMessage" class="text-sm text-[var(--danger)]">{{ errorMessage }}</p>
+          <p v-if="errorMessage" class="text-sm text-(--danger)">{{ errorMessage }}</p>
           <Button class="w-full" type="submit" :disabled="auth.processing">
             {{ auth.processing ? 'Signing In...' : 'Sign In' }}
           </Button>

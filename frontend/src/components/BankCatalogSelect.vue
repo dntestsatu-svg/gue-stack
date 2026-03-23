@@ -106,7 +106,7 @@ onBeforeUnmount(() => {
       </Button>
     </PopoverTrigger>
 
-    <PopoverContent class="w-[var(--reka-popper-anchor-width)] min-w-[320px] p-0" align="start">
+    <PopoverContent class="w-(--reka-popper-anchor-width) min-w-[320px] p-0" align="start">
       <div class="border-b px-3 py-3">
         <div class="relative">
           <Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
