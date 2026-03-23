@@ -4,9 +4,36 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+@font-face {
+  font-family: "InterVariable";
+  src: url("/fonts/inter/InterVariable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "InterVariable";
+  src: url("/fonts/inter/InterVariable-Italic.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "FiraCodeVariable";
+  src: url("/fonts/firacode/woff2/FiraCode-VF.woff2") format("woff2");
+  font-weight: 300 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 @theme {
-  --font-sans: InterVariable, sans-serif;
+  --font-sans: "InterVariable", ui-sans-serif, system-ui, sans-serif;
   --font-sans--font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  --font-mono:
+    "FiraCodeVariable", "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    monospace;
 }
 
 :root {
@@ -108,6 +135,9 @@
   html {
     @apply text-foreground scheme-light dark:scheme-dark;
     background-color: var(--background);
+    font-family: var(--font-sans);
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    font-optical-sizing: auto;
   }
   button:not(:disabled),
   [role="button"]:not(:disabled) {
@@ -130,6 +160,13 @@
   input,
   button {
     font: inherit;
+  }
+  code,
+  pre,
+  kbd,
+  samp {
+    font-family: var(--font-mono);
+    font-variant-ligatures: none;
   }
   * {
     border-color: var(--border);
