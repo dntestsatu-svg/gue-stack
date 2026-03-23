@@ -101,16 +101,16 @@ func TestWithdrawHandlerOptionsInquiryTransfer(t *testing.T) {
 			require.Equal(t, uint64(9), input.BankID)
 			require.Equal(t, uint64(100000), input.Amount)
 			return &service.WithdrawInquiryResult{
-				TokoID:              7,
-				TokoName:            "Toko Alpha",
-				BankID:              9,
-				BankName:            "PT. BANK CENTRAL ASIA, TBK.",
-				AccountName:         "PT GUE CONTROL",
-				AccountNumber:       "1234567890",
-				Amount:              100000,
-				Fee:                 1500,
-				InquiryID:           77,
-				PartnerRefNo:        "partner-ref-1",
+				TokoID:          7,
+				TokoName:        "Toko Alpha",
+				BankID:          9,
+				BankName:        "PT. BANK CENTRAL ASIA, TBK.",
+				AccountName:     "PT GUE CONTROL",
+				AccountNumber:   "1234567890",
+				Amount:          100000,
+				Fee:             1500,
+				InquiryID:       77,
+				PartnerRefNo:    "partner-ref-1",
 				SettleBalance:   500000,
 				RemainingSettle: 400000,
 			}, nil
@@ -120,15 +120,15 @@ func TestWithdrawHandlerOptionsInquiryTransfer(t *testing.T) {
 			require.Equal(t, model.UserRoleAdmin, actorRole)
 			require.Equal(t, uint64(77), input.InquiryID)
 			return &service.WithdrawTransferResult{
-				Status:              true,
-				Message:             "Uangnya akan segera sampai ke bank anda.",
-				TokoID:              7,
-				TokoName:            "Toko Alpha",
-				BankID:              9,
-				BankName:            "PT. BANK CENTRAL ASIA, TBK.",
-				AccountName:         "PT GUE CONTROL",
-				AccountNumber:       "1234567890",
-				Amount:              100000,
+				Status:          true,
+				Message:         "Uangnya akan segera sampai ke bank anda.",
+				TokoID:          7,
+				TokoName:        "Toko Alpha",
+				BankID:          9,
+				BankName:        "PT. BANK CENTRAL ASIA, TBK.",
+				AccountName:     "PT GUE CONTROL",
+				AccountNumber:   "1234567890",
+				Amount:          100000,
 				RemainingSettle: 400000,
 			}, nil
 		},

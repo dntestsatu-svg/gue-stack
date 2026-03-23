@@ -399,7 +399,7 @@ func TestTokoServiceWorkspaceReturnsPaginatedRows(t *testing.T) {
 			},
 		},
 		workspaceSummary: repository.TokoWorkspaceSummary{
-			TotalTokos:            2,
+			TotalTokos:         2,
 			TotalPendingAmount: 200000,
 			TotalSettleAmount:  700000,
 		},
@@ -434,7 +434,7 @@ func TestTokoServiceWorkspaceUsesCacheForPaginatedResult(t *testing.T) {
 			},
 		},
 		workspaceSummary: repository.TokoWorkspaceSummary{
-			TotalTokos:            1,
+			TotalTokos:         1,
 			TotalPendingAmount: 120000,
 			TotalSettleAmount:  450000,
 		},
@@ -471,7 +471,7 @@ func TestTokoServiceCreateInvalidatesWorkspaceNamespace(t *testing.T) {
 			},
 		},
 		workspaceSummary: repository.TokoWorkspaceSummary{
-			TotalTokos:            1,
+			TotalTokos:         1,
 			TotalPendingAmount: 120000,
 			TotalSettleAmount:  450000,
 		},
@@ -498,7 +498,7 @@ func TestTokoServiceCreateInvalidatesWorkspaceNamespace(t *testing.T) {
 		LastSettlementTime: time.Date(2026, 3, 22, 10, 0, 0, 0, time.UTC),
 	})
 	repo.workspaceSummary = repository.TokoWorkspaceSummary{
-		TotalTokos:            2,
+		TotalTokos:         2,
 		TotalPendingAmount: 120000,
 		TotalSettleAmount:  450000,
 	}
