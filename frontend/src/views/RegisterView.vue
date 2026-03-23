@@ -9,10 +9,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Spinner } from '@/components/ui/spinner'
-import { ensureGtmLoaded, trackGtmEventBeforeAction } from '@/lib/gtm'
+import { ensureGtmLoaded, waitForGtmEvent } from '@/lib/gtm'
+import { redirectTo } from '@/lib/navigation'
 
 const auth = useAuthStore()
 const errorMessage = ref('')
+const isCompletingSignup = ref(false)
+const SIGN_UP_REDIRECT_DELAY_MS = 1600
 
 const form = reactive({
   name: '',
@@ -20,9 +23,9 @@ const form = reactive({
   password: '',
 })
 
-const redirectToDashboard = () => {
-  window.location.assign('/dashboard')
-}
+const wait = (ms: number) => new Promise<void>((resolve) => {
+  window.setTimeout(resolve, ms)
+})
 
 const onSubmit = async () => {
   errorMessage.value = ''
@@ -33,19 +36,27 @@ const onSubmit = async () => {
       password: form.password,
     })
 
-    await trackGtmEventBeforeAction({
-      event: 'sign_up',
-      method: 'email',
-      account_role: 'admin',
-      page_type: 'register',
-    }, redirectToDashboard)
+    isCompletingSignup.value = true
+
+    await Promise.all([
+      waitForGtmEvent({
+        event: 'sign_up',
+        method: 'email',
+        account_role: 'admin',
+        page_type: 'register',
+      }),
+      wait(SIGN_UP_REDIRECT_DELAY_MS),
+    ])
+
+    redirectTo('/dashboard')
   } catch (error) {
+    isCompletingSignup.value = false
     errorMessage.value = error instanceof Error ? error.message : 'Registrasi gagal'
   }
 }
 
 onMounted(() => {
-  ensureGtmLoaded()
+  void ensureGtmLoaded()
 })
 </script>
 
@@ -84,30 +95,42 @@ onMounted(() => {
           <AlertDescription>{{ errorMessage }}</AlertDescription>
         </Alert>
 
-        <form class="app-auth-form" @submit.prevent="onSubmit">
-          <div class="space-y-2">
-            <Label for="name">Full Name</Label>
-            <Input id="name" v-model="form.name" type="text" autocomplete="name" placeholder="John Doe" />
+        <div v-if="isCompletingSignup" class="flex flex-col items-center justify-center gap-4 py-8 text-center">
+          <Spinner class="h-6 w-6" />
+          <div class="space-y-1">
+            <p class="text-base font-semibold">Creating your workspace</p>
+            <p class="text-muted-foreground text-sm">
+              Akun berhasil dibuat. Kami sedang menyiapkan session dan mengarahkan kamu ke dashboard.
+            </p>
           </div>
-          <div class="space-y-2">
-            <Label for="email">Email</Label>
-            <Input id="email" v-model="form.email" type="email" autocomplete="email" placeholder="you@company.com" />
-          </div>
-          <div class="space-y-2">
-            <Label for="password">Password</Label>
-            <Input id="password" v-model="form.password" type="password" autocomplete="new-password" placeholder="Minimal 8 karakter" />
-          </div>
+        </div>
 
-          <Button class="w-full" type="submit" :disabled="auth.processing">
-            <Spinner v-if="auth.processing" class="mr-2" />
-            {{ auth.processing ? 'Creating...' : 'Create Account' }}
-          </Button>
-        </form>
+        <template v-else>
+          <form class="app-auth-form" @submit.prevent="onSubmit">
+            <div class="space-y-2">
+              <Label for="name">Full Name</Label>
+              <Input id="name" v-model="form.name" type="text" autocomplete="name" placeholder="John Doe" />
+            </div>
+            <div class="space-y-2">
+              <Label for="email">Email</Label>
+              <Input id="email" v-model="form.email" type="email" autocomplete="email" placeholder="you@company.com" />
+            </div>
+            <div class="space-y-2">
+              <Label for="password">Password</Label>
+              <Input id="password" v-model="form.password" type="password" autocomplete="new-password" placeholder="Minimal 8 karakter" />
+            </div>
 
-        <p class="text-muted-foreground text-center text-sm">
-          Sudah punya akun?
-          <RouterLink to="/login" class="app-auth-link">Sign in</RouterLink>
-        </p>
+            <Button class="w-full" type="submit" :disabled="auth.processing">
+              <Spinner v-if="auth.processing" class="mr-2" />
+              {{ auth.processing ? 'Creating...' : 'Create Account' }}
+            </Button>
+          </form>
+
+          <p class="text-muted-foreground text-center text-sm">
+            Sudah punya akun?
+            <RouterLink to="/login" class="app-auth-link">Sign in</RouterLink>
+          </p>
+        </template>
       </CardContent>
     </Card>
   </section>

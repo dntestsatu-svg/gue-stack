@@ -1,14 +1,13 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import RegisterView from '@/views/RegisterView.vue'
 
-const { registerMock, ensureGtmLoadedMock, trackGtmEventBeforeActionMock } = vi.hoisted(() => ({
+const { registerMock, ensureGtmLoadedMock, waitForGtmEventMock, redirectToMock } = vi.hoisted(() => ({
   registerMock: vi.fn(),
   ensureGtmLoadedMock: vi.fn(),
-  trackGtmEventBeforeActionMock: vi.fn(async (_payload: unknown, action: () => void) => {
-    action()
-  }),
+  waitForGtmEventMock: vi.fn(async () => true),
+  redirectToMock: vi.fn(),
 }))
 
 vi.mock('@/stores/auth', () => ({
@@ -20,18 +19,26 @@ vi.mock('@/stores/auth', () => ({
 
 vi.mock('@/lib/gtm', () => ({
   ensureGtmLoaded: ensureGtmLoadedMock,
-  trackGtmEventBeforeAction: trackGtmEventBeforeActionMock,
+  waitForGtmEvent: waitForGtmEventMock,
+}))
+
+vi.mock('@/lib/navigation', () => ({
+  redirectTo: redirectToMock,
 }))
 
 describe('RegisterView', () => {
   beforeEach(() => {
+    vi.useFakeTimers()
     registerMock.mockReset()
     registerMock.mockResolvedValue({})
     ensureGtmLoadedMock.mockReset()
-    trackGtmEventBeforeActionMock.mockReset()
-    trackGtmEventBeforeActionMock.mockImplementation(async (_payload: unknown, action: () => void) => {
-      action()
-    })
+    waitForGtmEventMock.mockReset()
+    waitForGtmEventMock.mockResolvedValue(true)
+    redirectToMock.mockReset()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('loads GTM on mount and emits sign_up tracking after successful registration', async () => {
@@ -46,7 +53,6 @@ describe('RegisterView', () => {
 
     await router.push('/register')
     await router.isReady()
-    const pushSpy = vi.spyOn(router, 'push').mockResolvedValue(undefined)
 
     const wrapper = mount(RegisterView, {
       global: {
@@ -67,12 +73,17 @@ describe('RegisterView', () => {
       email: 'john@example.com',
       password: 'secret123',
     })
-    expect(trackGtmEventBeforeActionMock).toHaveBeenCalledWith(expect.objectContaining({
+    expect(waitForGtmEventMock).toHaveBeenCalledWith(expect.objectContaining({
       event: 'sign_up',
       method: 'email',
       account_role: 'admin',
       page_type: 'register',
-    }), expect.any(Function))
-    expect(pushSpy).not.toHaveBeenCalled()
+    }))
+    expect(wrapper.text()).toContain('Creating your workspace')
+
+    await vi.advanceTimersByTimeAsync(1600)
+    await flushPromises()
+
+    expect(redirectToMock).toHaveBeenCalledWith('/dashboard')
   })
 })

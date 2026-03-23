@@ -111,6 +111,48 @@ export function pushGtmEvent(payload: GtmEventPayload) {
   return true
 }
 
+export async function waitForGtmEvent(
+  payload: GtmEventPayload,
+  options?: {
+    loadTimeoutMs?: number
+    eventTimeoutMs?: number
+  },
+) {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  const loadTimeoutMs = options?.loadTimeoutMs ?? GTM_LOAD_TIMEOUT_MS
+  const eventTimeoutMs = options?.eventTimeoutMs ?? GTM_EVENT_TIMEOUT_MS
+
+  await withTimeout(ensureGtmLoaded(), loadTimeoutMs, false)
+
+  return new Promise<boolean>((resolve) => {
+    let settled = false
+    const finish = (result: boolean) => {
+      if (settled) {
+        return
+      }
+
+      settled = true
+      resolve(result)
+    }
+
+    const gtmTracked = pushGtmEvent({
+      ...payload,
+      eventCallback: () => finish(true),
+      eventTimeout: eventTimeoutMs,
+    })
+
+    if (!gtmTracked) {
+      finish(false)
+      return
+    }
+
+    window.setTimeout(() => finish(false), eventTimeoutMs + 100)
+  })
+}
+
 export async function trackGtmEventBeforeAction(
   payload: GtmEventPayload,
   action: () => void,
@@ -124,33 +166,8 @@ export async function trackGtmEventBeforeAction(
     return
   }
 
-  const loadTimeoutMs = options?.loadTimeoutMs ?? GTM_LOAD_TIMEOUT_MS
-  const eventTimeoutMs = options?.eventTimeoutMs ?? GTM_EVENT_TIMEOUT_MS
-
-  await withTimeout(ensureGtmLoaded(), loadTimeoutMs, false)
-
-  let actionTriggered = false
-  const triggerAction = () => {
-    if (actionTriggered) {
-      return
-    }
-
-    actionTriggered = true
-    action()
-  }
-
-  const gtmTracked = pushGtmEvent({
-    ...payload,
-    eventCallback: triggerAction,
-    eventTimeout: eventTimeoutMs,
-  })
-
-  if (!gtmTracked) {
-    triggerAction()
-    return
-  }
-
-  window.setTimeout(triggerAction, eventTimeoutMs + 100)
+  await waitForGtmEvent(payload, options)
+  action()
 }
 
 export function trackNavigationWithGtm(payload: GtmEventPayload, destination: string) {
