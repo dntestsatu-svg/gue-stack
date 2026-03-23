@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   Landmark,
   LogOut,
+  ArrowUpRight,
   Shield,
   Store,
 } from 'lucide-vue-next'
@@ -49,6 +50,7 @@ const menuItems: MenuItem[] = [
   { title: 'Toko', to: '/toko', icon: markRaw(Store) },
   { title: 'Testing', to: '/testing', icon: markRaw(FlaskConical) },
   { title: 'Bank Management', to: '/bank-management', icon: markRaw(Landmark), roles: ['dev', 'superadmin', 'admin'] },
+  { title: 'Withdraw', to: '/withdraw', icon: markRaw(ArrowUpRight), roles: ['dev', 'superadmin', 'admin'] },
   { title: 'User Management', to: '/users', icon: markRaw(Shield), roles: ['dev', 'superadmin', 'admin'] },
 ]
 

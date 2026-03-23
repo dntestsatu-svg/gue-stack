@@ -3,6 +3,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import App from '@/App.vue'
+import WithdrawView from '@/views/WithdrawView.vue'
 import DashboardView from '@/views/DashboardView.vue'
 import BankManagementView from '@/views/BankManagementView.vue'
 import LoginView from '@/views/LoginView.vue'
@@ -34,6 +35,9 @@ const {
   inquiryBankMock,
   createBankMock,
   removeBankMock,
+  fetchWithdrawOptionsMock,
+  inquiryWithdrawMock,
+  transferWithdrawMock,
   listUsersMock,
   meMock,
   createUserMock,
@@ -60,6 +64,9 @@ const {
   inquiryBankMock: vi.fn(),
   createBankMock: vi.fn(),
   removeBankMock: vi.fn(),
+  fetchWithdrawOptionsMock: vi.fn(),
+  inquiryWithdrawMock: vi.fn(),
+  transferWithdrawMock: vi.fn(),
   listUsersMock: vi.fn(),
   meMock: vi.fn(),
   createUserMock: vi.fn(),
@@ -101,6 +108,12 @@ vi.mock('@/services/bank', () => ({
   create: createBankMock,
   remove: removeBankMock,
   paymentOptions: vi.fn(),
+}))
+
+vi.mock('@/services/withdraw', () => ({
+  fetchOptions: fetchWithdrawOptionsMock,
+  inquiry: inquiryWithdrawMock,
+  transfer: transferWithdrawMock,
 }))
 
 vi.mock('@/services/user', () => ({
@@ -159,6 +172,12 @@ function createTestRouter() {
         name: 'bank-management',
         component: BankManagementView,
         meta: { requiresAuth: true, requiresActive: true, title: 'Bank Management' },
+      },
+      {
+        path: '/withdraw',
+        name: 'withdraw',
+        component: WithdrawView,
+        meta: { requiresAuth: true, requiresActive: true, title: 'Withdraw' },
       },
       {
         path: '/users',
@@ -292,6 +311,50 @@ describe('App SPA routing', () => {
       fee: 1500,
       inquiry_id: 88,
     })
+    fetchWithdrawOptionsMock.mockResolvedValue({
+      tokos: [
+        {
+          id: 1,
+          name: 'Toko Alpha',
+          settlement_balance: 500000,
+          available_balance: 900000,
+        },
+      ],
+      banks: [
+        {
+          id: 8,
+          bank_name: 'PT. BANK CENTRAL ASIA, TBK.',
+          account_name: 'PT GUE CONTROL',
+          account_number: '1234567890',
+        },
+      ],
+    })
+    inquiryWithdrawMock.mockResolvedValue({
+      toko_id: 1,
+      toko_name: 'Toko Alpha',
+      bank_id: 8,
+      bank_name: 'PT. BANK CENTRAL ASIA, TBK.',
+      account_name: 'PT GUE CONTROL',
+      account_number: '1234567890',
+      amount: 100000,
+      fee: 1500,
+      inquiry_id: 77,
+      partner_ref_no: 'partner-ref-1',
+      settlement_balance: 500000,
+      remaining_settlement_balance: 400000,
+    })
+    transferWithdrawMock.mockResolvedValue({
+      status: true,
+      message: 'Uangnya akan segera sampai ke bank anda.',
+      toko_id: 1,
+      toko_name: 'Toko Alpha',
+      bank_id: 8,
+      bank_name: 'PT. BANK CENTRAL ASIA, TBK.',
+      account_name: 'PT GUE CONTROL',
+      account_number: '1234567890',
+      amount: 100000,
+      remaining_settlement_balance: 400000,
+    })
   })
 
   afterEach(() => {
@@ -395,6 +458,11 @@ describe('App SPA routing', () => {
     await flushPromises()
     expect(wrapper.text()).toContain('Bank Management')
     expect(wrapper.text()).toContain('Add Bank')
+
+    await router.push('/withdraw')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Withdraw')
+    expect(wrapper.text()).toContain('Request Withdraw')
 
     await router.push('/users')
     await flushPromises()

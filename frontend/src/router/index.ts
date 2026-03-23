@@ -55,6 +55,17 @@ const router = createRouter({
       },
     },
     {
+      path: '/withdraw',
+      name: 'withdraw',
+      component: () => import('@/views/WithdrawView.vue'),
+      meta: {
+        requiresAuth: true,
+        requiresActive: true,
+        allowedRoles: ['dev', 'superadmin', 'admin'],
+        title: 'Withdraw',
+      },
+    },
+    {
       path: '/users',
       name: 'users',
       component: () => import('@/views/UserManagementView.vue'),

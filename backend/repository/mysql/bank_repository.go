@@ -83,6 +83,23 @@ func (r *BankRepository) CountByUser(ctx context.Context, userID uint64, filter 
 	return total, nil
 }
 
+func (r *BankRepository) GetByUser(ctx context.Context, userID uint64, bankID uint64) (*model.Bank, error) {
+	query := `
+SELECT id, user_id, payment_id, bank_code, bank_name, account_name, account_number, created_at, updated_at
+FROM banks
+WHERE id = ? AND user_id = ?
+LIMIT 1`
+
+	var bank model.Bank
+	if err := scanBankRow(r.db.QueryRowContext(ctx, query, bankID, userID), &bank); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, repository.ErrNotFound
+		}
+		return nil, fmt.Errorf("get bank by user: %w", err)
+	}
+	return &bank, nil
+}
+
 func (r *BankRepository) Create(ctx context.Context, bank *model.Bank) error {
 	now := time.Now().UTC()
 	bank.CreatedAt = now

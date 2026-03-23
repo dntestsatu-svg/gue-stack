@@ -189,6 +189,53 @@ export interface BankInquiryResult {
   inquiry_id: number
 }
 
+export interface WithdrawTokoOption {
+  id: number
+  name: string
+  settlement_balance: number
+  available_balance: number
+}
+
+export interface WithdrawBankOption {
+  id: number
+  bank_name: string
+  account_name: string
+  account_number: string
+}
+
+export interface WithdrawOptionsResult {
+  tokos: WithdrawTokoOption[]
+  banks: WithdrawBankOption[]
+}
+
+export interface WithdrawInquiryResult {
+  toko_id: number
+  toko_name: string
+  bank_id: number
+  bank_name: string
+  account_name: string
+  account_number: string
+  amount: number
+  fee: number
+  inquiry_id: number
+  partner_ref_no: string
+  settlement_balance: number
+  remaining_settlement_balance: number
+}
+
+export interface WithdrawTransferResult {
+  status: boolean
+  message: string
+  toko_id: number
+  toko_name: string
+  bank_id: number
+  bank_name: string
+  account_name: string
+  account_number: string
+  amount: number
+  remaining_settlement_balance: number
+}
+
 export interface TestingGenerateQrisResult {
   toko_id: number
   toko_name: string

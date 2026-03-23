@@ -40,11 +40,14 @@ type BalanceRepository interface {
 	ListByUser(ctx context.Context, userID uint64, actorRole model.UserRole) ([]TokoBalanceRecord, error)
 	GetByTokoID(ctx context.Context, tokoID uint64) (*TokoBalanceRecord, error)
 	UpsertByTokoID(ctx context.Context, tokoID uint64, settlementBalance float64, availableBalance float64) error
+	DecreaseSettlementByTokoID(ctx context.Context, tokoID uint64, amount float64) error
+	IncreaseSettlementByTokoID(ctx context.Context, tokoID uint64, amount float64) error
 }
 
 type BankRepository interface {
 	ListByUser(ctx context.Context, userID uint64, filter BankListFilter) ([]model.Bank, error)
 	CountByUser(ctx context.Context, userID uint64, filter BankListFilter) (uint64, error)
+	GetByUser(ctx context.Context, userID uint64, bankID uint64) (*model.Bank, error)
 	Create(ctx context.Context, bank *model.Bank) error
 	DeleteByUser(ctx context.Context, userID uint64, bankID uint64) error
 }

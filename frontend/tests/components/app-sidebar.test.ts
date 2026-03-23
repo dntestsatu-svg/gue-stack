@@ -27,6 +27,7 @@ describe('AppSidebar', () => {
         { path: '/histori-transaksi', component: { template: '<div />' } },
         { path: '/toko', component: { template: '<div />' } },
         { path: '/bank-management', component: { template: '<div />' } },
+        { path: '/withdraw', component: { template: '<div />' } },
         { path: '/users', component: { template: '<div />' } },
       ],
     })
@@ -52,6 +53,7 @@ describe('AppSidebar', () => {
     expect(wrapper.text()).toContain('GUE Control')
     expect(wrapper.text()).toContain('Dashboard')
     expect(wrapper.text()).toContain('Bank Management')
+    expect(wrapper.text()).toContain('Withdraw')
     expect(wrapper.text()).toContain('Developer')
   })
 
@@ -75,6 +77,7 @@ describe('AppSidebar', () => {
         { path: '/histori-transaksi', component: { template: '<div />' } },
         { path: '/toko', component: { template: '<div />' } },
         { path: '/bank-management', component: { template: '<div />' } },
+        { path: '/withdraw', component: { template: '<div />' } },
         { path: '/users', component: { template: '<div />' } },
       ],
     })
@@ -99,6 +102,7 @@ describe('AppSidebar', () => {
 
     expect(wrapper.text()).toContain('Dashboard')
     expect(wrapper.text()).not.toContain('Bank Management')
+    expect(wrapper.text()).not.toContain('Withdraw')
     expect(wrapper.text()).not.toContain('User Management')
   })
 })

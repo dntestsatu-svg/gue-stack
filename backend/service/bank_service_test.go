@@ -55,6 +55,16 @@ func (f *fakeBankRepo) CountByUser(_ context.Context, userID uint64, filter repo
 	return total, nil
 }
 
+func (f *fakeBankRepo) GetByUser(_ context.Context, userID uint64, bankID uint64) (*model.Bank, error) {
+	for _, item := range f.items[userID] {
+		if item.ID == bankID {
+			copyItem := item
+			return &copyItem, nil
+		}
+	}
+	return nil, repository.ErrNotFound
+}
+
 func (f *fakeBankRepo) Create(_ context.Context, bank *model.Bank) error {
 	for _, existing := range f.items[bank.UserID] {
 		if existing.PaymentID == bank.PaymentID && existing.AccountNumber == bank.AccountNumber {

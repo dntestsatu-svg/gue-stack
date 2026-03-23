@@ -388,6 +388,67 @@ paths:
       responses:
         "200":
           description: OK
+  /api/v1/withdraw/options:
+    get:
+      summary: Load withdraw-ready tokos in scope plus bank accounts owned by authenticated user
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+  /api/v1/withdraw/inquiry:
+    post:
+      summary: Verify settlement availability and inquiry target bank account before withdraw
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [toko_id, bank_id, amount]
+              properties:
+                toko_id:
+                  type: integer
+                  format: int64
+                bank_id:
+                  type: integer
+                  format: int64
+                amount:
+                  type: integer
+                  minimum: 25000
+      responses:
+        "200":
+          description: OK
+  /api/v1/withdraw/transfer:
+    post:
+      summary: Submit withdraw transfer from toko settlement to selected user bank
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [toko_id, bank_id, amount, inquiry_id]
+              properties:
+                toko_id:
+                  type: integer
+                  format: int64
+                bank_id:
+                  type: integer
+                  format: int64
+                amount:
+                  type: integer
+                  minimum: 25000
+                inquiry_id:
+                  type: integer
+                  format: int64
+      responses:
+        "200":
+          description: OK
   /api/v1/testing/generate-qris:
     post:
       summary: Generate QRIS test flow for a visible toko using authenticated dashboard session

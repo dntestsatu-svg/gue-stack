@@ -148,6 +148,33 @@ Content-Type: application/json
 DELETE {{baseUrl}}/api/v1/banks/{{targetBankID}}
 Authorization: Bearer {{accessToken}}
 
+### Load Withdraw Options
+GET {{baseUrl}}/api/v1/withdraw/options
+Authorization: Bearer {{accessToken}}
+
+### Inquiry Withdraw to Saved Bank
+POST {{baseUrl}}/api/v1/withdraw/inquiry
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "toko_id": 1,
+  "bank_id": {{targetBankID}},
+  "amount": 100000
+}
+
+### Submit Withdraw Transfer
+POST {{baseUrl}}/api/v1/withdraw/transfer
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "toko_id": 1,
+  "bank_id": {{targetBankID}},
+  "amount": 100000,
+  "inquiry_id": 2949850
+}
+
 ### List Tokos (maks 3 toko / user)
 GET {{baseUrl}}/api/v1/tokos
 Authorization: Bearer {{accessToken}}

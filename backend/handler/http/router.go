@@ -26,6 +26,7 @@ func NewRouter(
 	userHandler *UserHandler,
 	tokoHandler *TokoHandler,
 	bankHandler *BankHandler,
+	withdrawHandler *WithdrawHandler,
 	dashboardHandler *DashboardHandler,
 	testingHandler *TestingHandler,
 	paymentGatewayHandler *PaymentGatewayHandler,
@@ -130,6 +131,17 @@ func NewRouter(
 		banks.POST("/inquiry", csrfMiddleware, bankHandler.Inquiry)
 		banks.POST("", csrfMiddleware, bankHandler.Create)
 		banks.DELETE("/:id", csrfMiddleware, bankHandler.Delete)
+	}
+
+	withdraw := v1.Group("/withdraw")
+	withdraw.Use(
+		middleware.AuthRequired(tokenManager, userRepo, cookieManager),
+		middleware.RoleRequired(model.UserRoleDev, model.UserRoleSuperAdmin, model.UserRoleAdmin),
+	)
+	{
+		withdraw.GET("/options", withdrawHandler.Options)
+		withdraw.POST("/inquiry", csrfMiddleware, withdrawHandler.Inquiry)
+		withdraw.POST("/transfer", csrfMiddleware, withdrawHandler.Transfer)
 	}
 
 	tokos := v1.Group("/tokos")

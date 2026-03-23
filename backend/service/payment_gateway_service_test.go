@@ -128,14 +128,30 @@ type settlementUpdate struct {
 	netto       uint64
 }
 
+type statusUpdate struct {
+	reference string
+	tokoID    uint64
+	status    model.TransactionStatus
+}
+
 type fakeTransactionRepo struct {
 	created     []*model.Transaction
 	byReference map[string]*model.Transaction
 	updates     []settlementUpdate
+	statuses    []statusUpdate
 }
 
 func (f *fakeTransactionRepo) Create(_ context.Context, trx *model.Transaction) error {
+	if f.byReference == nil {
+		f.byReference = map[string]*model.Transaction{}
+	}
+	if trx.ID == 0 {
+		trx.ID = uint64(len(f.created) + 1)
+	}
 	f.created = append(f.created, trx)
+	if trx.Reference != nil {
+		f.byReference[*trx.Reference] = trx
+	}
 	return nil
 }
 
@@ -157,7 +173,16 @@ func (f *fakeTransactionRepo) UpdateStatusByReference(_ context.Context, _ strin
 	return nil
 }
 
-func (f *fakeTransactionRepo) UpdateStatusByReferenceAndToko(_ context.Context, _ string, _ uint64, _ model.TransactionStatus) error {
+func (f *fakeTransactionRepo) UpdateStatusByReferenceAndToko(_ context.Context, reference string, tokoID uint64, status model.TransactionStatus) error {
+	f.statuses = append(f.statuses, statusUpdate{
+		reference: reference,
+		tokoID:    tokoID,
+		status:    status,
+	})
+	if trx, ok := f.byReference[reference]; ok && trx.TokoID == tokoID {
+		trx.Status = status
+		return nil
+	}
 	return nil
 }
 

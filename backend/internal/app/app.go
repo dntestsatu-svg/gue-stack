@@ -88,6 +88,19 @@ func NewHTTPApp(cfg config.Config, logger *slog.Logger) (*HTTPApp, error) {
 		cfg.PaymentGateway.MerchantUUID,
 		logger,
 	)
+	withdrawSvc := service.NewWithdrawService(
+		tokoRepo,
+		balanceRepo,
+		bankRepo,
+		transactionRepo,
+		gatewayClient,
+		queryCache,
+		cfg.Cache.QueryCacheOn,
+		cfg.PaymentGateway.DefaultClient,
+		cfg.PaymentGateway.DefaultKey,
+		cfg.PaymentGateway.MerchantUUID,
+		logger,
+	)
 	dashboardSvc := service.NewDashboardService(
 		transactionRepo,
 		gatewayClient,
@@ -119,6 +132,7 @@ func NewHTTPApp(cfg config.Config, logger *slog.Logger) (*HTTPApp, error) {
 	userHandler := httpHandler.NewUserHandler(userSvc)
 	tokoHandler := httpHandler.NewTokoHandler(tokoSvc)
 	bankHandler := httpHandler.NewBankHandler(bankSvc)
+	withdrawHandler := httpHandler.NewWithdrawHandler(withdrawSvc)
 	dashboardHandler := httpHandler.NewDashboardHandler(dashboardSvc)
 	testingHandler := httpHandler.NewTestingHandler(testingSvc)
 	paymentGatewayHandler := httpHandler.NewPaymentGatewayHandler(paymentGatewaySvc)
@@ -134,6 +148,7 @@ func NewHTTPApp(cfg config.Config, logger *slog.Logger) (*HTTPApp, error) {
 		userHandler,
 		tokoHandler,
 		bankHandler,
+		withdrawHandler,
 		dashboardHandler,
 		testingHandler,
 		paymentGatewayHandler,

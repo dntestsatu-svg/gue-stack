@@ -169,6 +169,31 @@ func (f *fakeBalanceRepo) UpsertByTokoID(_ context.Context, tokoID uint64, settl
 	return nil
 }
 
+func (f *fakeBalanceRepo) DecreaseSettlementByTokoID(_ context.Context, tokoID uint64, amount float64) error {
+	item, ok := f.byTokoID[tokoID]
+	if !ok {
+		return repository.ErrNotFound
+	}
+	if item.SettlementBalance < amount {
+		return repository.ErrInsufficientBalance
+	}
+	item.SettlementBalance -= amount
+	item.LastSettlementTime = time.Now().UTC()
+	f.byTokoID[tokoID] = item
+	return nil
+}
+
+func (f *fakeBalanceRepo) IncreaseSettlementByTokoID(_ context.Context, tokoID uint64, amount float64) error {
+	item, ok := f.byTokoID[tokoID]
+	if !ok {
+		return repository.ErrNotFound
+	}
+	item.SettlementBalance += amount
+	item.LastSettlementTime = time.Now().UTC()
+	f.byTokoID[tokoID] = item
+	return nil
+}
+
 func TestTokoServiceCreateForUserQuotaLimit(t *testing.T) {
 	repo := &fakeTokoDomainRepo{countByUser: 3}
 	svc := NewTokoService(repo, &fakeBalanceRepo{}, cache.NewNoopCache(), false, time.Minute, 3, 3, slog.Default())

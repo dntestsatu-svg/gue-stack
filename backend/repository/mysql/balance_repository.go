@@ -147,4 +147,46 @@ ON DUPLICATE KEY UPDATE
 	return nil
 }
 
+func (r *BalanceRepository) DecreaseSettlementByTokoID(ctx context.Context, tokoID uint64, amount float64) error {
+	query := `
+UPDATE balances
+SET pending = pending - ?, updated_at = CURRENT_TIMESTAMP
+WHERE toko_id = ? AND pending >= ?
+`
+	delta := decimal.NewFromFloat(amount).StringFixed(2)
+	result, err := r.db.ExecContext(ctx, query, delta, tokoID, delta)
+	if err != nil {
+		return fmt.Errorf("decrease settlement balance: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("read affected rows for decrease settlement: %w", err)
+	}
+	if rowsAffected == 0 {
+		return repository.ErrInsufficientBalance
+	}
+	return nil
+}
+
+func (r *BalanceRepository) IncreaseSettlementByTokoID(ctx context.Context, tokoID uint64, amount float64) error {
+	query := `
+UPDATE balances
+SET pending = pending + ?, updated_at = CURRENT_TIMESTAMP
+WHERE toko_id = ?
+`
+	delta := decimal.NewFromFloat(amount).StringFixed(2)
+	result, err := r.db.ExecContext(ctx, query, delta, tokoID)
+	if err != nil {
+		return fmt.Errorf("increase settlement balance: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("read affected rows for increase settlement: %w", err)
+	}
+	if rowsAffected == 0 {
+		return repository.ErrNotFound
+	}
+	return nil
+}
+
 var _ repository.BalanceRepository = (*BalanceRepository)(nil)
