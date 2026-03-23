@@ -152,6 +152,7 @@ services:
       args:
         VITE_SITE_URL: ${VITE_SITE_URL:?VITE_SITE_URL must be set}
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:?VITE_API_BASE_URL must be set}
+        VITE_GTM_ID: ${VITE_GTM_ID:-}
         VITE_CSRF_HEADER_NAME: ${VITE_CSRF_HEADER_NAME:-X-CSRF-Token}
         VITE_CSRF_COOKIE_NAME: ${VITE_CSRF_COOKIE_NAME:-csrf_token}
     ports:

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { RouterLink } from 'vue-router'
+import { onMounted } from 'vue'
 import { useHead, useSeoMeta } from '@unhead/vue'
 import { siteConfig, withSiteURL } from '@/lib/site'
 
@@ -9,6 +9,15 @@ const canonicalURL = withSiteURL('/')
 const ogImageURL = withSiteURL(siteConfig.ogImage)
 const heroImage = siteConfig.heroImage
 const operationsImage = '/images/landing-ops.svg'
+const gtmId = (import.meta.env.VITE_GTM_ID ?? '').trim()
+
+const gtmLoaderScript = gtmId
+  ? `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','${gtmId}');`
+  : ''
 
 useSeoMeta({
   title,
@@ -59,19 +68,30 @@ useHead({
     },
   ],
 })
+
+onMounted(() => {
+  if (!gtmId || document.getElementById('landing-gtm-script')) {
+    return
+  }
+
+  const bootstrap = document.createElement('script')
+  bootstrap.id = 'landing-gtm-script'
+  bootstrap.text = gtmLoaderScript
+  document.head.appendChild(bootstrap)
+})
 </script>
 
 <template>
   <div class="landing-page">
     <header class="landing-topbar">
       <nav class="landing-nav landing-shell-width" aria-label="Primary navigation">
-        <RouterLink class="landing-brand" to="/" aria-label="APIGOQR landing page">
+        <a class="landing-brand" href="/" aria-label="APIGOQR landing page">
           <span class="landing-brand-mark">AQ</span>
           <span>
             <strong>APIGOQR</strong>
             <small>Gateway orchestration for QRIS merchants</small>
           </span>
-        </RouterLink>
+        </a>
 
         <div class="landing-nav-links">
           <a href="#fitur">Fitur</a>
@@ -81,12 +101,12 @@ useHead({
         </div>
 
         <div class="landing-nav-actions">
-          <RouterLink class="landing-link-button" to="/login">
+          <a class="landing-link-button" href="/login">
             Masuk
-          </RouterLink>
-          <RouterLink class="landing-primary-button" to="/dashboard">
+          </a>
+          <a class="landing-primary-button" href="/dashboard">
             Buka Dashboard
-          </RouterLink>
+          </a>
         </div>
       </nav>
     </header>
@@ -107,12 +127,12 @@ useHead({
           </p>
 
           <div class="landing-cta-group">
-            <RouterLink class="landing-primary-button" to="/login">
+            <a class="landing-primary-button" href="/login">
               Masuk untuk mulai integrasi
-            </RouterLink>
-            <RouterLink class="landing-secondary-button" to="/register">
+            </a>
+            <a class="landing-secondary-button" href="/register">
               Buat akun merchant
-            </RouterLink>
+            </a>
           </div>
 
           <ul class="landing-proof-list" aria-label="Operational highlights">
@@ -249,12 +269,12 @@ useHead({
             </p>
           </div>
           <div class="landing-cta-panel-actions">
-            <RouterLink class="landing-primary-button" to="/login">
+            <a class="landing-primary-button" href="/login">
               Masuk sekarang
-            </RouterLink>
-            <RouterLink class="landing-secondary-button" to="/register">
+            </a>
+            <a class="landing-secondary-button" href="/register">
               Buat akun baru
-            </RouterLink>
+            </a>
           </div>
         </article>
       </section>
@@ -295,9 +315,9 @@ useHead({
         <nav aria-label="Footer links">
           <h2 class="landing-footer-title">Halaman penting</h2>
           <ul class="landing-footer-links">
-            <li><RouterLink to="/">Landing page</RouterLink></li>
-            <li><RouterLink to="/login">Masuk</RouterLink></li>
-            <li><RouterLink to="/register">Daftar</RouterLink></li>
+            <li><a href="/">Landing page</a></li>
+            <li><a href="/login">Masuk</a></li>
+            <li><a href="/register">Daftar</a></li>
             <li><a href="#fitur">Fitur</a></li>
           </ul>
         </nav>
