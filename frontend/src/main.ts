@@ -1,14 +1,20 @@
-import { createApp } from 'vue'
 import { createPinia } from 'pinia'
+import { ViteSSG } from 'vite-ssg'
 
 import App from './App.vue'
-import router from './router'
+import { installRouterGuards, routes } from './router'
 import './style.css'
 
-const app = createApp(App)
-const pinia = createPinia()
+export const createApp = ViteSSG(
+  App,
+  { routes },
+  ({ app, router }) => {
+    const pinia = createPinia()
 
-app.use(pinia)
-app.use(router)
+    app.use(pinia)
 
-app.mount('#app')
+    if (!import.meta.env.SSR) {
+      installRouterGuards(router)
+    }
+  },
+)

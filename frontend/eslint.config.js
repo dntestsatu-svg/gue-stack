@@ -6,9 +6,17 @@ import vueParser from 'vue-eslint-parser'
 
 export default [
   {
-    ignores: ['dist/**', 'coverage/**'],
+    ignores: ['dist/**', 'coverage/**', '.vite-ssg-temp/**'],
   },
   js.configs.recommended,
+  {
+    files: ['scripts/**/*.mjs', '*.config.js', '*.config.mjs'],
+    languageOptions: {
+      globals: {
+        process: 'readonly',
+      },
+    },
+  },
   ...vuePlugin.configs['flat/recommended'],
   {
     files: ['**/*.{ts,vue}'],

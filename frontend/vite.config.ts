@@ -6,6 +6,13 @@ import { fileURLToPath, URL } from 'node:url'
 export default defineConfig({
   envDir: '..',
   plugins: [vue(), tailwindcss()],
+  ssgOptions: {
+    script: 'async',
+    formatting: 'minify',
+    includedRoutes(paths) {
+      return paths.filter((path) => ['/', '/login', '/register'].includes(path))
+    },
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
@@ -16,45 +23,7 @@ export default defineConfig({
     host: '0.0.0.0',
   },
   build: {
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          if (!id.includes('node_modules')) {
-            return
-          }
-
-          if (
-            id.includes('reka-ui')
-            || id.includes('lucide-vue-next')
-            || id.includes('@tabler/icons-vue')
-            || id.includes('vue-sonner')
-            || id.includes('class-variance-authority')
-            || id.includes('tailwind-merge')
-            || id.includes('clsx')
-          ) {
-            return 'vendor-ui'
-          }
-
-          if (id.includes('pinia') || id.includes('vue-router')) {
-            return 'vendor-state'
-          }
-
-          if (id.includes('axios')) {
-            return 'vendor-network'
-          }
-
-          if (id.includes('@internationalized/date')) {
-            return 'vendor-date'
-          }
-
-          if (id.includes('/vue/') || id.includes('@vue')) {
-            return 'vendor-vue'
-          }
-
-          return 'vendor-misc'
-        },
-      },
-    },
+    rollupOptions: {},
   },
   test: {
     globals: true,

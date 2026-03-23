@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
+import { createHead } from '@unhead/vue/client'
 import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import App from '@/App.vue'
@@ -7,6 +8,7 @@ import ApiDocumentationView from '@/views/ApiDocumentationView.vue'
 import WithdrawView from '@/views/WithdrawView.vue'
 import DashboardView from '@/views/DashboardView.vue'
 import BankManagementView from '@/views/BankManagementView.vue'
+import LandingPageView from '@/views/LandingPageView.vue'
 import LoginView from '@/views/LoginView.vue'
 import TestingView from '@/views/TestingView.vue'
 import TokoView from '@/views/TokoView.vue'
@@ -141,6 +143,12 @@ function createTestRouter() {
   return createRouter({
     history: createMemoryHistory(),
     routes: [
+      {
+        path: '/',
+        name: 'landing',
+        component: LandingPageView,
+        meta: { publicLayout: true, title: 'Gateway QRIS untuk Merchant' },
+      },
       {
         path: '/login',
         name: 'login',
@@ -412,7 +420,7 @@ describe('App SPA routing', () => {
 
     const wrapper = mount(App, {
       global: {
-        plugins: [pinia, router],
+        plugins: [pinia, router, createHead()],
         stubs: {
           DashboardStatusAreaChart: {
             template: '<div data-testid="dashboard-status-chart-stub">Status Chart</div>',
@@ -449,7 +457,7 @@ describe('App SPA routing', () => {
 
     const wrapper = mount(App, {
       global: {
-        plugins: [pinia, router],
+        plugins: [pinia, router, createHead()],
         stubs: {
           DashboardStatusAreaChart: {
             template: '<div data-testid="dashboard-status-chart-stub">Status Chart</div>',
@@ -505,4 +513,27 @@ describe('App SPA routing', () => {
     expect(wrapper.text()).toContain('Add User')
     expect(consoleErrorSpy).not.toHaveBeenCalled()
   }, 15000)
+
+  it('renders public landing page for guests without redirecting to login', async () => {
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const router = createTestRouter()
+    await router.push('/')
+    await router.isReady()
+
+    const wrapper = mount(App, {
+      global: {
+        plugins: [pinia, router, createHead()],
+      },
+    })
+
+    await flushPromises()
+
+    expect(router.currentRoute.value.path).toBe('/')
+    expect(wrapper.text()).toContain('Gateway QRIS untuk merchant yang butuh orkestrasi stabil')
+    expect(wrapper.text()).toContain('Masuk untuk mulai integrasi')
+    expect(consoleErrorSpy).not.toHaveBeenCalled()
+  })
 })

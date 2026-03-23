@@ -1,125 +1,148 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import {
+  type RouteRecordRaw,
+  type Router,
+} from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useUserStore } from '@/stores/user'
 import { resolveRedirect, resolveRoleRedirect } from './guards'
 
-const router = createRouter({
-  history: createWebHistory(),
-  routes: [
-    { path: '/', redirect: '/dashboard' },
-    {
-      path: '/login',
-      name: 'login',
-      component: () => import('@/views/LoginView.vue'),
-      meta: { authLayout: true, title: 'Sign In' },
-    },
-    {
-      path: '/register',
-      name: 'register',
-      component: () => import('@/views/RegisterView.vue'),
-      meta: { authLayout: true, title: 'Create Account' },
-    },
-    {
-      path: '/dashboard',
-      name: 'dashboard',
-      component: () => import('@/views/DashboardView.vue'),
-      meta: { requiresAuth: true, requiresActive: true, title: 'Dashboard' },
-    },
-    {
-      path: '/histori-transaksi',
-      name: 'histori-transaksi',
-      component: () => import('@/views/TransactionHistoryView.vue'),
-      meta: { requiresAuth: true, requiresActive: true, title: 'Histori Transaksi' },
-    },
-    {
-      path: '/toko',
-      name: 'toko',
-      component: () => import('@/views/TokoView.vue'),
-      meta: { requiresAuth: true, requiresActive: true, title: 'Manajemen Toko' },
-    },
-    {
-      path: '/testing',
-      name: 'testing',
-      component: () => import('@/views/TestingView.vue'),
-      meta: { requiresAuth: true, requiresActive: true, title: 'Testing Toko' },
-    },
-    {
-      path: '/dokumentasi-api',
-      name: 'dokumentasi-api',
-      component: () => import('@/views/ApiDocumentationView.vue'),
-      meta: { requiresAuth: true, requiresActive: true, title: 'Dokumentasi API' },
-    },
-    {
-      path: '/bank-management',
-      name: 'bank-management',
-      component: () => import('@/views/BankManagementView.vue'),
-      meta: {
-        requiresAuth: true,
-        requiresActive: true,
-        allowedRoles: ['dev', 'superadmin', 'admin'],
-        title: 'Bank Management',
-      },
-    },
-    {
-      path: '/withdraw',
-      name: 'withdraw',
-      component: () => import('@/views/WithdrawView.vue'),
-      meta: {
-        requiresAuth: true,
-        requiresActive: true,
-        allowedRoles: ['dev', 'superadmin', 'admin'],
-        title: 'Withdraw',
-      },
-    },
-    {
-      path: '/users',
-      name: 'users',
-      component: () => import('@/views/UserManagementView.vue'),
-      meta: {
-        requiresAuth: true,
-        requiresActive: true,
-        allowedRoles: ['dev', 'superadmin', 'admin'],
-        title: 'User Management',
-      },
-    },
-  ],
-})
+const guestOnlyPaths = new Set(['/login', '/register'])
 
-router.beforeEach(async (to) => {
-  const auth = useAuthStore()
-  const userStore = useUserStore()
-  await auth.restoreSession()
+export const routes: RouteRecordRaw[] = [
+  {
+    path: '/',
+    name: 'landing',
+    component: () => import('@/views/LandingPageView.vue'),
+    meta: {
+      publicLayout: true,
+      title: 'Gateway QRIS untuk Merchant',
+    },
+  },
+  {
+    path: '/login',
+    name: 'login',
+    component: () => import('@/views/LoginView.vue'),
+    meta: { authLayout: true, title: 'Masuk', noindex: true },
+  },
+  {
+    path: '/register',
+    name: 'register',
+    component: () => import('@/views/RegisterView.vue'),
+    meta: { authLayout: true, title: 'Daftar', noindex: true },
+  },
+  {
+    path: '/dashboard',
+    name: 'dashboard',
+    component: () => import('@/views/DashboardView.vue'),
+    meta: { requiresAuth: true, requiresActive: true, title: 'Dashboard', noindex: true },
+  },
+  {
+    path: '/histori-transaksi',
+    name: 'histori-transaksi',
+    component: () => import('@/views/TransactionHistoryView.vue'),
+    meta: { requiresAuth: true, requiresActive: true, title: 'Histori Transaksi', noindex: true },
+  },
+  {
+    path: '/toko',
+    name: 'toko',
+    component: () => import('@/views/TokoView.vue'),
+    meta: { requiresAuth: true, requiresActive: true, title: 'Manajemen Toko', noindex: true },
+  },
+  {
+    path: '/testing',
+    name: 'testing',
+    component: () => import('@/views/TestingView.vue'),
+    meta: { requiresAuth: true, requiresActive: true, title: 'Testing Toko', noindex: true },
+  },
+  {
+    path: '/dokumentasi-api',
+    name: 'dokumentasi-api',
+    component: () => import('@/views/ApiDocumentationView.vue'),
+    meta: { requiresAuth: true, requiresActive: true, title: 'Dokumentasi API', noindex: true },
+  },
+  {
+    path: '/bank-management',
+    name: 'bank-management',
+    component: () => import('@/views/BankManagementView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresActive: true,
+      allowedRoles: ['dev', 'superadmin', 'admin'],
+      title: 'Bank Management',
+      noindex: true,
+    },
+  },
+  {
+    path: '/withdraw',
+    name: 'withdraw',
+    component: () => import('@/views/WithdrawView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresActive: true,
+      allowedRoles: ['dev', 'superadmin', 'admin'],
+      title: 'Withdraw',
+      noindex: true,
+    },
+  },
+  {
+    path: '/users',
+    name: 'users',
+    component: () => import('@/views/UserManagementView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresActive: true,
+      allowedRoles: ['dev', 'superadmin', 'admin'],
+      title: 'User Management',
+      noindex: true,
+    },
+  },
+]
 
-  if (auth.isAuthenticated && !userStore.profile) {
-    try {
-      await userStore.fetchMe()
-    } catch {
+export function installRouterGuards(router: Router) {
+  router.beforeEach(async (to) => {
+    const auth = useAuthStore()
+    const userStore = useUserStore()
+
+    const needsAuthResolution = Boolean(
+      to.meta.requiresAuth
+      || to.meta.requiresActive
+      || Array.isArray(to.meta.allowedRoles)
+      || guestOnlyPaths.has(to.path),
+    )
+
+    if (needsAuthResolution) {
+      await auth.restoreSession()
+    }
+
+    if (auth.isAuthenticated && !userStore.profile) {
+      try {
+        await userStore.fetchMe()
+      } catch {
+        await auth.logout()
+        return { path: '/login' }
+      }
+    }
+
+    if (auth.isAuthenticated && userStore.profile && !userStore.profile.is_active) {
       await auth.logout()
-      return { path: '/login' }
+      if (to.path !== '/login') {
+        return { path: '/login' }
+      }
     }
-  }
 
-  if (auth.isAuthenticated && userStore.profile && !userStore.profile.is_active) {
-    await auth.logout()
-    if (to.path !== '/login') {
-      return { path: '/login' }
+    const redirectPath = resolveRedirect(
+      to,
+      auth.isAuthenticated,
+      userStore.profile?.is_active ?? null,
+    )
+    if (redirectPath) {
+      return { path: redirectPath }
     }
-  }
 
-  const redirectPath = resolveRedirect(
-    to,
-    auth.isAuthenticated,
-    userStore.profile?.is_active ?? null,
-  )
-  if (redirectPath) {
-    return { path: redirectPath }
-  }
-
-  const roleRedirect = resolveRoleRedirect(to, userStore.profile?.role ?? null)
-  if (roleRedirect) {
-    return { path: roleRedirect }
-  }
-  return true
-})
-
-export default router
+    const roleRedirect = resolveRoleRedirect(to, userStore.profile?.role ?? null)
+    if (roleRedirect) {
+      return { path: roleRedirect }
+    }
+    return true
+  })
+}

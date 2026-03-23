@@ -1,0 +1,48 @@
+<svg width="1280" height="720" viewBox="0 0 1280 720" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1280" height="720" rx="36" fill="url(#bg)"/>
+  <circle cx="1096" cy="124" r="164" fill="url(#glow)" fill-opacity=".7"/>
+  <path d="M88 116H1192" stroke="rgba(255,255,255,0.08)"/>
+  <path d="M88 212H1192" stroke="rgba(255,255,255,0.08)"/>
+  <path d="M88 308H1192" stroke="rgba(255,255,255,0.08)"/>
+  <path d="M88 404H1192" stroke="rgba(255,255,255,0.08)"/>
+  <path d="M88 500H1192" stroke="rgba(255,255,255,0.08)"/>
+  <path d="M88 596H1192" stroke="rgba(255,255,255,0.08)"/>
+  <g opacity=".2">
+    <path d="M184 88V632" stroke="white"/>
+    <path d="M344 88V632" stroke="white"/>
+    <path d="M504 88V632" stroke="white"/>
+    <path d="M664 88V632" stroke="white"/>
+    <path d="M824 88V632" stroke="white"/>
+    <path d="M984 88V632" stroke="white"/>
+  </g>
+  <rect x="88" y="76" width="388" height="260" rx="28" fill="#091427" fill-opacity=".92" stroke="rgba(255,255,255,.12)"/>
+  <text x="124" y="128" fill="#8ea6c8" font-family="Arial, sans-serif" font-size="20" font-weight="600">Merchant Callback Stability</text>
+  <text x="124" y="196" fill="#F8FBFF" font-family="Arial, sans-serif" font-size="56" font-weight="700">99.2%</text>
+  <rect x="124" y="216" width="132" height="6" rx="3" fill="#5EEAD4"/>
+  <text x="124" y="268" fill="#AFC2DC" font-family="Arial, sans-serif" font-size="20" font-weight="500">Callback final, webhook idempotent,</text>
+  <text x="124" y="296" fill="#AFC2DC" font-family="Arial, sans-serif" font-size="20" font-weight="500">dan cache snapshot trx_id siap produksi.</text>
+  <rect x="88" y="372" width="1104" height="260" rx="28" fill="#091427" fill-opacity=".86" stroke="rgba(255,255,255,.12)"/>
+  <rect x="128" y="428" width="286" height="148" rx="24" fill="rgba(11,18,32,.88)" stroke="rgba(255,255,255,.08)"/>
+  <rect x="450" y="428" width="286" height="148" rx="24" fill="rgba(11,18,32,.88)" stroke="rgba(255,255,255,.08)"/>
+  <rect x="772" y="428" width="286" height="148" rx="24" fill="rgba(11,18,32,.88)" stroke="rgba(255,255,255,.08)"/>
+  <text x="160" y="468" fill="#8EA6C8" font-family="Arial, sans-serif" font-size="18" font-weight="600">Success Rate</text>
+  <text x="160" y="524" fill="#F8FBFF" font-family="Arial, sans-serif" font-size="42" font-weight="700">99.2%</text>
+  <text x="482" y="468" fill="#8EA6C8" font-family="Arial, sans-serif" font-size="18" font-weight="600">Webhook Finality</text>
+  <text x="482" y="524" fill="#F8FBFF" font-family="Arial, sans-serif" font-size="42" font-weight="700">&lt; 1s</text>
+  <text x="804" y="468" fill="#8EA6C8" font-family="Arial, sans-serif" font-size="18" font-weight="600">Merchant Callback</text>
+  <text x="804" y="524" fill="#F8FBFF" font-family="Arial, sans-serif" font-size="42" font-weight="700">Stable</text>
+  <rect x="160" y="540" width="96" height="6" rx="3" fill="#5EEAD4"/>
+  <rect x="482" y="540" width="96" height="6" rx="3" fill="#60A5FA"/>
+  <rect x="804" y="540" width="96" height="6" rx="3" fill="#8B5CF6"/>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1280" y2="720" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#08111F"/>
+      <stop offset=".6" stop-color="#0E1A2F"/>
+      <stop offset="1" stop-color="#102844"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(1096 124) rotate(90) scale(164)">
+      <stop stop-color="#58A6FF"/>
+      <stop offset="1" stop-color="#58A6FF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+</svg>
