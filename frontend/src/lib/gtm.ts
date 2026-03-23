@@ -1,5 +1,7 @@
 const gtmId = (import.meta.env.VITE_GTM_ID ?? '').trim()
 const GTM_SCRIPT_ID = 'public-gtm-script'
+const GTM_LOAD_TIMEOUT_MS = 1500
+const GTM_EVENT_TIMEOUT_MS = 1800
 
 declare global {
   interface Window {
@@ -12,6 +14,8 @@ type GtmEventPayload = Record<string, unknown> & {
   eventCallback?: () => void
   eventTimeout?: number
 }
+
+let gtmLoadPromise: Promise<boolean> | null = null
 
 function getDataLayer() {
   if (typeof window === 'undefined') {
@@ -26,18 +30,45 @@ export function isGtmEnabled() {
   return gtmId.length > 0
 }
 
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T) {
+  return Promise.race([
+    promise,
+    new Promise<T>((resolve) => {
+      window.setTimeout(() => resolve(fallback), timeoutMs)
+    }),
+  ])
+}
+
 export function ensureGtmLoaded() {
   if (!isGtmEnabled() || typeof document === 'undefined') {
-    return false
+    return Promise.resolve(false)
   }
 
-  if (document.getElementById(GTM_SCRIPT_ID)) {
-    return true
+  if (gtmLoadPromise) {
+    return gtmLoadPromise
   }
 
   const dataLayer = getDataLayer()
   if (!dataLayer) {
-    return false
+    return Promise.resolve(false)
+  }
+
+  const existingScript = document.getElementById(GTM_SCRIPT_ID)
+  if (existingScript) {
+    if (existingScript.dataset.loaded === 'true') {
+      gtmLoadPromise = Promise.resolve(true)
+      return gtmLoadPromise
+    }
+
+    gtmLoadPromise = withTimeout<boolean>(
+      new Promise((resolve) => {
+        existingScript.addEventListener('load', () => resolve(true), { once: true })
+        existingScript.addEventListener('error', () => resolve(false), { once: true })
+      }),
+      GTM_LOAD_TIMEOUT_MS,
+      false,
+    )
+    return gtmLoadPromise
   }
 
   dataLayer.push({
@@ -49,8 +80,21 @@ export function ensureGtmLoaded() {
   script.id = GTM_SCRIPT_ID
   script.async = true
   script.src = `https://www.googletagmanager.com/gtm.js?id=${encodeURIComponent(gtmId)}`
+
+  gtmLoadPromise = withTimeout<boolean>(
+    new Promise((resolve) => {
+      script.addEventListener('load', () => {
+        script.dataset.loaded = 'true'
+        resolve(true)
+      }, { once: true })
+      script.addEventListener('error', () => resolve(false), { once: true })
+    }),
+    GTM_LOAD_TIMEOUT_MS,
+    false,
+  )
+
   document.head.appendChild(script)
-  return true
+  return gtmLoadPromise
 }
 
 export function pushGtmEvent(payload: GtmEventPayload) {
@@ -58,7 +102,6 @@ export function pushGtmEvent(payload: GtmEventPayload) {
     return false
   }
 
-  ensureGtmLoaded()
   const dataLayer = getDataLayer()
   if (!dataLayer) {
     return false
@@ -68,23 +111,50 @@ export function pushGtmEvent(payload: GtmEventPayload) {
   return true
 }
 
-export function trackNavigationWithGtm(payload: GtmEventPayload, destination: string) {
+export async function trackGtmEventBeforeAction(
+  payload: GtmEventPayload,
+  action: () => void,
+  options?: {
+    loadTimeoutMs?: number
+    eventTimeoutMs?: number
+  },
+) {
   if (typeof window === 'undefined') {
+    action()
     return
   }
 
-  const navigate = () => {
-    window.location.assign(destination)
+  const loadTimeoutMs = options?.loadTimeoutMs ?? GTM_LOAD_TIMEOUT_MS
+  const eventTimeoutMs = options?.eventTimeoutMs ?? GTM_EVENT_TIMEOUT_MS
+
+  await withTimeout(ensureGtmLoaded(), loadTimeoutMs, false)
+
+  let actionTriggered = false
+  const triggerAction = () => {
+    if (actionTriggered) {
+      return
+    }
+
+    actionTriggered = true
+    action()
   }
 
-  if (!pushGtmEvent({
+  const gtmTracked = pushGtmEvent({
     ...payload,
-    eventCallback: navigate,
-    eventTimeout: 800,
-  })) {
-    navigate()
+    eventCallback: triggerAction,
+    eventTimeout: eventTimeoutMs,
+  })
+
+  if (!gtmTracked) {
+    triggerAction()
     return
   }
 
-  window.setTimeout(navigate, 900)
+  window.setTimeout(triggerAction, eventTimeoutMs + 100)
+}
+
+export function trackNavigationWithGtm(payload: GtmEventPayload, destination: string) {
+  return trackGtmEventBeforeAction(payload, () => {
+    window.location.assign(destination)
+  })
 }

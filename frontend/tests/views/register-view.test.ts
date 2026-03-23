@@ -3,10 +3,12 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import RegisterView from '@/views/RegisterView.vue'
 
-const { registerMock, ensureGtmLoadedMock, pushGtmEventMock } = vi.hoisted(() => ({
+const { registerMock, ensureGtmLoadedMock, trackGtmEventBeforeActionMock } = vi.hoisted(() => ({
   registerMock: vi.fn(),
   ensureGtmLoadedMock: vi.fn(),
-  pushGtmEventMock: vi.fn(() => false),
+  trackGtmEventBeforeActionMock: vi.fn(async (_payload: unknown, action: () => void) => {
+    action()
+  }),
 }))
 
 vi.mock('@/stores/auth', () => ({
@@ -18,7 +20,7 @@ vi.mock('@/stores/auth', () => ({
 
 vi.mock('@/lib/gtm', () => ({
   ensureGtmLoaded: ensureGtmLoadedMock,
-  pushGtmEvent: pushGtmEventMock,
+  trackGtmEventBeforeAction: trackGtmEventBeforeActionMock,
 }))
 
 describe('RegisterView', () => {
@@ -26,8 +28,10 @@ describe('RegisterView', () => {
     registerMock.mockReset()
     registerMock.mockResolvedValue({})
     ensureGtmLoadedMock.mockReset()
-    pushGtmEventMock.mockReset()
-    pushGtmEventMock.mockReturnValue(false)
+    trackGtmEventBeforeActionMock.mockReset()
+    trackGtmEventBeforeActionMock.mockImplementation(async (_payload: unknown, action: () => void) => {
+      action()
+    })
   })
 
   it('loads GTM on mount and emits sign_up tracking after successful registration', async () => {
@@ -63,12 +67,12 @@ describe('RegisterView', () => {
       email: 'john@example.com',
       password: 'secret123',
     })
-    expect(pushGtmEventMock).toHaveBeenCalledWith(expect.objectContaining({
+    expect(trackGtmEventBeforeActionMock).toHaveBeenCalledWith(expect.objectContaining({
       event: 'sign_up',
       method: 'email',
       account_role: 'admin',
       page_type: 'register',
-    }))
-    expect(pushSpy).toHaveBeenCalledWith('/dashboard')
+    }), expect.any(Function))
+    expect(pushSpy).not.toHaveBeenCalled()
   })
 })

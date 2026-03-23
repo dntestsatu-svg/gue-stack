@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://gue.test/sitemap.xml
+Sitemap: https://bola788.store/sitemap.xml

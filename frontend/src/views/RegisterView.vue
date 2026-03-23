@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
+import { RouterLink } from 'vue-router'
 import { TriangleAlert } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -9,10 +9,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Spinner } from '@/components/ui/spinner'
-import { ensureGtmLoaded, pushGtmEvent } from '@/lib/gtm'
+import { ensureGtmLoaded, trackGtmEventBeforeAction } from '@/lib/gtm'
 
 const auth = useAuthStore()
-const router = useRouter()
 const errorMessage = ref('')
 
 const form = reactive({
@@ -34,21 +33,12 @@ const onSubmit = async () => {
       password: form.password,
     })
 
-    const gtmTracked = pushGtmEvent({
+    await trackGtmEventBeforeAction({
       event: 'sign_up',
       method: 'email',
       account_role: 'admin',
       page_type: 'register',
-      eventCallback: redirectToDashboard,
-      eventTimeout: 800,
-    })
-
-    if (gtmTracked) {
-      window.setTimeout(redirectToDashboard, 900)
-      return
-    }
-
-    await router.push('/dashboard')
+    }, redirectToDashboard)
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Registrasi gagal'
   }
