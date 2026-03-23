@@ -233,7 +233,7 @@ const copyText = async (value: string, label: string) => {
       <BookOpenText class="h-4 w-4" />
       <AlertTitle>Docs v1.0</AlertTitle>
       <AlertDescription>
-        <span class="font-medium text-foreground">Semua request method harus POST</span>.
+        <span class="font-medium text-foreground">Semua request method harus POST</span>
       </AlertDescription>
     </Alert>
 
