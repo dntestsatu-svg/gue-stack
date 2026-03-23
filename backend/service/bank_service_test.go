@@ -258,7 +258,7 @@ func TestBankService_InquiryUsesPaymentCatalogAndReturnsAccountName(t *testing.T
 				require.Equal(t, "gue-client", req.Client)
 				require.Equal(t, "gue-key", req.ClientKey)
 				require.Equal(t, "gue-merchant", req.UUID)
-				require.Equal(t, uint64(10000), req.Amount)
+				require.Equal(t, uint64(30000), req.Amount)
 				require.Equal(t, "542", req.BankCode)
 				require.Equal(t, "100009689749", req.AccountNumber)
 				require.Equal(t, bankInquiryTransferType, req.Type)

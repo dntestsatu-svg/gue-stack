@@ -19,7 +19,7 @@ import (
 
 const (
 	bankInquiryCacheTTL     = 5 * time.Minute
-	bankInquiryProbeAmount  = uint64(10000)
+	bankInquiryProbeAmount  = uint64(30000)
 	bankInquiryTransferType = 2
 )
 
