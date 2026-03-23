@@ -33,7 +33,13 @@ func NewRouter(
 ) *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
-	r.Use(middleware.RequestID(), middleware.CORS(), middleware.Logger(logger), middleware.Recovery())
+	r.Use(
+		middleware.RequestID(),
+		middleware.SecurityHeaders(),
+		middleware.CORS(),
+		middleware.Logger(logger),
+		middleware.Recovery(),
+	)
 
 	csrfMiddleware := middleware.CSRFProtection(
 		securityCfg.CSRF,

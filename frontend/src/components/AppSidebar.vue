@@ -3,6 +3,7 @@ import type { Component } from 'vue'
 import { computed, markRaw } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
+  BookOpenText,
   ChartArea,
   FlaskConical,
   History,
@@ -46,12 +47,13 @@ const router = useRouter()
 
 const menuItems: MenuItem[] = [
   { title: 'Dashboard', to: '/dashboard', icon: markRaw(LayoutDashboard) },
+  { title: 'User Management', to: '/users', icon: markRaw(Shield), roles: ['dev', 'superadmin', 'admin'] },
   { title: 'Histori Transaksi', to: '/histori-transaksi', icon: markRaw(History) },
   { title: 'Toko', to: '/toko', icon: markRaw(Store) },
   { title: 'Testing', to: '/testing', icon: markRaw(FlaskConical) },
   { title: 'Bank Management', to: '/bank-management', icon: markRaw(Landmark), roles: ['dev', 'superadmin', 'admin'] },
   { title: 'Withdraw', to: '/withdraw', icon: markRaw(ArrowUpRight), roles: ['dev', 'superadmin', 'admin'] },
-  { title: 'User Management', to: '/users', icon: markRaw(Shield), roles: ['dev', 'superadmin', 'admin'] },
+  { title: 'Dokumentasi API', to: '/dokumentasi-api', icon: markRaw(BookOpenText) },
 ]
 
 const role = computed(() => userStore.profile?.role ?? 'user')

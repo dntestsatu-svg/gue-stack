@@ -44,6 +44,12 @@ const router = createRouter({
       meta: { requiresAuth: true, requiresActive: true, title: 'Testing Toko' },
     },
     {
+      path: '/dokumentasi-api',
+      name: 'dokumentasi-api',
+      component: () => import('@/views/ApiDocumentationView.vue'),
+      meta: { requiresAuth: true, requiresActive: true, title: 'Dokumentasi API' },
+    },
+    {
       path: '/bank-management',
       name: 'bank-management',
       component: () => import('@/views/BankManagementView.vue'),

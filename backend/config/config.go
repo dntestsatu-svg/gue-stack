@@ -181,6 +181,17 @@ func Load() (Config, error) {
 	if cfg.PaymentGateway.PlatformFeePercent < 0 || cfg.PaymentGateway.PlatformFeePercent > 100 {
 		return Config{}, fmt.Errorf("PAYMENT_GATEWAY_PLATFORM_FEE_PERCENT must be between 0 and 100")
 	}
+	if isProductionEnv(cfg.AppEnv) {
+		if !cfg.Security.Cookie.Secure {
+			return Config{}, fmt.Errorf("SECURITY_COOKIE_SECURE must be true in production")
+		}
+		if err := validateJWTSecret("JWT_ACCESS_SECRET", cfg.JWT.AccessSecret); err != nil {
+			return Config{}, err
+		}
+		if err := validateJWTSecret("JWT_REFRESH_SECRET", cfg.JWT.RefreshSecret); err != nil {
+			return Config{}, err
+		}
+	}
 
 	return cfg, nil
 }
@@ -332,4 +343,20 @@ func trimEnvValue(value string) string {
 		}
 	}
 	return value
+}
+
+func isProductionEnv(env string) bool {
+	return strings.EqualFold(strings.TrimSpace(env), "production")
+}
+
+func validateJWTSecret(name string, value string) error {
+	trimmed := strings.TrimSpace(value)
+	switch trimmed {
+	case "", "change-me-access-secret", "change-me-refresh-secret":
+		return fmt.Errorf("%s must be replaced with a strong production secret", name)
+	}
+	if len(trimmed) < 32 {
+		return fmt.Errorf("%s must be at least 32 characters in production", name)
+	}
+	return nil
 }

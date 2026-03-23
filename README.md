@@ -320,3 +320,16 @@ If login returns `403 missing csrf cookie`:
    - `SECURITY_COOKIE_SECURE=true`
    - `SECURITY_COOKIE_SAME_SITE=none`
    - `VITE_API_BASE_URL=https://api.test`
+
+## Production Checklist
+
+Before deploying with a real domain:
+
+- set strong `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` values (minimum 32 characters)
+- set a non-placeholder `BOOTSTRAP_DEV_PASSWORD`
+- use `SECURITY_COOKIE_SECURE=true`
+- set `CORS_ALLOWED_ORIGINS` explicitly if frontend and API are served from different origins
+- terminate TLS at your reverse proxy/load balancer and forward `X-Forwarded-Proto=https`
+- run `api`, `worker`, `mysql`, `redis`, and `memcached` with persistent storage and monitoring
+- run database migrations before switching traffic
+- keep merchant callback endpoints public, HTTPS, and fast to acknowledge with `HTTP 200`

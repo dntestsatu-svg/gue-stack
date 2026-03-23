@@ -229,6 +229,31 @@
     background: color-mix(in oklab, var(--background-muted) 64%, transparent);
   }
 
+  .docs-code-block {
+    @apply overflow-x-auto rounded-[1.15rem] border p-4 text-sm;
+    border-color: color-mix(in oklab, var(--border) 78%, transparent);
+    background:
+      radial-gradient(circle at 100% 0%, color-mix(in oklab, var(--brand) 10%, transparent), transparent 40%),
+      linear-gradient(180deg, color-mix(in oklab, var(--background-muted) 86%, transparent), color-mix(in oklab, var(--background-elevated) 96%, transparent));
+    box-shadow: inset 0 1px 0 color-mix(in oklab, white 12%, transparent);
+  }
+
+  .docs-code-block pre {
+    @apply m-0 whitespace-pre-wrap break-words font-mono leading-6;
+  }
+
+  .docs-list-item {
+    @apply flex gap-3 rounded-xl border px-3 py-3;
+    border-color: color-mix(in oklab, var(--border) 76%, transparent);
+    background: color-mix(in oklab, var(--background-muted) 54%, transparent);
+  }
+
+  .docs-mini-card {
+    @apply rounded-[1.2rem] border;
+    border-color: color-mix(in oklab, var(--border) 76%, transparent);
+    background: linear-gradient(180deg, color-mix(in oklab, var(--background-elevated) 98%, transparent), color-mix(in oklab, var(--background-muted) 58%, transparent));
+  }
+
   .metric-value {
     @apply text-3xl font-semibold tracking-tight;
   }

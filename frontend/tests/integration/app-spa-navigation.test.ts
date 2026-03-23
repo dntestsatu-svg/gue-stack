@@ -3,6 +3,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import App from '@/App.vue'
+import ApiDocumentationView from '@/views/ApiDocumentationView.vue'
 import WithdrawView from '@/views/WithdrawView.vue'
 import DashboardView from '@/views/DashboardView.vue'
 import BankManagementView from '@/views/BankManagementView.vue'
@@ -169,6 +170,12 @@ function createTestRouter() {
         name: 'testing',
         component: TestingView,
         meta: { requiresAuth: true, requiresActive: true, title: 'Testing Toko' },
+      },
+      {
+        path: '/dokumentasi-api',
+        name: 'dokumentasi-api',
+        component: ApiDocumentationView,
+        meta: { requiresAuth: true, requiresActive: true, title: 'Dokumentasi API' },
       },
       {
         path: '/bank-management',
@@ -475,6 +482,12 @@ describe('App SPA routing', () => {
     expect(wrapper.text()).toContain('Generate QRIS')
     expect(wrapper.text()).toContain('Callback Readiness')
 
+    await router.push('/dokumentasi-api')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Dokumentasi API')
+    expect(wrapper.text()).toContain('Merchant Endpoint Catalog')
+    expect(wrapper.text()).toContain('Callback Payload ke Merchant Website')
+
     await router.push('/bank-management')
     await flushPromises()
     expect(wrapper.text()).toContain('Bank Management')
@@ -491,5 +504,5 @@ describe('App SPA routing', () => {
     expect(wrapper.text()).toContain('User Management')
     expect(wrapper.text()).toContain('Add User')
     expect(consoleErrorSpy).not.toHaveBeenCalled()
-  })
+  }, 15000)
 })

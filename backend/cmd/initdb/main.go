@@ -102,6 +102,12 @@ func main() {
 		Email:    strings.TrimSpace(os.Getenv("BOOTSTRAP_DEV_EMAIL")),
 		Password: strings.TrimSpace(os.Getenv("BOOTSTRAP_DEV_PASSWORD")),
 	}
+	if strings.EqualFold(cfg.AppEnv, "production") {
+		if err := validateProductionBootstrapPassword(devInput.Password); err != nil {
+			log.Error("invalid bootstrap dev password for production", "error", err.Error())
+			os.Exit(1)
+		}
+	}
 	if err := bootstrap.EnsureSingleDevUser(context.Background(), sqlDB, devInput); err != nil {
 		log.Error("failed to ensure single dev user", "error", err.Error())
 		os.Exit(1)
@@ -531,4 +537,16 @@ func envInt64OrDefault(key string, defaultValue int64) int64 {
 		return defaultValue
 	}
 	return parsed
+}
+
+func validateProductionBootstrapPassword(password string) error {
+	trimmed := strings.TrimSpace(password)
+	switch trimmed {
+	case "", "change-this-password":
+		return fmt.Errorf("BOOTSTRAP_DEV_PASSWORD must be replaced with a strong production password")
+	}
+	if len(trimmed) < 12 {
+		return fmt.Errorf("BOOTSTRAP_DEV_PASSWORD must be at least 12 characters in production")
+	}
+	return nil
 }

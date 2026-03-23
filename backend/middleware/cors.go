@@ -44,6 +44,9 @@ func CORS() gin.HandlerFunc {
 
 func parseAllowedOrigins(value string) []string {
 	if strings.TrimSpace(value) == "" {
+		if strings.EqualFold(strings.TrimSpace(os.Getenv("APP_ENV")), "production") {
+			return nil
+		}
 		return []string{
 			"http://localhost:5173",
 			"http://127.0.0.1:5173",
@@ -60,6 +63,9 @@ func parseAllowedOrigins(value string) []string {
 		result = append(result, origin)
 	}
 	if len(result) == 0 {
+		if strings.EqualFold(strings.TrimSpace(os.Getenv("APP_ENV")), "production") {
+			return nil
+		}
 		return []string{"http://localhost:5173", "http://127.0.0.1:5173"}
 	}
 	return result
