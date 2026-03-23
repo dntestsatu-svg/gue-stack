@@ -231,11 +231,9 @@ const copyText = async (value: string, label: string) => {
 
     <Alert class="app-panel">
       <BookOpenText class="h-4 w-4" />
-      <AlertTitle>Transparansi Arsitektur</AlertTitle>
+      <AlertTitle>Docs v1.0</AlertTitle>
       <AlertDescription>
-        Merchant flow pada project ini adalah
-        <span class="font-medium text-foreground">merchant website -> this project -> external API -> this project -> merchant website</span>.
-        Merchant hanya memakai token toko miliknya sendiri. Secret dan kredensial external API tidak pernah diekspos ke merchant.
+        <span class="font-medium text-foreground">Semua request method harus POST</span>.
       </AlertDescription>
     </Alert>
 
