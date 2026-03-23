@@ -236,6 +236,35 @@ export interface WithdrawTransferResult {
   remaining_settlement_balance: number
 }
 
+export interface WithdrawHistoryItem {
+  id: number
+  toko_id: number
+  toko_name: string
+  player?: string
+  code?: string
+  status: string
+  reference?: string
+  amount: number
+  netto: number
+  created_at: string
+}
+
+export interface WithdrawHistoryPage {
+  items: WithdrawHistoryItem[]
+  total: number
+  limit: number
+  offset: number
+  has_more: boolean
+}
+
+export interface WithdrawHistoryQuery {
+  limit?: number
+  offset?: number
+  q?: string
+  from?: string
+  to?: string
+}
+
 export interface TestingGenerateQrisResult {
   toko_id: number
   toko_name: string

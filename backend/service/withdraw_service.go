@@ -27,6 +27,7 @@ const (
 
 type WithdrawUseCase interface {
 	Options(ctx context.Context, userID uint64, actorRole model.UserRole) (*WithdrawOptionsResult, error)
+	History(ctx context.Context, userID uint64, actorRole model.UserRole, query WithdrawHistoryQuery) (*WithdrawHistoryPage, error)
 	Inquiry(ctx context.Context, userID uint64, actorRole model.UserRole, input WithdrawInquiryInput) (*WithdrawInquiryResult, error)
 	Transfer(ctx context.Context, userID uint64, actorRole model.UserRole, input WithdrawTransferInput) (*WithdrawTransferResult, error)
 }
@@ -104,6 +105,35 @@ type WithdrawTransferResult struct {
 	AccountNumber       string `json:"account_number"`
 	Amount              uint64 `json:"amount"`
 	RemainingSettlement uint64 `json:"remaining_settlement_balance"`
+}
+
+type WithdrawHistoryQuery struct {
+	Limit      int
+	Offset     int
+	From       *time.Time
+	To         *time.Time
+	SearchTerm string
+}
+
+type WithdrawHistoryItem struct {
+	ID        uint64 `json:"id"`
+	TokoID    uint64 `json:"toko_id"`
+	TokoName  string `json:"toko_name"`
+	Player    string `json:"player,omitempty"`
+	Code      string `json:"code,omitempty"`
+	Status    string `json:"status"`
+	Reference string `json:"reference,omitempty"`
+	Amount    uint64 `json:"amount"`
+	Netto     uint64 `json:"netto"`
+	CreatedAt string `json:"created_at"`
+}
+
+type WithdrawHistoryPage struct {
+	Items   []WithdrawHistoryItem `json:"items"`
+	Total   uint64                `json:"total"`
+	Limit   int                   `json:"limit"`
+	Offset  int                   `json:"offset"`
+	HasMore bool                  `json:"has_more"`
 }
 
 type cachedWithdrawInquiry struct {
@@ -190,6 +220,32 @@ func (s *WithdrawService) Options(ctx context.Context, userID uint64, actorRole 
 		})
 	}
 	return result, nil
+}
+
+func (s *WithdrawService) History(ctx context.Context, userID uint64, actorRole model.UserRole, query WithdrawHistoryQuery) (*WithdrawHistoryPage, error) {
+	if !canRequestWithdraw(actorRole) {
+		return nil, apperror.New(http.StatusForbidden, "insufficient role permission", "withdraw hanya tersedia untuk dev, superadmin, atau admin")
+	}
+
+	filter := sanitizeWithdrawHistoryFilter(query)
+	total, err := s.transactionRepo.CountHistoryByUser(ctx, userID, filter)
+	if err != nil {
+		return nil, apperror.New(http.StatusInternalServerError, "failed to count withdraw history", err.Error())
+	}
+
+	records, err := s.transactionRepo.ListRecentByUser(ctx, userID, filter)
+	if err != nil {
+		return nil, apperror.New(http.StatusInternalServerError, "failed to fetch withdraw history", err.Error())
+	}
+
+	items := mapWithdrawHistory(records)
+	return &WithdrawHistoryPage{
+		Items:   items,
+		Total:   total,
+		Limit:   filter.Limit,
+		Offset:  filter.Offset,
+		HasMore: uint64(filter.Offset+len(items)) < total,
+	}, nil
 }
 
 func (s *WithdrawService) Inquiry(ctx context.Context, userID uint64, actorRole model.UserRole, input WithdrawInquiryInput) (*WithdrawInquiryResult, error) {
@@ -452,6 +508,56 @@ func ensureSettlementSufficient(currentBalance float64, amount uint64) error {
 		return apperror.New(http.StatusBadRequest, "insufficient settlement balance", "saldo settlement toko tidak mencukupi untuk withdraw ini")
 	}
 	return nil
+}
+
+func sanitizeWithdrawHistoryFilter(query WithdrawHistoryQuery) repository.TransactionHistoryFilter {
+	limit := query.Limit
+	if limit <= 0 {
+		limit = 10
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	offset := query.Offset
+	if offset < 0 {
+		offset = 0
+	}
+
+	return repository.TransactionHistoryFilter{
+		Limit:      limit,
+		Offset:     offset,
+		From:       query.From,
+		To:         query.To,
+		SearchTerm: strings.TrimSpace(query.SearchTerm),
+		Type:       model.TransactionTypeWithdraw,
+	}
+}
+
+func mapWithdrawHistory(records []repository.TransactionHistoryRecord) []WithdrawHistoryItem {
+	result := make([]WithdrawHistoryItem, 0, len(records))
+	for _, record := range records {
+		item := WithdrawHistoryItem{
+			ID:        record.ID,
+			TokoID:    record.TokoID,
+			TokoName:  record.TokoName,
+			Status:    string(record.Status),
+			Amount:    record.Amount,
+			Netto:     record.Netto,
+			CreatedAt: record.CreatedAt.UTC().Format(time.RFC3339),
+		}
+		if record.Player != nil {
+			item.Player = *record.Player
+		}
+		if record.Code != nil {
+			item.Code = *record.Code
+		}
+		if record.Reference != nil {
+			item.Reference = *record.Reference
+		}
+		result = append(result, item)
+	}
+	return result
 }
 
 var _ WithdrawUseCase = (*WithdrawService)(nil)

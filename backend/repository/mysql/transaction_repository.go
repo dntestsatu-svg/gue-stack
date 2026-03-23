@@ -359,6 +359,10 @@ func buildHistoryFilterClause(filter repository.TransactionHistoryFilter, succes
 		builder.WriteString(" AND t.created_at <= ?")
 		args = append(args, filter.To.UTC())
 	}
+	if filter.Type != "" {
+		builder.WriteString(" AND t.type = ?")
+		args = append(args, filter.Type)
+	}
 
 	term := strings.TrimSpace(filter.SearchTerm)
 	if term != "" {

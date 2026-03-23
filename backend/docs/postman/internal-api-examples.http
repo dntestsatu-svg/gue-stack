@@ -152,6 +152,10 @@ Authorization: Bearer {{accessToken}}
 GET {{baseUrl}}/api/v1/withdraw/options
 Authorization: Bearer {{accessToken}}
 
+### Withdraw Request History
+GET {{baseUrl}}/api/v1/withdraw/history?limit=10&offset=0
+Authorization: Bearer {{accessToken}}
+
 ### Inquiry Withdraw to Saved Bank
 POST {{baseUrl}}/api/v1/withdraw/inquiry
 Authorization: Bearer {{accessToken}}

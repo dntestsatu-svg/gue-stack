@@ -396,6 +396,46 @@ paths:
       responses:
         "200":
           description: OK
+  /api/v1/withdraw/history:
+    get:
+      summary: Paginated withdraw-only history scoped to the authenticated user
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+        - in: query
+          name: offset
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+        - in: query
+          name: q
+          required: false
+          schema:
+            type: string
+            description: Search across reference, player, and code
+        - in: query
+          name: from
+          required: false
+          schema:
+            type: string
+            description: RFC3339 or YYYY-MM-DD
+        - in: query
+          name: to
+          required: false
+          schema:
+            type: string
+            description: RFC3339 or YYYY-MM-DD
+      responses:
+        "200":
+          description: OK
   /api/v1/withdraw/inquiry:
     post:
       summary: Verify settlement availability and inquiry target bank account before withdraw

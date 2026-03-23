@@ -1,6 +1,8 @@
 import api from './http'
 import type {
   ApiResponse,
+  WithdrawHistoryPage,
+  WithdrawHistoryQuery,
   WithdrawInquiryResult,
   WithdrawOptionsResult,
   WithdrawTransferResult,
@@ -21,6 +23,13 @@ export interface WithdrawTransferPayload {
 
 export async function fetchOptions() {
   const { data } = await api.get<ApiResponse<WithdrawOptionsResult>>('/api/v1/withdraw/options')
+  return data.data
+}
+
+export async function fetchHistory(query: WithdrawHistoryQuery = {}) {
+  const { data } = await api.get<ApiResponse<WithdrawHistoryPage>>('/api/v1/withdraw/history', {
+    params: query,
+  })
   return data.data
 }
 

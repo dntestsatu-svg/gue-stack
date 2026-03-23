@@ -122,6 +122,53 @@ func TestWithdrawServiceInquiryReturnsAccountConfirmationData(t *testing.T) {
 	require.Equal(t, "014", gateway.inquiryReq.BankCode)
 }
 
+func TestWithdrawServiceHistoryReturnsWithdrawOnlyPage(t *testing.T) {
+	trxRepo := &fakeTransactionRepo{
+		history: []repository.TransactionHistoryRecord{
+			{
+				ID:        17,
+				TokoID:    5,
+				TokoName:  "Toko Alpha",
+				Status:    model.TransactionStatusPending,
+				Type:      model.TransactionTypeWithdraw,
+				Reference: pointerToString("partner-ref-17"),
+				Amount:    125000,
+				Netto:     123500,
+				CreatedAt: time.Date(2026, 3, 21, 18, 15, 0, 0, time.UTC),
+			},
+		},
+		historyCount: 1,
+	}
+	svc := NewWithdrawService(
+		&fakeTokoDomainRepo{},
+		&fakeBalanceRepo{},
+		&fakeBankRepo{},
+		trxRepo,
+		&fakeWithdrawGatewayClient{},
+		nil,
+		false,
+		"client",
+		"key",
+		"merchant",
+		slog.Default(),
+	)
+
+	page, err := svc.History(context.Background(), 11, model.UserRoleAdmin, WithdrawHistoryQuery{
+		Limit:      12,
+		Offset:     0,
+		SearchTerm: "partner-ref",
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, model.TransactionTypeWithdraw, trxRepo.lastHistoryFilter.Type)
+	require.Equal(t, 12, trxRepo.lastHistoryFilter.Limit)
+	require.Equal(t, "partner-ref", trxRepo.lastHistoryFilter.SearchTerm)
+	require.Len(t, page.Items, 1)
+	require.Equal(t, "pending", page.Items[0].Status)
+	require.Equal(t, "partner-ref-17", page.Items[0].Reference)
+	require.False(t, page.HasMore)
+}
+
 func TestWithdrawServiceTransferCreatesPendingWithdrawAndDeductsSettlement(t *testing.T) {
 	tokoRepo := &fakeTokoDomainRepo{
 		byID: map[uint64]*model.Toko{
@@ -224,4 +271,8 @@ func TestWithdrawServiceTransferRefundsSettlementWhenGatewayFails(t *testing.T) 
 	require.Equal(t, 500000.0, updatedBalance.SettlementBalance)
 	require.Len(t, trxRepo.statuses, 1)
 	require.Equal(t, model.TransactionStatusFailed, trxRepo.statuses[0].status)
+}
+
+func pointerToString(value string) *string {
+	return &value
 }

@@ -61,6 +61,31 @@ func (h *WithdrawHandler) Inquiry(c *gin.Context) {
 	})
 }
 
+func (h *WithdrawHandler) History(c *gin.Context) {
+	userID, actorRole, err := readUserContext(c)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+
+	query, err := parseWithdrawHistoryQuery(c)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+
+	result, err := h.withdraw.History(c.Request.Context(), userID, actorRole, query)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"data":   result,
+	})
+}
+
 func (h *WithdrawHandler) Transfer(c *gin.Context) {
 	userID, actorRole, err := readUserContext(c)
 	if err != nil {

@@ -140,6 +140,7 @@ func NewRouter(
 	)
 	{
 		withdraw.GET("/options", withdrawHandler.Options)
+		withdraw.GET("/history", withdrawHandler.History)
 		withdraw.POST("/inquiry", csrfMiddleware, withdrawHandler.Inquiry)
 		withdraw.POST("/transfer", csrfMiddleware, withdrawHandler.Transfer)
 	}

@@ -4,12 +4,14 @@ import WithdrawView from '@/views/WithdrawView.vue'
 
 const {
   fetchWithdrawOptionsMock,
+  fetchWithdrawHistoryMock,
   inquiryWithdrawMock,
   transferWithdrawMock,
   toastSuccessMock,
   toastErrorMock,
 } = vi.hoisted(() => ({
   fetchWithdrawOptionsMock: vi.fn(),
+  fetchWithdrawHistoryMock: vi.fn(),
   inquiryWithdrawMock: vi.fn(),
   transferWithdrawMock: vi.fn(),
   toastSuccessMock: vi.fn(),
@@ -18,6 +20,7 @@ const {
 
 vi.mock('@/services/withdraw', () => ({
   fetchOptions: fetchWithdrawOptionsMock,
+  fetchHistory: fetchWithdrawHistoryMock,
   inquiry: inquiryWithdrawMock,
   transfer: transferWithdrawMock,
 }))
@@ -32,6 +35,7 @@ vi.mock('vue-sonner', () => ({
 describe('WithdrawView', () => {
   beforeEach(() => {
     fetchWithdrawOptionsMock.mockReset()
+    fetchWithdrawHistoryMock.mockReset()
     inquiryWithdrawMock.mockReset()
     transferWithdrawMock.mockReset()
     toastSuccessMock.mockReset()
@@ -54,6 +58,24 @@ describe('WithdrawView', () => {
           account_number: '1234567890',
         },
       ],
+    })
+    fetchWithdrawHistoryMock.mockResolvedValue({
+      items: [
+        {
+          id: 11,
+          toko_id: 1,
+          toko_name: 'Toko Alpha',
+          status: 'pending',
+          reference: 'partner-ref-11',
+          amount: 50000,
+          netto: 48500,
+          created_at: '2026-03-21T06:20:00Z',
+        },
+      ],
+      total: 1,
+      limit: 10,
+      offset: 0,
+      has_more: false,
     })
   })
 
@@ -91,6 +113,8 @@ describe('WithdrawView', () => {
     expect(wrapper.text()).toContain('Withdraw')
     expect(wrapper.text()).toContain('Toko Alpha')
     expect(wrapper.text()).toContain('PT. BANK CENTRAL ASIA, TBK.')
+    expect(wrapper.text()).toContain('Withdraw Request History')
+    expect(wrapper.text()).toContain('partner-ref-11')
 
     await wrapper.get('#withdraw-amount').setValue('100000')
     const actionButton = wrapper.findAll('button').find((button) => button.text().includes('Request Withdraw'))
@@ -109,6 +133,7 @@ describe('WithdrawView', () => {
       amount: 100000,
       inquiry_id: 77,
     })
+    expect(fetchWithdrawHistoryMock).toHaveBeenCalled()
     expect(wrapper.text()).toContain('Uangnya akan segera sampai ke bank anda.')
     expect(toastSuccessMock).toHaveBeenCalled()
   })

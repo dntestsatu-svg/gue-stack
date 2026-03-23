@@ -129,6 +129,42 @@ func parsePaymentOptionQuery(c *gin.Context) (service.PaymentOptionQuery, error)
 	}, nil
 }
 
+func parseWithdrawHistoryQuery(c *gin.Context) (service.WithdrawHistoryQuery, error) {
+	limit, err := parseIntQuery(c, "limit", 10)
+	if err != nil {
+		return service.WithdrawHistoryQuery{}, err
+	}
+
+	offset, err := parseIntQuery(c, "offset", 0)
+	if err != nil {
+		return service.WithdrawHistoryQuery{}, err
+	}
+
+	query := service.WithdrawHistoryQuery{
+		Limit:      limit,
+		Offset:     offset,
+		SearchTerm: strings.TrimSpace(c.Query("q")),
+	}
+
+	if rawFrom := strings.TrimSpace(c.Query("from")); rawFrom != "" {
+		parsed, parseErr := parseQueryDate(rawFrom, false)
+		if parseErr != nil {
+			return service.WithdrawHistoryQuery{}, apperror.New(http.StatusBadRequest, "invalid from query parameter", nil)
+		}
+		query.From = &parsed
+	}
+
+	if rawTo := strings.TrimSpace(c.Query("to")); rawTo != "" {
+		parsed, parseErr := parseQueryDate(rawTo, true)
+		if parseErr != nil {
+			return service.WithdrawHistoryQuery{}, apperror.New(http.StatusBadRequest, "invalid to query parameter", nil)
+		}
+		query.To = &parsed
+	}
+
+	return query, nil
+}
+
 func serviceRoleQuery(value string) model.UserRole {
 	return model.UserRole(strings.ToLower(strings.TrimSpace(value)))
 }

@@ -17,6 +17,7 @@ import (
 
 type mockWithdrawUseCase struct {
 	optionsFn  func(ctx context.Context, userID uint64, actorRole model.UserRole) (*service.WithdrawOptionsResult, error)
+	historyFn  func(ctx context.Context, userID uint64, actorRole model.UserRole, query service.WithdrawHistoryQuery) (*service.WithdrawHistoryPage, error)
 	inquiryFn  func(ctx context.Context, userID uint64, actorRole model.UserRole, input service.WithdrawInquiryInput) (*service.WithdrawInquiryResult, error)
 	transferFn func(ctx context.Context, userID uint64, actorRole model.UserRole, input service.WithdrawTransferInput) (*service.WithdrawTransferResult, error)
 }
@@ -33,6 +34,13 @@ func (m *mockWithdrawUseCase) Inquiry(ctx context.Context, userID uint64, actorR
 		return nil, nil
 	}
 	return m.inquiryFn(ctx, userID, actorRole, input)
+}
+
+func (m *mockWithdrawUseCase) History(ctx context.Context, userID uint64, actorRole model.UserRole, query service.WithdrawHistoryQuery) (*service.WithdrawHistoryPage, error) {
+	if m.historyFn == nil {
+		return nil, nil
+	}
+	return m.historyFn(ctx, userID, actorRole, query)
 }
 
 func (m *mockWithdrawUseCase) Transfer(ctx context.Context, userID uint64, actorRole model.UserRole, input service.WithdrawTransferInput) (*service.WithdrawTransferResult, error) {
@@ -60,6 +68,30 @@ func TestWithdrawHandlerOptionsInquiryTransfer(t *testing.T) {
 			return &service.WithdrawOptionsResult{
 				Tokos: []service.WithdrawTokoOption{{ID: 7, Name: "Toko Alpha", SettlementBalance: 500000}},
 				Banks: []service.WithdrawBankOption{{ID: 9, BankName: "PT. BANK CENTRAL ASIA, TBK.", AccountName: "PT GUE CONTROL", AccountNumber: "1234567890"}},
+			}, nil
+		},
+		historyFn: func(_ context.Context, userID uint64, actorRole model.UserRole, query service.WithdrawHistoryQuery) (*service.WithdrawHistoryPage, error) {
+			require.Equal(t, uint64(99), userID)
+			require.Equal(t, model.UserRoleAdmin, actorRole)
+			require.Equal(t, 10, query.Limit)
+			require.Equal(t, 0, query.Offset)
+			return &service.WithdrawHistoryPage{
+				Items: []service.WithdrawHistoryItem{
+					{
+						ID:        51,
+						TokoID:    7,
+						TokoName:  "Toko Alpha",
+						Status:    "pending",
+						Reference: "partner-ref-1",
+						Amount:    100000,
+						Netto:     98500,
+						CreatedAt: "2026-03-21T10:00:00Z",
+					},
+				},
+				Total:   1,
+				Limit:   10,
+				Offset:  0,
+				HasMore: false,
 			}, nil
 		},
 		inquiryFn: func(_ context.Context, userID uint64, actorRole model.UserRole, input service.WithdrawInquiryInput) (*service.WithdrawInquiryResult, error) {
@@ -105,6 +137,7 @@ func TestWithdrawHandlerOptionsInquiryTransfer(t *testing.T) {
 	h := NewWithdrawHandler(mockUC)
 	r := gin.New()
 	r.GET("/withdraw/options", withWithdrawAuthContext(99, model.UserRoleAdmin), h.Options)
+	r.GET("/withdraw/history", withWithdrawAuthContext(99, model.UserRoleAdmin), h.History)
 	r.POST("/withdraw/inquiry", withWithdrawAuthContext(99, model.UserRoleAdmin), h.Inquiry)
 	r.POST("/withdraw/transfer", withWithdrawAuthContext(99, model.UserRoleAdmin), h.Transfer)
 
@@ -113,6 +146,12 @@ func TestWithdrawHandlerOptionsInquiryTransfer(t *testing.T) {
 	r.ServeHTTP(optionsRes, optionsReq)
 	require.Equal(t, http.StatusOK, optionsRes.Code)
 	require.Contains(t, optionsRes.Body.String(), "Toko Alpha")
+
+	historyReq := httptest.NewRequest(http.MethodGet, "/withdraw/history?limit=10&offset=0", nil)
+	historyRes := httptest.NewRecorder()
+	r.ServeHTTP(historyRes, historyReq)
+	require.Equal(t, http.StatusOK, historyRes.Code)
+	require.Contains(t, historyRes.Body.String(), "partner-ref-1")
 
 	inquiryBody, _ := json.Marshal(map[string]any{
 		"toko_id": 7,

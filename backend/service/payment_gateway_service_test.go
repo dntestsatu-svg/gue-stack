@@ -135,10 +135,13 @@ type statusUpdate struct {
 }
 
 type fakeTransactionRepo struct {
-	created     []*model.Transaction
-	byReference map[string]*model.Transaction
-	updates     []settlementUpdate
-	statuses    []statusUpdate
+	created           []*model.Transaction
+	byReference       map[string]*model.Transaction
+	updates           []settlementUpdate
+	statuses          []statusUpdate
+	history           []repository.TransactionHistoryRecord
+	historyCount      uint64
+	lastHistoryFilter repository.TransactionHistoryFilter
 }
 
 func (f *fakeTransactionRepo) Create(_ context.Context, trx *model.Transaction) error {
@@ -204,16 +207,21 @@ func (f *fakeTransactionRepo) GetHourlyStatusCountsByUser(_ context.Context, _ u
 	return nil, nil
 }
 
-func (f *fakeTransactionRepo) ListRecentByUser(_ context.Context, _ uint64, _ repository.TransactionHistoryFilter) ([]repository.TransactionHistoryRecord, error) {
-	return nil, nil
+func (f *fakeTransactionRepo) ListRecentByUser(_ context.Context, _ uint64, filter repository.TransactionHistoryFilter) ([]repository.TransactionHistoryRecord, error) {
+	f.lastHistoryFilter = filter
+	if f.history == nil {
+		return nil, nil
+	}
+	return append([]repository.TransactionHistoryRecord(nil), f.history...), nil
 }
 
 func (f *fakeTransactionRepo) ListRecentSuccessByUser(_ context.Context, _ uint64, _ int) ([]repository.TransactionHistoryRecord, error) {
 	return nil, nil
 }
 
-func (f *fakeTransactionRepo) CountHistoryByUser(_ context.Context, _ uint64, _ repository.TransactionHistoryFilter) (uint64, error) {
-	return 0, nil
+func (f *fakeTransactionRepo) CountHistoryByUser(_ context.Context, _ uint64, filter repository.TransactionHistoryFilter) (uint64, error) {
+	f.lastHistoryFilter = filter
+	return f.historyCount, nil
 }
 
 type fakeGatewayProducer struct {

@@ -145,6 +145,7 @@ type TransactionHistoryFilter struct {
 	From       *time.Time
 	To         *time.Time
 	SearchTerm string
+	Type       model.TransactionType
 }
 
 type BankListFilter struct {

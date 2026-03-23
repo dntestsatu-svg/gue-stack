@@ -36,6 +36,7 @@ const {
   createBankMock,
   removeBankMock,
   fetchWithdrawOptionsMock,
+  fetchWithdrawHistoryMock,
   inquiryWithdrawMock,
   transferWithdrawMock,
   listUsersMock,
@@ -65,6 +66,7 @@ const {
   createBankMock: vi.fn(),
   removeBankMock: vi.fn(),
   fetchWithdrawOptionsMock: vi.fn(),
+  fetchWithdrawHistoryMock: vi.fn(),
   inquiryWithdrawMock: vi.fn(),
   transferWithdrawMock: vi.fn(),
   listUsersMock: vi.fn(),
@@ -112,6 +114,7 @@ vi.mock('@/services/bank', () => ({
 
 vi.mock('@/services/withdraw', () => ({
   fetchOptions: fetchWithdrawOptionsMock,
+  fetchHistory: fetchWithdrawHistoryMock,
   inquiry: inquiryWithdrawMock,
   transfer: transferWithdrawMock,
 }))
@@ -329,6 +332,24 @@ describe('App SPA routing', () => {
         },
       ],
     })
+    fetchWithdrawHistoryMock.mockResolvedValue({
+      items: [
+        {
+          id: 11,
+          toko_id: 1,
+          toko_name: 'Toko Alpha',
+          status: 'pending',
+          reference: 'partner-ref-11',
+          amount: 50000,
+          netto: 48500,
+          created_at: '2026-03-21T06:20:00Z',
+        },
+      ],
+      total: 1,
+      limit: 10,
+      offset: 0,
+      has_more: false,
+    })
     inquiryWithdrawMock.mockResolvedValue({
       toko_id: 1,
       toko_name: 'Toko Alpha',
@@ -463,6 +484,7 @@ describe('App SPA routing', () => {
     await flushPromises()
     expect(wrapper.text()).toContain('Withdraw')
     expect(wrapper.text()).toContain('Request Withdraw')
+    expect(wrapper.text()).toContain('Withdraw Request History')
 
     await router.push('/users')
     await flushPromises()

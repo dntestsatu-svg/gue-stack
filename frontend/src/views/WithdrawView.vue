@@ -19,15 +19,33 @@ import {
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Spinner } from '@/components/ui/spinner'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableEmpty,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { useFormatters } from '@/composables/useFormatters'
 import { getApiErrorMessage } from '@/services/http'
 import * as withdrawApi from '@/services/withdraw'
-import type { WithdrawBankOption, WithdrawInquiryResult, WithdrawOptionsResult, WithdrawTokoOption, WithdrawTransferResult } from '@/services/types'
+import type {
+  WithdrawBankOption,
+  WithdrawHistoryPage,
+  WithdrawInquiryResult,
+  WithdrawOptionsResult,
+  WithdrawTokoOption,
+  WithdrawTransferResult,
+} from '@/services/types'
 
-const { formatCurrency } = useFormatters()
+const { formatCurrency, formatDateMedium } = useFormatters()
 
 const options = ref<WithdrawOptionsResult | null>(null)
+const historyPage = ref<WithdrawHistoryPage | null>(null)
 const loading = ref(false)
+const historyLoading = ref(false)
 const submitting = ref(false)
 const pageErrorMessage = ref('')
 const lastUpdated = ref('')
@@ -41,9 +59,16 @@ const withdrawForm = reactive({
 
 const inquiryResult = ref<WithdrawInquiryResult | null>(null)
 const transferResult = ref<WithdrawTransferResult | null>(null)
+const historyPagination = reactive({
+  limit: 10,
+  offset: 0,
+  total: 0,
+  hasMore: false,
+})
 
 const tokos = computed(() => options.value?.tokos ?? [])
 const banks = computed(() => options.value?.banks ?? [])
+const historyItems = computed(() => historyPage.value?.items ?? [])
 const selectedToko = computed<WithdrawTokoOption | null>(() =>
   tokos.value.find((item) => String(item.id) === selectedTokoID.value) ?? null,
 )
@@ -54,18 +79,50 @@ const canSubmit = computed(() =>
   Boolean(selectedToko.value && selectedBank.value && Number(withdrawForm.amount) >= 25000),
 )
 
+const historyRangeLabel = computed(() => {
+  if (historyPagination.total === 0 || historyItems.value.length === 0) {
+    return 'No withdraw requests yet'
+  }
+  const start = historyPagination.offset + 1
+  const end = Math.min(historyPagination.offset + historyItems.value.length, historyPagination.total)
+  return `Showing ${start}-${end} of ${historyPagination.total} withdraw requests`
+})
+
+const historyCurrentPage = computed(() => Math.floor(historyPagination.offset / historyPagination.limit) + 1)
+
 const loadOptions = async () => {
+  const result = await withdrawApi.fetchOptions()
+  options.value = result
+  if (!selectedTokoID.value && result.tokos.length > 0) {
+    selectedTokoID.value = String(result.tokos[0].id)
+  }
+  if (!selectedBankID.value && result.banks.length > 0) {
+    selectedBankID.value = String(result.banks[0].id)
+  }
+}
+
+const loadHistory = async () => {
+  historyLoading.value = true
+  try {
+    const result = await withdrawApi.fetchHistory({
+      limit: historyPagination.limit,
+      offset: historyPagination.offset,
+    })
+    historyPage.value = result
+    historyPagination.total = result.total
+    historyPagination.limit = result.limit
+    historyPagination.offset = result.offset
+    historyPagination.hasMore = result.has_more
+  } finally {
+    historyLoading.value = false
+  }
+}
+
+const loadPageData = async () => {
   loading.value = true
   pageErrorMessage.value = ''
   try {
-    const result = await withdrawApi.fetchOptions()
-    options.value = result
-    if (!selectedTokoID.value && result.tokos.length > 0) {
-      selectedTokoID.value = String(result.tokos[0].id)
-    }
-    if (!selectedBankID.value && result.banks.length > 0) {
-      selectedBankID.value = String(result.banks[0].id)
-    }
+    await Promise.all([loadOptions(), loadHistory()])
     lastUpdated.value = new Date().toISOString()
   } catch (error) {
     pageErrorMessage.value = getApiErrorMessage(error)
@@ -111,7 +168,8 @@ const submitWithdraw = async () => {
     })
     transferResult.value = transfer
     toast.success(transfer.message)
-    await loadOptions()
+    historyPagination.offset = 0
+    await loadPageData()
   } catch (error) {
     const message = getApiErrorMessage(error)
     pageErrorMessage.value = message
@@ -121,7 +179,51 @@ const submitWithdraw = async () => {
   }
 }
 
-void loadOptions()
+const nextHistoryPage = async () => {
+  if (!historyPagination.hasMore || historyLoading.value) {
+    return
+  }
+  const previousOffset = historyPagination.offset
+  historyPagination.offset += historyPagination.limit
+  try {
+    await loadHistory()
+  } catch (error) {
+    historyPagination.offset = previousOffset
+    pageErrorMessage.value = getApiErrorMessage(error)
+  }
+}
+
+const prevHistoryPage = async () => {
+  if (historyPagination.offset <= 0 || historyLoading.value) {
+    return
+  }
+  const previousOffset = historyPagination.offset
+  historyPagination.offset = Math.max(historyPagination.offset - historyPagination.limit, 0)
+  try {
+    await loadHistory()
+  } catch (error) {
+    historyPagination.offset = previousOffset
+    pageErrorMessage.value = getApiErrorMessage(error)
+  }
+}
+
+const withdrawStatusVariant = (status: string) => {
+  const normalized = status.trim().toLowerCase()
+  if (normalized === 'success') {
+    return 'default'
+  }
+  if (normalized === 'pending') {
+    return 'secondary'
+  }
+  if (normalized === 'failed') {
+    return 'destructive'
+  }
+  return 'outline'
+}
+
+const formatHistoryDate = (value: string) => formatDateMedium(value)
+
+void loadPageData()
 </script>
 
 <template>
@@ -133,7 +235,7 @@ void loadOptions()
       :updated-at="lastUpdated"
     >
       <template #actions>
-        <Button variant="outline" size="sm" :disabled="loading || submitting" @click="loadOptions">
+        <Button variant="outline" size="sm" :disabled="loading || submitting" @click="loadPageData">
           <RefreshCcw class="mr-2 h-4 w-4" />
           {{ loading ? 'Refreshing...' : 'Refresh Data' }}
         </Button>
@@ -283,6 +385,68 @@ void loadOptions()
                 atas nama {{ transferResult.account_name }} sudah diteruskan.
               </AlertDescription>
             </Alert>
+          </div>
+        </div>
+
+        <Card class="app-panel">
+          <CardHeader>
+            <CardTitle>Withdraw Request History</CardTitle>
+            <CardDescription>
+              Status terbaru request withdraw scoped ke toko yang memang bisa diakses akun anda.
+            </CardDescription>
+          </CardHeader>
+          <CardContent class="app-table-shell">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Requested At</TableHead>
+                  <TableHead>Toko</TableHead>
+                  <TableHead>Reference</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead class="text-right">Amount</TableHead>
+                  <TableHead class="text-right">Netto</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <template v-if="historyItems.length > 0">
+                  <TableRow v-for="item in historyItems" :key="item.id">
+                    <TableCell>{{ formatHistoryDate(item.created_at) }}</TableCell>
+                    <TableCell class="font-medium">{{ item.toko_name }}</TableCell>
+                    <TableCell class="font-mono text-xs text-muted-foreground">
+                      {{ item.reference || '-' }}
+                    </TableCell>
+                    <TableCell>
+                      <Badge :variant="withdrawStatusVariant(item.status)" class="capitalize">
+                        {{ item.status }}
+                      </Badge>
+                    </TableCell>
+                    <TableCell class="text-right">{{ formatCurrency(item.amount) }}</TableCell>
+                    <TableCell class="text-right">{{ formatCurrency(item.netto) }}</TableCell>
+                  </TableRow>
+                </template>
+                <TableEmpty v-else :colspan="6">
+                  <EmptyState
+                    title="Belum Ada Histori Withdraw"
+                    description="Request withdraw yang sudah dikirim akan tampil di sini beserta status pending, success, atau failed."
+                  />
+                </TableEmpty>
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-(--background-elevated) px-4 py-3">
+          <div class="space-y-1">
+            <p class="text-sm font-medium text-foreground">{{ historyRangeLabel }}</p>
+            <p class="text-xs text-muted-foreground">Page {{ historyCurrentPage }} • Limit {{ historyPagination.limit }}</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <Button size="sm" variant="outline" :disabled="historyLoading || historyPagination.offset <= 0" @click="prevHistoryPage">
+              Prev
+            </Button>
+            <Button size="sm" variant="outline" :disabled="historyLoading || !historyPagination.hasMore" @click="nextHistoryPage">
+              Next
+            </Button>
           </div>
         </div>
       </template>
