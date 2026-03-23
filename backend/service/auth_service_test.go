@@ -232,6 +232,8 @@ func TestAuthService_RegisterSuccess(t *testing.T) {
 	require.NotEmpty(t, result.AccessToken)
 	require.NotEmpty(t, result.RefreshToken)
 	require.Equal(t, uint64(1), result.User.ID)
+	require.Equal(t, model.UserRoleAdmin, result.User.Role)
+	require.Equal(t, model.UserRoleAdmin, userRepo.byID[result.User.ID].Role)
 	require.Equal(t, 1, producer.count)
 }
 

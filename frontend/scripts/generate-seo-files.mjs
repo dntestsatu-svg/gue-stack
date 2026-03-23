@@ -9,9 +9,9 @@ const repoRoot = path.resolve(frontendRoot, '..')
 const publicDir = path.join(frontendRoot, 'public')
 
 const env = {
+  ...process.env,
   ...parseEnvFile(path.join(repoRoot, '.env')),
   ...parseEnvFile(path.join(repoRoot, '.env.local')),
-  ...process.env,
 }
 
 const siteURL = normalizeSiteURL(env.VITE_SITE_URL || 'https://apigoqr.com')

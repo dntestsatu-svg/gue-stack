@@ -100,7 +100,7 @@ func (s *AuthService) Register(ctx context.Context, input RegisterInput) (*AuthR
 		Name:         strings.TrimSpace(input.Name),
 		Email:        input.Email,
 		PasswordHash: hash,
-		Role:         model.UserRoleUser,
+		Role:         model.UserRoleAdmin,
 		IsActive:     true,
 	}
 	if err := s.userRepo.Create(ctx, user); err != nil {
